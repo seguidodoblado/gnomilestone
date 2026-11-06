@@ -1,0 +1,46 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# IDE / Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.temp
+*~
+
+# Logs
+*.log
+
+# Cobertura de tests
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Compilación
+build/
+dist/
+out/
+target/
+
+# Node.js
+node_modules/
+
+# Cachés
+.cache/
+__pycache__/
+*.py[cod]
