@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gnomilestone"
+version = "0.1.0"
+description = "Gestor de proyectos de escritorio con diagrama de Gantt e integración con GitHub"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.11"
+authors = [
+    { name = "Jose Antonio Seguido Doblado" },
+]
+dependencies = [
+    "PyGObject>=3.46",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+gnomilestone = "gnomilestone.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gnomilestone"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+# El Gantt trabaja con fechas de calendario (días de inicio/duración), no con instantes;
+# date.today() da el día local de quien planifica, que es lo que se quiere aquí, no UTC.
+"src/gnomilestone/ui/gantt_drawing_area.py" = ["DTZ011"]
+"src/gnomilestone/ui/resource_usage_view.py" = ["DTZ011"]

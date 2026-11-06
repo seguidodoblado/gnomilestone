@@ -1,19 +1,42 @@
-# Nombre del proyecto
+# GnoMilestone
 
-Descripción breve del proyecto.
+Gestor de proyectos de escritorio para GNOME (GTK4/Adwaita), heredero espiritual de
+GNOME Planner: proyectos, tareas y subtareas con diagrama de Gantt, vista de tabla y
+tablero Kanban, con integración opcional con GitHub Issues y GitHub Projects.
+
+En desarrollo: esta primera versión solo trae la ventana principal, el selector de
+idioma/tema y el empaquetado `.deb` con CI/CD. La gestión de proyectos llega en las
+próximas fases (ver `CHANGELOG.md`).
 
 ## Instalación
 
-Indica aquí cómo instalar o preparar el proyecto.
+Desde el `.deb` generado por `./build-deb.sh` (requiere `dpkg-dev`):
+
+```sh
+./build-deb.sh
+sudo dpkg -i ../gnomilestone_*.deb
+```
 
 ## Uso
 
-Indica aquí cómo utilizarlo.
+```sh
+gnomilestone
+```
 
 ## Desarrollo
 
-Información necesaria para contribuir al desarrollo.
+Requiere Python 3.11+, PyGObject y GTK4 del sistema.
+
+```sh
+python3 -m venv --system-site-packages .venv
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/ruff check .
+.venv/bin/pytest -q
+sh i18n-compile.sh   # genera los catálogos .mo antes de ejecutar la app o los tests de i18n
+python3 -m gnomilestone.app
+```
 
 ## Licencia
 
-Este proyecto se distribuye bajo los términos indicados en `COPYING`.
+Este proyecto se distribuye bajo la GNU General Public License, versión 3 o posterior
+(ver `COPYING`).

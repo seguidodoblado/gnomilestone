@@ -1,0 +1,9 @@
+gnomilestone (0.1.0-1) noble; urgency=medium
+
+  * Primera versión: ventana principal, selector de idioma (Sistema/Español/
+    English) y de tema (Sistema/Claro/Oscuro), diálogo "Acerca de" y
+    empaquetado .deb con CI/CD. La gestión de proyectos, el diagrama de
+    Gantt, la tabla, el Kanban y la integración con GitHub llegan en
+    próximas versiones.
+
+ -- Jose Antonio Seguido Doblado <jose.antonio.seguido@gmail.com>  Fri, 06 Nov 2026 12:00:00 +0100

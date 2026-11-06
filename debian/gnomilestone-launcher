@@ -1,0 +1,3 @@
+#!/bin/bash
+export PYTHONPATH=/usr/share/gnomilestone
+exec -a gnomilestone python3 -m gnomilestone.app "$@"

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=GnoMilestone
+Comment=Gestor de proyectos con diagrama de Gantt e integración con GitHub
+Exec=/usr/bin/gnomilestone
+Icon=gnomilestone
+StartupWMClass=gnomilestone
+Type=Application
+Categories=Office;
+Keywords=proyectos;tareas;gantt;kanban;github;project;tasks;
+Terminal=false

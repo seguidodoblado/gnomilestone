@@ -1,0 +1,90 @@
+name: CI
+
+# Se ejecuta en cada push a main, en cada pull request, a mano y, como workflow reutilizable,
+# desde cd.yml: así el CD solo despliega si este mismo CI pasa sobre el commit etiquetado.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests y ruff
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # La aplicación y sus tests usan los paquetes de Debian/Ubuntu (PyGObject, GTK4…);
+      # el entorno virtual los ve con --system-site-packages y solo añade pytest y ruff.
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-gtk-4.0 gettext xvfb
+
+      - name: Herramientas de desarrollo
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install pytest ruff
+
+      - name: ruff
+        run: .venv/bin/ruff check .
+
+      # Las pruebas de traducción necesitan los .mo compilados
+      - name: Compilar las traducciones
+        run: sh i18n-compile.sh
+
+      # Algunas pruebas crean widgets de GTK, que necesitan una pantalla
+      - name: pytest
+        run: xvfb-run -a .venv/bin/pytest -q -rs
+
+  deb:
+    name: Paquete .deb y lintian
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar herramientas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev lintian gettext
+
+      # build-deb.sh deja el .deb en el directorio padre; se copia a dist/ para subirlo
+      - name: Construir el .deb
+        run: |
+          ./build-deb.sh
+          mkdir dist
+          cp ../gnomilestone_*.deb dist/
+
+      # Falla ante errores de lintian; los avisos (W) e informativos (I) solo se muestran.
+      # El informe va al resumen del job aunque falle.
+      - name: lintian
+        run: |
+          set +e
+          lintian --info --display-info --fail-on error dist/*.deb | tee lintian.txt
+          status=${PIPESTATUS[0]}
+          {
+            echo "### lintian"
+            echo
+            if [ -s lintian.txt ]; then
+              echo '```'
+              cat lintian.txt
+              echo '```'
+            elif [ "$status" -eq 0 ]; then
+              echo "✅ Sin etiquetas: \`$(basename dist/*.deb)\` pasa lintian limpio."
+            else
+              echo "❌ lintian terminó con código $status sin generar informe."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # El CD (cd.yml) descarga este artefacto por su nombre para publicarlo: si se cambia, cambiarlo allí también
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gnomilestone-deb
+          path: dist/*.deb
+          if-no-files-found: error

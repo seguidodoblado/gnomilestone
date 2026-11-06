@@ -1,0 +1,84 @@
+name: CD
+
+# Al subir una etiqueta vX.Y.Z (solo la versión upstream, sin la revisión Debian):
+# 1. ejecuta el CI completo (ci.yml: tests, ruff, .deb y lintian) sobre el commit etiquetado;
+# 2. solo si el CI pasa, toma de él el .deb que ya construyó y pasó por lintian (artefacto
+#    gnomilestone-deb, cuyo nombre tiene que coincidir con el de ci.yml) y deja una release en
+#    BORRADOR con ese mismo .deb, las notas de debian/changelog, las notas autogeneradas de
+#    GitHub y el SHA-256.
+# Si el CI falla, no se crea nada. La release se revisa en GitHub y se pulsa «Publish release».
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    name: CI del commit etiquetado
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Crear la release en borrador
+    needs: ci
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar herramientas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+
+      # La etiqueta lleva solo la parte upstream: tiene que coincidir con debian/changelog
+      - name: Comprobar que la etiqueta coincide con debian/changelog
+        run: |
+          version=$(dpkg-parsechangelog -S Version)
+          if [ "v${version%-*}" != "$GITHUB_REF_NAME" ]; then
+            echo "La etiqueta $GITHUB_REF_NAME no coincide con debian/changelog ($version)" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # El .deb de la release es exactamente el que el job «deb» del CI construyó y pasó por lintian
+      - name: Descargar el .deb del CI
+        uses: actions/download-artifact@v8
+        with:
+          name: gnomilestone-deb
+          path: dist
+
+      # Notas: la entrada de esta versión de debian/changelog (la primera) + SHA-256.
+      # Las notas autogeneradas de GitHub las añade --generate-notes al crear la release.
+      - name: Preparar las notas
+        run: |
+          deb=$(ls dist/*.deb)
+          awk '
+            NR == 1 { next }
+            /^ -- / { exit }
+            { sub(/^  /, ""); sub(/^\* /, "- "); print }
+          ' debian/changelog > notes.md
+          {
+            echo
+            echo "**SHA-256 del .deb:** \`$(sha256sum "$deb" | cut -d' ' -f1)\`"
+          } >> notes.md
+          cat notes.md
+
+      - name: Crear la release en borrador
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deb=$(ls dist/*.deb)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # Reintento de un workflow que falló a medias: solo se vuelve a subir el .deb
+            gh release upload "$GITHUB_REF_NAME" "$deb" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$deb" \
+              --draft \
+              --verify-tag \
+              --title "gnomilestone ${GITHUB_REF_NAME#v}" \
+              --notes-file notes.md \
+              --generate-notes
+          fi

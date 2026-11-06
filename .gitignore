@@ -44,3 +44,11 @@ node_modules/
 .cache/
 __pycache__/
 *.py[cod]
+.ruff_cache/
+
+# Empaquetado Debian
+.deb-stage/
+*.deb
+
+# Catálogos de traducción compilados (generados por i18n-compile.sh)
+src/gnomilestone/i18n/*/LC_MESSAGES/*.mo
