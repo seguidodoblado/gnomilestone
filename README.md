@@ -1,17 +1,23 @@
-# GnoMilestone
+<p align="right"><a href="README.en.md">🇺🇸 English</a></p>
 
-<p>
-  <a href="https://github.com/seguidodoblado/gnomilestone/releases"><img alt="Release" src="https://img.shields.io/github/v/release/seguidodoblado/gnomilestone"></a>
+<p align="center">
+  <img src="src/gnomilestone/assets/gnomilestone.svg" alt="Logotipo de GnoMilestone" width="128">
+</p>
+
+<h1 align="center">GnoMilestone</h1>
+
+<p align="center">
+  <a href="https://github.com/seguidodoblado/gnomilestone/releases"><img alt="release" src="https://img.shields.io/github/v/release/seguidodoblado/gnomilestone"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/seguidodoblado/gnomilestone/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/actions/workflows/cd.yml"><img alt="CD" src="https://github.com/seguidodoblado/gnomilestone/actions/workflows/cd.yml/badge.svg"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone/blob/main/COPYING"><img alt="License" src="https://img.shields.io/github/license/seguidodoblado/gnomilestone"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="Last commit" src="https://img.shields.io/github/last-commit/seguidodoblado/gnomilestone"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="Commit activity" src="https://img.shields.io/github/commit-activity/t/seguidodoblado/gnomilestone"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/seguidodoblado/gnomilestone?style=flat"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone/issues"><img alt="Issues" src="https://img.shields.io/github/issues/seguidodoblado/gnomilestone"></a>
-  <a href="https://github.com/seguidodoblado/gnomilestone"><img alt="Language" src="https://img.shields.io/github/languages/top/seguidodoblado/gnomilestone"></a>
-  <a href="https://codetime.dev"><img alt="CodeTime" src="https://shields.jannchie.com/endpoint?style=flat&color=0284c7&url=https%3A%2F%2Fcodetime.dev%2Fv3%2Fusers%2Fshield%3Fuid%3D36830"></a>
-  <a href="https://wakatime.com/badge/github/seguidodoblado/gnomilestone"><img alt="Wakatime" src="https://wakatime.com/badge/github/seguidodoblado/gnomilestone.svg"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/blob/main/COPYING"><img alt="license" src="https://img.shields.io/github/license/seguidodoblado/gnomilestone"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="last commit" src="https://img.shields.io/github/last-commit/seguidodoblado/gnomilestone"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="total commits" src="https://img.shields.io/github/commit-activity/t/seguidodoblado/gnomilestone"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/seguidodoblado/gnomilestone?style=flat"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/issues"><img alt="issues" src="https://img.shields.io/github/issues/seguidodoblado/gnomilestone"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone"><img alt="language" src="https://img.shields.io/github/languages/top/seguidodoblado/gnomilestone"></a>
+  <a href="https://codetime.dev"><img alt="CodeTime Badge" src="https://shields.jannchie.com/endpoint?style=flat&color=0284c7&url=https%3A%2F%2Fcodetime.dev%2Fv3%2Fusers%2Fshield%3Fuid%3D36830"></a>
+  <a href="https://wakatime.com/badge/github/seguidodoblado/gnomilestone"><img src="https://wakatime.com/badge/github/seguidodoblado/gnomilestone.svg" alt="wakatime"></a>
 </p>
 
 Gestor de proyectos de escritorio para GNOME (GTK4/Adwaita), heredero espiritual de

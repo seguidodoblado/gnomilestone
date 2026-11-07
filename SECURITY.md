@@ -1,3 +1,5 @@
+<p align="right"><a href="SECURITY.en.md">🇺🇸 English</a></p>
+
 # Security
 
 ## Notificación de vulnerabilidades
