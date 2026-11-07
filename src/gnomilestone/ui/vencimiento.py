@@ -42,14 +42,19 @@ def aplicar_estilo_vencimiento(widget: Gtk.Widget, tarea: Tarea | None) -> str |
     toque: las celdas de ColumnView y las tarjetas se reciclan al refrescar."""
     widget.remove_css_class(CLASE_PLANIFICADA_PASADA)
     widget.remove_css_class(CLASE_VENCIDA)
+    widget.remove_css_class("warning")
     widget.remove_css_class("error")
     if tarea is None:
         return None
     estado = estado_vencimiento(tarea)
     if estado == VENCIDA:
         widget.add_css_class(CLASE_VENCIDA)
+        # GTK/Adwaita aplica el color de aviso de forma consistente también en
+        # temas que pisan el color de las clases CSS de la aplicación.
+        widget.add_css_class("error")
     elif estado == PLANIFICADA_PASADA:
         widget.add_css_class(CLASE_PLANIFICADA_PASADA)
+        widget.add_css_class("warning")
     return estado
 
 
