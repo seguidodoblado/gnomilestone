@@ -7,9 +7,13 @@ from dataclasses import dataclass
 class Proyecto:
     id: int
     nombre: str
+    icon_name: str = "folder-symbolic"
+    icon_path: str | None = None
     descripcion: str = ""
     fecha_inicio: str | None = None
     fecha_fin_estimada: str | None = None
+    estado: str = "pendiente"
+    archivado: bool = False
     github_repo_owner: str | None = None
     github_repo_name: str | None = None
     github_project_v2_id: str | None = None
@@ -24,6 +28,7 @@ class EstadoTablero:
     nombre: str
     orden: int
     color_hex: str | None = None
+    github_option_id: str | None = None
 
 
 @dataclass
@@ -35,10 +40,17 @@ class Tarea:
     estado_id: int | None = None
     descripcion: str = ""
     fecha_inicio: str | None = None
+    fecha_fin_planificada: str | None = None
+    fecha_limite: str | None = None
     duracion_dias: int = 1
     porcentaje_completado: int = 0
     orden: int = 0
     es_hito: bool = False
+    github_issue_number: int | None = None
+    github_issue_id: str | None = None
+    github_item_id: str | None = None
+    github_url: str | None = None
+    github_synced_at: str | None = None
     creado: str = ""
     actualizado: str = ""
 
@@ -51,6 +63,9 @@ class Dependencia:
     tipo: str = "fin_a_inicio"
 
 
+CATEGORIAS_RECURSO = ("personas", "medios", "equipos", "lugares")
+
+
 @dataclass
 class Recurso:
     id: int
@@ -60,6 +75,11 @@ class Recurso:
     color_hex: str | None = None
     # Ruta local o URL (p. ej. avatar de GitHub al vincular la cuenta).
     avatar_url: str | None = None
+    categoria: str = "personas"
+    # Si es True, aparece y se puede asignar en todos los proyectos, no solo en
+    # `proyecto_id` (el proyecto donde se creó). Evita duplicar el alta de una misma
+    # persona/medio/equipo/lugar en cada proyecto en el que participa.
+    es_global: bool = False
 
 
 @dataclass

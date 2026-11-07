@@ -53,4 +53,5 @@ def test_ordenar_jerarquicamente_conectores_de_subtareas():
         (111, "│  └─ "),
         (12, "└─ "),
         (2, ""),
+
     ]

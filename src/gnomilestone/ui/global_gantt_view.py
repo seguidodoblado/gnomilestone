@@ -130,6 +130,7 @@ class GlobalGanttView(Gtk.Box):
         ids_elegidos = [id_ for id_, check in self._checks if check.get_active()]
         filas: list[TareaRow] = []
         dependencias: list[Dependencia] = []
+        progreso_resumen: dict[int, int] = {}
         for proyecto_id in ids_elegidos:
             proyecto = self._store.obtener_proyecto(proyecto_id)
             if proyecto is None:
@@ -143,4 +144,5 @@ class GlobalGanttView(Gtk.Box):
             )
             filas.append(fila_proyecto)
             dependencias.extend(self._store.listar_dependencias(proyecto_id))
-        self._gantt.set_filas(filas, dependencias)
+            progreso_resumen.update(ganttcalc.progreso_resumen(tareas))
+        self._gantt.set_filas(filas, dependencias, progreso_resumen)

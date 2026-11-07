@@ -38,8 +38,9 @@ def codigo_idioma() -> str:
 
 
 def formatear_fecha_local(fecha_iso: str) -> str:
-    """``YYYY-MM-DD`` → texto de UI según el idioma. En español: ``dd/mm/aaaa``."""
-    anio, mes, dia = (int(parte) for parte in fecha_iso.split("-"))
+    """``YYYY-MM-DD`` o ``YYYY-MM-DDTHH:MM`` → texto de UI según el idioma (solo la fecha,
+    la hora no se muestra aquí). En español: ``dd/mm/aaaa``."""
+    anio, mes, dia = (int(parte) for parte in fecha_iso.split("T")[0].split("-"))
     fecha = date(anio, mes, dia)
     if codigo_idioma().startswith("es"):
         return fecha.strftime("%d/%m/%Y")

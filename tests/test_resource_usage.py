@@ -152,4 +152,5 @@ def test_hermanas_si_pueden_sobrecargar():
     )
     assert {s.tarea_id for s in filas[0].segmentos} == {2, 3}
     assert filas[0].carga_maxima == 200
+
     assert filas[0].sobrecargado

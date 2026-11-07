@@ -28,4 +28,5 @@ def test_estado_tablero_campos():
 def test_recurso_y_asignacion_campos():
     recurso = Recurso(id=1, proyecto_id=1, nombre="Ana")
     asignacion = Asignacion(id=1, tarea_id=1, recurso_id=recurso.id)
+
     assert asignacion.porcentaje_dedicacion == 100

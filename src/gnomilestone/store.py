@@ -95,7 +95,9 @@ class ColumnaNoVaciaError(Exception):
 
 
 def _proyecto_de_fila(fila: sqlite3.Row) -> Proyecto:
-    return Proyecto(**dict(fila))
+    datos = dict(fila)
+    datos["archivado"] = bool(datos["archivado"])
+    return Proyecto(**datos)
 
 
 def _estado_de_fila(fila: sqlite3.Row) -> EstadoTablero:
@@ -113,7 +115,9 @@ def _dependencia_de_fila(fila: sqlite3.Row) -> Dependencia:
 
 
 def _recurso_de_fila(fila: sqlite3.Row) -> Recurso:
-    return Recurso(**dict(fila))
+    datos = dict(fila)
+    datos["es_global"] = bool(datos["es_global"])
+    return Recurso(**datos)
 
 
 def _asignacion_de_fila(fila: sqlite3.Row) -> Asignacion:
@@ -144,6 +148,92 @@ class Store:
             if "avatar_url" not in columnas:
                 db.execute("ALTER TABLE recurso ADD COLUMN avatar_url TEXT")
             db.execute("PRAGMA user_version = 2")
+            version = 2
+        # La versión 3, publicada durante una migración experimental, guardaba la
+        # duración en horas. Volvemos al modelo estable de días al abrir la base.
+        if version < 4:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "duracion_horas" in columnas and "duracion_dias" not in columnas:
+                db.execute("ALTER TABLE tarea RENAME COLUMN duracion_horas TO duracion_dias")
+                db.execute(
+                    "UPDATE tarea SET duracion_dias = MAX(1, (duracion_dias + 7) / 8)"
+                )
+            db.execute("PRAGMA user_version = 4")
+            version = 4
+        if version < 5:
+            col_estados = {fila[1] for fila in db.execute("PRAGMA table_info(estado_tablero)")}
+            if "github_option_id" not in col_estados:
+                db.execute("ALTER TABLE estado_tablero ADD COLUMN github_option_id TEXT")
+
+            col_tareas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "github_issue_number" not in col_tareas:
+                db.execute("ALTER TABLE tarea ADD COLUMN github_issue_number INTEGER")
+            if "github_issue_id" not in col_tareas:
+                db.execute("ALTER TABLE tarea ADD COLUMN github_issue_id TEXT")
+            if "github_item_id" not in col_tareas:
+                db.execute("ALTER TABLE tarea ADD COLUMN github_item_id TEXT")
+            if "github_url" not in col_tareas:
+                db.execute("ALTER TABLE tarea ADD COLUMN github_url TEXT")
+
+            db.execute("CREATE INDEX IF NOT EXISTS idx_tarea_gh_num ON tarea(proyecto_id, github_issue_number)")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_tarea_gh_item ON tarea(github_item_id)")
+            db.execute("PRAGMA user_version = 5")
+            version = 5
+        if version < 6:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(proyecto)")}
+            if "estado" not in columnas:
+                db.execute(
+                    "ALTER TABLE proyecto ADD COLUMN estado TEXT NOT NULL DEFAULT 'pendiente'"
+                )
+            if "archivado" not in columnas:
+                db.execute(
+                    "ALTER TABLE proyecto ADD COLUMN archivado INTEGER NOT NULL DEFAULT 0"
+                )
+            db.execute("PRAGMA user_version = 6")
+            version = 6
+        if version < 7:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "fecha_fin_planificada" not in columnas:
+                db.execute("ALTER TABLE tarea ADD COLUMN fecha_fin_planificada TEXT")
+            if "fecha_limite" not in columnas:
+                db.execute("ALTER TABLE tarea ADD COLUMN fecha_limite TEXT")
+            db.execute("PRAGMA user_version = 7")
+            version = 7
+        if version < 8:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(proyecto)")}
+            if "icon_name" not in columnas:
+                db.execute(
+                    "ALTER TABLE proyecto ADD COLUMN icon_name TEXT NOT NULL DEFAULT 'folder-symbolic'"
+                )
+            db.execute("PRAGMA user_version = 8")
+            version = 8
+        if version < 9:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(proyecto)")}
+            if "icon_path" not in columnas:
+                db.execute("ALTER TABLE proyecto ADD COLUMN icon_path TEXT")
+            db.execute("PRAGMA user_version = 9")
+            version = 9
+        if version < 10:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "github_synced_at" not in columnas:
+                # Cuándo quedó igual por última vez en local y en GitHub (en una
+                # dirección u otra): si `actualizado` es posterior a esto, hay un
+                # cambio local que un pull no debe pisar sin avisar (ver sync.py).
+                db.execute("ALTER TABLE tarea ADD COLUMN github_synced_at TEXT")
+            db.execute("PRAGMA user_version = 10")
+            version = 10
+        if version < 11:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(recurso)")}
+            if "categoria" not in columnas:
+                db.execute(
+                    "ALTER TABLE recurso ADD COLUMN categoria TEXT NOT NULL DEFAULT 'personas'"
+                )
+            if "es_global" not in columnas:
+                # Un recurso global aparece y se puede asignar en todos los proyectos, no
+                # solo en el suyo (ver `listar_recursos`): evita duplicar el alta de una
+                # misma persona/medio/equipo/lugar en cada proyecto en el que participa.
+                db.execute("ALTER TABLE recurso ADD COLUMN es_global INTEGER NOT NULL DEFAULT 0")
+            db.execute("PRAGMA user_version = 11")
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -155,14 +245,15 @@ class Store:
         fecha_fin_estimada: str | None = None,
         github_repo_owner: str | None = None,
         github_repo_name: str | None = None,
+        github_project_v2_id: str | None = None,
     ) -> Proyecto:
         with closing(self._connect()) as db, db:
             cursor = db.execute(
                 "INSERT INTO proyecto "
                 "(nombre, descripcion, fecha_inicio, fecha_fin_estimada, "
-                " github_repo_owner, github_repo_name) VALUES (?, ?, ?, ?, ?, ?)",
+                " github_repo_owner, github_repo_name, github_project_v2_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (nombre, descripcion, fecha_inicio, fecha_fin_estimada,
-                 github_repo_owner, github_repo_name),
+                 github_repo_owner, github_repo_name, github_project_v2_id),
             )
             proyecto_id = cursor.lastrowid
             for indice, nombre_estado in enumerate(ESTADOS_POR_DEFECTO):
@@ -187,10 +278,13 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute(
                 "UPDATE proyecto SET nombre = ?, descripcion = ?, fecha_inicio = ?, "
-                "fecha_fin_estimada = ?, github_repo_owner = ?, github_repo_name = ?, "
+                "icon_name = ?, icon_path = ?, fecha_fin_estimada = ?, estado = ?, archivado = ?, "
+                "github_repo_owner = ?, github_repo_name = ?, "
                 "github_project_v2_id = ?, actualizado = datetime('now') WHERE id = ?",
                 (proyecto.nombre, proyecto.descripcion, proyecto.fecha_inicio,
-                 proyecto.fecha_fin_estimada, proyecto.github_repo_owner,
+                 proyecto.icon_name, proyecto.icon_path, proyecto.fecha_fin_estimada, proyecto.estado,
+                 int(proyecto.archivado),
+                 proyecto.github_repo_owner,
                  proyecto.github_repo_name, proyecto.github_project_v2_id, proyecto.id),
             )
 
@@ -208,15 +302,17 @@ class Store:
             ).fetchall()
             return [_estado_de_fila(fila) for fila in filas]
 
-    def crear_estado(self, proyecto_id: int, nombre: str) -> EstadoTablero:
+    def crear_estado(
+        self, proyecto_id: int, nombre: str, github_option_id: str | None = None
+    ) -> EstadoTablero:
         with closing(self._connect()) as db, db:
             siguiente_orden = db.execute(
                 "SELECT COALESCE(MAX(orden), -1) + 1 FROM estado_tablero WHERE proyecto_id = ?",
                 (proyecto_id,),
             ).fetchone()[0]
             cursor = db.execute(
-                "INSERT INTO estado_tablero (proyecto_id, nombre, orden) VALUES (?, ?, ?)",
-                (proyecto_id, nombre, siguiente_orden),
+                "INSERT INTO estado_tablero (proyecto_id, nombre, orden, github_option_id) VALUES (?, ?, ?, ?)",
+                (proyecto_id, nombre, siguiente_orden, github_option_id),
             )
             fila = db.execute(
                 "SELECT * FROM estado_tablero WHERE id = ?", (cursor.lastrowid,)
@@ -226,6 +322,10 @@ class Store:
     def renombrar_estado(self, estado_id: int, nombre: str) -> None:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE estado_tablero SET nombre = ? WHERE id = ?", (nombre, estado_id))
+
+    def asociar_github_option_estado(self, estado_id: int, github_option_id: str | None) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE estado_tablero SET github_option_id = ? WHERE id = ?", (github_option_id, estado_id))
 
     def reordenar_estados(self, ids_en_orden: list[int]) -> None:
         with closing(self._connect()) as db, db:
@@ -266,9 +366,15 @@ class Store:
         estado_id: int | None = None,
         descripcion: str = "",
         fecha_inicio: str | None = None,
+        fecha_fin_planificada: str | None = None,
+        fecha_limite: str | None = None,
         duracion_dias: int = 1,
         porcentaje_completado: int = 0,
         es_hito: bool = False,
+        github_issue_number: int | None = None,
+        github_issue_id: str | None = None,
+        github_item_id: str | None = None,
+        github_url: str | None = None,
     ) -> Tarea:
         with closing(self._connect()) as db, db:
             siguiente_orden = db.execute(
@@ -277,10 +383,14 @@ class Store:
             ).fetchone()[0]
             cursor = db.execute(
                 "INSERT INTO tarea (proyecto_id, padre_id, estado_id, titulo, descripcion, "
-                "fecha_inicio, duracion_dias, porcentaje_completado, orden, es_hito) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "fecha_inicio, fecha_fin_planificada, fecha_limite, duracion_dias, "
+                "porcentaje_completado, orden, es_hito, "
+                "github_issue_number, github_issue_id, github_item_id, github_url) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (proyecto_id, padre_id, estado_id, titulo, descripcion, fecha_inicio,
-                 duracion_dias, porcentaje_completado, siguiente_orden, int(es_hito)),
+                 fecha_fin_planificada, fecha_limite, duracion_dias, porcentaje_completado,
+                 siguiente_orden, int(es_hito),
+                 github_issue_number, github_issue_id, github_item_id, github_url),
             )
             fila = db.execute("SELECT * FROM tarea WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return _tarea_de_fila(fila)
@@ -308,20 +418,50 @@ class Store:
             fila = db.execute("SELECT * FROM tarea WHERE id = ?", (tarea_id,)).fetchone()
             return _tarea_de_fila(fila) if fila else None
 
+    def obtener_tarea_por_github_issue(self, proyecto_id: int, issue_number: int) -> Tarea | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM tarea WHERE proyecto_id = ? AND github_issue_number = ?",
+                (proyecto_id, issue_number),
+            ).fetchone()
+            return _tarea_de_fila(fila) if fila else None
+
+    def obtener_tarea_por_github_item(self, item_id: str) -> Tarea | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM tarea WHERE github_item_id = ?",
+                (item_id,),
+            ).fetchone()
+            return _tarea_de_fila(fila) if fila else None
+
     def actualizar_tarea(self, tarea: Tarea) -> None:
         with closing(self._connect()) as db, db:
             db.execute(
                 "UPDATE tarea SET padre_id = ?, estado_id = ?, titulo = ?, descripcion = ?, "
-                "fecha_inicio = ?, duracion_dias = ?, porcentaje_completado = ?, orden = ?, "
-                "es_hito = ?, actualizado = datetime('now') WHERE id = ?",
+                "fecha_inicio = ?, fecha_fin_planificada = ?, fecha_limite = ?, "
+                "duracion_dias = ?, porcentaje_completado = ?, orden = ?, "
+                "es_hito = ?, github_issue_number = ?, github_issue_id = ?, github_item_id = ?, "
+                "github_url = ?, actualizado = datetime('now') WHERE id = ?",
                 (tarea.padre_id, tarea.estado_id, tarea.titulo, tarea.descripcion,
-                 tarea.fecha_inicio, tarea.duracion_dias, tarea.porcentaje_completado,
-                 tarea.orden, int(tarea.es_hito), tarea.id),
+                 tarea.fecha_inicio, tarea.fecha_fin_planificada, tarea.fecha_limite,
+                 tarea.duracion_dias, tarea.porcentaje_completado,
+                 tarea.orden, int(tarea.es_hito), tarea.github_issue_number,
+                 tarea.github_issue_id, tarea.github_item_id, tarea.github_url, tarea.id),
             )
 
     def eliminar_tarea(self, tarea_id: int) -> None:
         with closing(self._connect()) as db, db:
             db.execute("DELETE FROM tarea WHERE id = ?", (tarea_id,))
+
+    def marcar_sincronizada_github(self, tarea_id: int) -> None:
+        """Registra que `tarea_id` quedó igual en local y en GitHub ahora mismo, sin
+        tocar `actualizado` (eso marcaría la tarea como "editada" por el propio sync).
+        Lo usa `sync.py` tras cada pull/push correcto de una tarea, para que el próximo
+        pull sepa si hubo una edición local de por medio desde entonces (conflicto)."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE tarea SET github_synced_at = datetime('now') WHERE id = ?", (tarea_id,)
+            )
 
     # -- Dependencias ---------------------------------------------------------
 
@@ -390,20 +530,27 @@ class Store:
         email: str | None = None,
         color_hex: str | None = None,
         avatar_url: str | None = None,
+        categoria: str = "personas",
+        es_global: bool = False,
     ) -> Recurso:
         with closing(self._connect()) as db, db:
             cursor = db.execute(
-                "INSERT INTO recurso (proyecto_id, nombre, email, color_hex, avatar_url) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (proyecto_id, nombre, email, color_hex, avatar_url),
+                "INSERT INTO recurso (proyecto_id, nombre, email, color_hex, avatar_url, "
+                "categoria, es_global) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (proyecto_id, nombre, email, color_hex, avatar_url, categoria, int(es_global)),
             )
             fila = db.execute("SELECT * FROM recurso WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return _recurso_de_fila(fila)
 
     def listar_recursos(self, proyecto_id: int) -> list[Recurso]:
+        """Recursos propios de `proyecto_id`, más los globales de cualquier proyecto
+        (ver `Recurso.es_global`): estos últimos se asignan igual en todos los proyectos
+        sin tener que darlos de alta otra vez en cada uno."""
         with closing(self._connect()) as db:
             filas = db.execute(
-                "SELECT * FROM recurso WHERE proyecto_id = ? ORDER BY nombre", (proyecto_id,)
+                "SELECT * FROM recurso WHERE proyecto_id = ? OR es_global = 1 "
+                "ORDER BY categoria, nombre",
+                (proyecto_id,),
             ).fetchall()
             return [_recurso_de_fila(fila) for fila in filas]
 
@@ -428,13 +575,15 @@ class Store:
     def actualizar_recurso(self, recurso: Recurso) -> None:
         with closing(self._connect()) as db, db:
             db.execute(
-                "UPDATE recurso SET nombre = ?, email = ?, color_hex = ?, avatar_url = ? "
-                "WHERE id = ?",
+                "UPDATE recurso SET nombre = ?, email = ?, color_hex = ?, avatar_url = ?, "
+                "categoria = ?, es_global = ? WHERE id = ?",
                 (
                     recurso.nombre,
                     recurso.email,
                     recurso.color_hex,
                     recurso.avatar_url,
+                    recurso.categoria,
+                    int(recurso.es_global),
                     recurso.id,
                 ),
             )
@@ -487,6 +636,15 @@ class Store:
             ).fetchall()
             return [_asignacion_de_fila(fila) for fila in filas]
 
+    def actualizar_dedicacion(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
+        porcentaje = max(0, min(100, int(porcentaje)))
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE asignacion SET porcentaje_dedicacion = ? "
+                "WHERE tarea_id = ? AND recurso_id = ?",
+                (porcentaje, tarea_id, recurso_id),
+            )
+
     def listar_asignaciones_del_proyecto(self, proyecto_id: int) -> list[Asignacion]:
         """Todas las asignaciones de las tareas del proyecto (para la vista Uso)."""
         with closing(self._connect()) as db:
@@ -513,7 +671,7 @@ class Store:
         with closing(self._connect()) as db:
             filas = db.execute(
                 "SELECT a.tarea_id AS tarea_asignada_id, r.id, r.proyecto_id, r.nombre, "
-                "r.email, r.color_hex, r.avatar_url "
+                "r.email, r.color_hex, r.avatar_url, r.categoria, r.es_global "
                 "FROM asignacion a "
                 "JOIN recurso r ON r.id = a.recurso_id "
                 "JOIN tarea t ON t.id = a.tarea_id "
@@ -524,6 +682,7 @@ class Store:
             for fila in filas:
                 datos = dict(fila)
                 tarea_id = int(datos.pop("tarea_asignada_id"))
+                datos["es_global"] = bool(datos["es_global"])
                 resultado.setdefault(tarea_id, []).append(Recurso(**datos))
             return resultado
 

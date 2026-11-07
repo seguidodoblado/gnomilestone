@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import threading
 from collections.abc import Callable
 
 import gi
@@ -8,10 +10,13 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GObject, Gtk
 
+from gnomilestone.ganttcalc import tarea_vencida
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Tarea
 from gnomilestone.store import Store
 from gnomilestone.ui.avatar_widget import fila_avatares
+
+log = logging.getLogger(__name__)
 
 _TIPO_ARRASTRE_TAREA = GObject.TYPE_INT  # lleva el id de la tarea arrastrada
 
@@ -40,7 +45,9 @@ def _asegurar_css_columnas() -> None:
         # Mismo color arriba de cada tarjeta: hoy hereda el de su columna; cuando haya
         # etiquetas de GitHub, esta franja pasará a reflejar el color de la etiqueta.
         f".card.gnomilestone-tarjeta.{_CLASE_COLUMNA_PREFIJO}{indice} "
-        f"{{ border-top: 3px solid {color}; }}"
+        f"{{ border-top: 3px solid {color}; background-color: alpha({color}, 0.16); }}\n"
+        f".card.gnomilestone-tarjeta.{_CLASE_COLUMNA_PREFIJO}{indice}:hover "
+        f"{{ background-color: alpha({color}, 0.26); }}"
         for indice, color in enumerate(_PALETA_COLUMNAS)
     )
     # Columna: canaleta oscura plana + franja de color arriba (tableros distinguibles).
@@ -190,9 +197,17 @@ class KanbanView(Gtk.Box):
         tarjeta.add_css_class("gnomilestone-tarjeta")
         tarjeta.add_css_class(f"{_CLASE_COLUMNA_PREFIJO}{indice_columna % len(_PALETA_COLUMNAS)}")
 
+        recursos = self._store.listar_recursos_de_tarea(tarea.id)
+
         fila_titulo = Gtk.Box(spacing=4)
         etiqueta = Gtk.Label(label=tarea.titulo, xalign=0, wrap=True, hexpand=True)
+        vencida = tarea_vencida(tarea)
+        if vencida:
+            etiqueta.add_css_class("error")
+            etiqueta.set_tooltip_text(_("Vencida: ya pasó su fecha de fin"))
         fila_titulo.append(etiqueta)
+        if recursos:
+            fila_titulo.append(fila_avatares(recursos, size=22, maximo=3))
         if self._on_eliminar_tarea is not None:
             borrar = Gtk.Button(
                 icon_name="user-trash-symbolic",
@@ -208,16 +223,13 @@ class KanbanView(Gtk.Box):
                 label=(
                     f"{formatear_fecha_local(tarea.fecha_inicio)} · "
                     f"{tarea.duracion_dias}d · {tarea.porcentaje_completado}%"
+                    + (_(" · vencida") if vencida else "")
                 ),
                 xalign=0,
             )
             info.add_css_class("caption")
-            info.add_css_class("dim-label")
+            info.add_css_class("error" if vencida else "dim-label")
             tarjeta.append(info)
-
-        recursos = self._store.listar_recursos_de_tarea(tarea.id)
-        if recursos:
-            tarjeta.append(fila_avatares(recursos, size=22, maximo=4))
 
         if self._on_editar_tarea is not None:
             doble_clic = Gtk.GestureClick(button=1)
@@ -248,8 +260,28 @@ class KanbanView(Gtk.Box):
             return False
         tarea.estado_id = estado_id
         self._store.actualizar_tarea(tarea)
+        self._push_a_github(tarea_id)
         if self._on_cambio is not None:
             self._on_cambio()  # refresca también Tabla/Gantt, y de paso este tablero
         else:
             self.refrescar()
         return True
+
+    def _push_a_github(self, tarea_id: int) -> None:
+        # Cambiar de columna en el Tablero es, para GitHub, cambiar el Status: debe
+        # sincronizarse igual que guardar el diálogo de tarea o arrastrar en el Gantt.
+        if self._proyecto_id is None:
+            return
+        proyecto = self._store.obtener_proyecto(self._proyecto_id)
+        if not proyecto or not (proyecto.github_repo_name or proyecto.github_project_v2_id):
+            return
+
+        def _push() -> None:
+            from gnomilestone.sync import GitHubSyncManager
+
+            try:
+                GitHubSyncManager(self._store).push_tarea(tarea_id)
+            except Exception:
+                log.debug("Error enviando tarea %s a GitHub", tarea_id, exc_info=True)
+
+        threading.Thread(target=_push, daemon=True).start()

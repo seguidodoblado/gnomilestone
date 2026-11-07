@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
+import threading
 from collections.abc import Callable
+from datetime import date, timedelta
 
 import gi
 
@@ -10,7 +13,10 @@ from gi.repository import GLib, Gtk
 from gnomilestone.i18n import _
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
+from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.avatar_widget import AvatarWidget
+
+log = logging.getLogger(__name__)
 
 
 def _descendientes(tareas: list[Tarea], raiz_id: int) -> set[int]:
@@ -43,8 +49,10 @@ class TaskDialog(Gtk.Window):
             title=_("Editar tarea") if tarea else _("Nueva tarea"),
             transient_for=parent,
             modal=True,
-            default_width=420,
+            default_width=560,
+            default_height=720,
         )
+        self.set_resizable(True)
         self._store = store
         self._proyecto_id = proyecto_id
         self._on_saved = on_saved
@@ -62,6 +70,9 @@ class TaskDialog(Gtk.Window):
             if tarea and d.tarea_destino_id == tarea.id
         }
 
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.set_child(root)
+
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=10,
@@ -70,15 +81,34 @@ class TaskDialog(Gtk.Window):
             margin_start=16,
             margin_end=16,
         )
-        self.set_child(box)
+        contenido_scroller = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            kinetic_scrolling=True,
+        )
+        contenido_scroller.set_child(box)
+        root.append(contenido_scroller)
 
         box.append(Gtk.Label(label=_("Título"), xalign=0))
         self._titulo_entry = Gtk.Entry(text=tarea.titulo if tarea else "")
         box.append(self._titulo_entry)
 
         box.append(Gtk.Label(label=_("Descripción"), xalign=0))
-        self._descripcion_entry = Gtk.Entry(text=tarea.descripcion if tarea else "")
-        box.append(self._descripcion_entry)
+        self._descripcion_buffer = Gtk.TextBuffer(text=tarea.descripcion if tarea else "")
+        descripcion_view = Gtk.TextView(
+            buffer=self._descripcion_buffer,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            top_margin=6,
+            bottom_margin=6,
+            left_margin=6,
+            right_margin=6,
+        )
+        descripcion_scroller = Gtk.ScrolledWindow(
+            height_request=90, hscrollbar_policy=Gtk.PolicyType.NEVER
+        )
+        descripcion_scroller.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
+        descripcion_scroller.set_child(descripcion_view)
+        box.append(descripcion_scroller)
 
         box.append(Gtk.Label(label=_("Tarea padre"), xalign=0))
         padre_labels = [_("Ninguna")] + [t.titulo for t in self._candidatas_padre]
@@ -100,10 +130,16 @@ class TaskDialog(Gtk.Window):
         box.append(Gtk.Label(label=_("Fecha de inicio"), xalign=0))
         box.append(self._build_fecha_selector(tarea.fecha_inicio if tarea else None))
 
-        box.append(Gtk.Label(label=_("Duración (días)"), xalign=0))
-        self._duracion_spin = Gtk.SpinButton.new_with_range(1, 3650, 1)
-        self._duracion_spin.set_value(tarea.duracion_dias if tarea else 1)
-        box.append(self._duracion_spin)
+        fecha_fin = tarea.fecha_fin_planificada if tarea else None
+        if not fecha_fin and tarea and tarea.fecha_inicio:
+            fecha_fin = (
+                date.fromisoformat(tarea.fecha_inicio)
+                + timedelta(days=max(tarea.duracion_dias, 1) - 1)
+            ).isoformat()
+        box.append(Gtk.Label(label=_("Final planificado"), xalign=0))
+        box.append(self._build_fecha_selector(fecha_fin, "_fecha_fin_planificada_iso"))
+        box.append(Gtk.Label(label=_("Fecha límite"), xalign=0))
+        box.append(self._build_fecha_selector(tarea.fecha_limite if tarea else None, "_fecha_limite_iso"))
 
         box.append(Gtk.Label(label=_("Porcentaje completado"), xalign=0))
         self._porcentaje_spin = Gtk.SpinButton.new_with_range(0, 100, 5)
@@ -118,6 +154,10 @@ class TaskDialog(Gtk.Window):
         self._asignados: list[Recurso] = (
             list(store.listar_recursos_de_tarea(tarea.id)) if tarea else []
         )
+        self._dedicaciones: dict[int, int] = {
+            asignacion.recurso_id: asignacion.porcentaje_dedicacion
+            for asignacion in (store.listar_asignaciones(tarea.id) if tarea else [])
+        }
         self._asignados_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         box.append(self._asignados_box)
         asignar_fila = Gtk.Box(spacing=6)
@@ -151,13 +191,34 @@ class TaskDialog(Gtk.Window):
         self._error_label.set_visible(False)
         box.append(self._error_label)
 
+        if self._tarea and (self._tarea.github_url or self._tarea.github_issue_number):
+            texto_gh = _("Ver en GitHub (#{num})").format(num=self._tarea.github_issue_number or "")
+            gh_link = Gtk.LinkButton(uri=self._tarea.github_url or "", label=texto_gh)
+            gh_link.set_halign(Gtk.Align.START)
+            box.append(gh_link)
+
+        acciones = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=8,
+            margin_top=8,
+            margin_bottom=10,
+            margin_start=16,
+            margin_end=16,
+            halign=Gtk.Align.END,
+        )
+        cancelar_button = Gtk.Button(label=_("Cancelar"))
+        cancelar_button.connect("clicked", lambda _button: self.close())
+        acciones.append(cancelar_button)
         save_button = Gtk.Button(label=_("Guardar"))
         save_button.add_css_class("suggested-action")
         save_button.connect("clicked", self._on_save)
-        box.append(save_button)
+        acciones.append(save_button)
+        root.append(acciones)
 
-    def _build_fecha_selector(self, fecha_inicial: str | None) -> Gtk.Widget:
-        self._fecha_iso: str | None = fecha_inicial
+    def _build_fecha_selector(
+        self, fecha_inicial: str | None, atributo: str = "_fecha_iso"
+    ) -> Gtk.Widget:
+        setattr(self, atributo, fecha_inicial)
 
         self._fecha_button = Gtk.MenuButton()
         popover = Gtk.Popover()
@@ -174,48 +235,61 @@ class TaskDialog(Gtk.Window):
         if fecha_inicial:
             anio, mes, dia = (int(parte) for parte in fecha_inicial.split("-"))
             self._calendar.select_day(GLib.DateTime.new_local(anio, mes, dia, 0, 0, 0))
-        self._calendar.connect("day-selected", self._on_fecha_seleccionada)
+        self._calendar.connect("day-selected", self._on_fecha_seleccionada, atributo, self._fecha_button)
         popover_box.append(self._calendar)
 
         botones_rapidos = Gtk.Box(spacing=6)
         hoy_button = Gtk.Button(label=_("Hoy"))
-        hoy_button.connect("clicked", self._on_fecha_hoy)
+        hoy_button.connect("clicked", self._on_fecha_hoy, atributo, self._calendar, self._fecha_button)
         botones_rapidos.append(hoy_button)
         quitar_button = Gtk.Button(label=_("Sin fecha"))
-        quitar_button.connect("clicked", self._on_fecha_quitada)
+        quitar_button.connect("clicked", self._on_fecha_quitada, atributo, self._fecha_button)
         botones_rapidos.append(quitar_button)
         popover_box.append(botones_rapidos)
 
         popover.set_child(popover_box)
         self._fecha_button.set_popover(popover)
-        self._actualizar_etiqueta_fecha()
+        self._actualizar_etiqueta_fecha(self._fecha_button, fecha_inicial)
         return self._fecha_button
 
-    def _on_fecha_seleccionada(self, _calendar: Gtk.Calendar) -> None:
-        fecha = self._calendar.get_date()
-        self._fecha_iso = (
+    def _on_fecha_seleccionada(
+        self, calendario: Gtk.Calendar, atributo: str, boton: Gtk.MenuButton
+    ) -> None:
+        fecha = calendario.get_date()
+        valor = (
             f"{fecha.get_year():04d}-{fecha.get_month():02d}-{fecha.get_day_of_month():02d}"
         )
-        self._actualizar_etiqueta_fecha()
+        setattr(self, atributo, valor)
+        self._actualizar_etiqueta_fecha(boton, valor)
 
-    def _on_fecha_hoy(self, _button: Gtk.Button) -> None:
+    def _on_fecha_hoy(
+        self,
+        _button: Gtk.Button,
+        atributo: str,
+        calendario: Gtk.Calendar,
+        boton: Gtk.MenuButton,
+    ) -> None:
         hoy = GLib.DateTime.new_now_local()
         # select_day no dispara "day-selected" si el calendario ya mostraba ese día
         # (p. ej. al reabrir el diálogo): se actualiza el estado a mano, no solo por la señal.
-        self._calendar.select_day(hoy)
-        self._fecha_iso = f"{hoy.get_year():04d}-{hoy.get_month():02d}-{hoy.get_day_of_month():02d}"
-        self._actualizar_etiqueta_fecha()
+        calendario.select_day(hoy)
+        valor = f"{hoy.get_year():04d}-{hoy.get_month():02d}-{hoy.get_day_of_month():02d}"
+        setattr(self, atributo, valor)
+        self._actualizar_etiqueta_fecha(boton, valor)
 
-    def _on_fecha_quitada(self, _button: Gtk.Button) -> None:
-        self._fecha_iso = None
-        self._actualizar_etiqueta_fecha()
+    def _on_fecha_quitada(
+        self, _button: Gtk.Button, atributo: str, boton: Gtk.MenuButton
+    ) -> None:
+        setattr(self, atributo, None)
+        self._actualizar_etiqueta_fecha(boton, None)
 
-    def _actualizar_etiqueta_fecha(self) -> None:
-        if self._fecha_iso:
-            anio, mes, dia = self._fecha_iso.split("-")
-            self._fecha_button.set_label(f"{dia}/{mes}/{anio}")
+    @staticmethod
+    def _actualizar_etiqueta_fecha(boton: Gtk.MenuButton, fecha: str | None) -> None:
+        if fecha:
+            anio, mes, dia = fecha.split("-")
+            boton.set_label(f"{dia}/{mes}/{anio}")
         else:
-            self._fecha_button.set_label(_("Sin fecha"))
+            boton.set_label(_("Sin fecha"))
 
     def _on_save(self, _button: Gtk.Button) -> None:
         titulo = self._titulo_entry.get_text().strip()
@@ -224,6 +298,8 @@ class TaskDialog(Gtk.Window):
             return
 
         fecha = self._fecha_iso
+        fecha_fin = self._fecha_fin_planificada_iso
+        fecha_limite = self._fecha_limite_iso
         if self._hito_check.get_active() and not fecha:
             self._mostrar_error(_("Un hito necesita una fecha: no se puede situar en el Gantt sin ella."))
             return
@@ -233,8 +309,22 @@ class TaskDialog(Gtk.Window):
         estado_id = (
             self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
         )
-        descripcion = self._descripcion_entry.get_text().strip()
-        duracion = int(self._duracion_spin.get_value())
+        inicio, fin = self._descripcion_buffer.get_bounds()
+        descripcion = self._descripcion_buffer.get_text(inicio, fin, False).strip()
+        if fecha and not fecha_fin:
+            fecha_fin = (
+                date.fromisoformat(fecha) + timedelta(days=0)
+            ).isoformat()
+        if fecha and fecha_fin and fecha_fin < fecha:
+            self._mostrar_error(_("El final planificado no puede ser anterior al inicio."))
+            return
+        if fecha_fin and not fecha:
+            self._mostrar_error(_("El final planificado necesita una fecha de inicio."))
+            return
+        if fecha_fin and fecha_limite and fecha_limite < fecha_fin:
+            self._mostrar_error(_("La fecha límite no puede ser anterior al final planificado."))
+            return
+        duracion = (date.fromisoformat(fecha_fin) - date.fromisoformat(fecha)).days + 1 if fecha and fecha_fin else 1
         porcentaje = int(self._porcentaje_spin.get_value())
         es_hito = self._hito_check.get_active()
 
@@ -246,6 +336,8 @@ class TaskDialog(Gtk.Window):
                 estado_id=estado_id,
                 descripcion=descripcion,
                 fecha_inicio=fecha or None,
+                fecha_fin_planificada=fecha_fin,
+                fecha_limite=fecha_limite,
                 duracion_dias=duracion,
                 porcentaje_completado=porcentaje,
                 es_hito=es_hito,
@@ -257,6 +349,8 @@ class TaskDialog(Gtk.Window):
             tarea.estado_id = estado_id
             tarea.descripcion = descripcion
             tarea.fecha_inicio = fecha or None
+            tarea.fecha_fin_planificada = fecha_fin
+            tarea.fecha_limite = fecha_limite
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
             tarea.es_hito = es_hito
@@ -265,6 +359,17 @@ class TaskDialog(Gtk.Window):
         if not self._sincronizar_dependencias(tarea.id):
             return
         self._sincronizar_asignaciones(tarea.id)
+
+        # Si el proyecto está vinculado con GitHub, enviar cambios en segundo plano
+        proyecto = self._store.obtener_proyecto(self._proyecto_id)
+        if proyecto and (proyecto.github_repo_name or proyecto.github_project_v2_id):
+            def _push() -> None:
+                try:
+                    GitHubSyncManager(self._store).push_tarea(tarea.id)
+                except Exception as e:  # noqa: BLE001 - la sincronización no debe bloquear el guardado
+                    log.debug("Error enviando tarea a GitHub: %s", e)
+
+            threading.Thread(target=_push, daemon=True).start()
 
         self._on_saved()
         self.close()
@@ -293,6 +398,18 @@ class TaskDialog(Gtk.Window):
             fila = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
             fila.append(AvatarWidget(recurso, size=28))
             fila.append(Gtk.Label(label=recurso.nombre, xalign=0, hexpand=True))
+            dedicacion = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
+            dedicacion.set_value(self._dedicaciones.get(recurso.id, 100))
+            dedicacion.set_digits(0)
+            dedicacion.set_size_request(150, -1)
+            dedicacion.set_hexpand(False)
+            dedicacion.set_tooltip_text(_("Porcentaje de dedicación"))
+            dedicacion.connect("value-changed", self._on_dedicacion_changed, recurso.id)
+            fila.append(dedicacion)
+            porcentaje = Gtk.Label(label=f"{self._dedicaciones.get(recurso.id, 100)} %")
+            porcentaje.set_width_chars(5)
+            dedicacion.connect("value-changed", self._actualizar_etiqueta_dedicacion, porcentaje)
+            fila.append(porcentaje)
             quitar = Gtk.Button(
                 icon_name="list-remove-symbolic", tooltip_text=_("Quitar asignación")
             )
@@ -310,19 +427,31 @@ class TaskDialog(Gtk.Window):
             return
         recurso = self._store.asegurar_recurso(self._proyecto_id, nombre)
         self._asignados.append(recurso)
+        self._dedicaciones[recurso.id] = 100
         self._asignar_entry.set_text("")
         self._configurar_autocompletado_recursos()
         self._refrescar_asignados()
 
     def _on_quitar_asignado(self, _button: Gtk.Button, recurso_id: int) -> None:
         self._asignados = [r for r in self._asignados if r.id != recurso_id]
+        self._dedicaciones.pop(recurso_id, None)
         self._refrescar_asignados()
+
+    def _on_dedicacion_changed(self, escala: Gtk.Scale, recurso_id: int) -> None:
+        self._dedicaciones[recurso_id] = round(escala.get_value())
+
+    def _actualizar_etiqueta_dedicacion(
+        self, escala: Gtk.Scale, etiqueta: Gtk.Label
+    ) -> None:
+        etiqueta.set_text(f"{round(escala.get_value())} %")
 
     def _sincronizar_asignaciones(self, tarea_id: int) -> None:
         actuales = {a.recurso_id: a.id for a in self._store.listar_asignaciones(tarea_id)}
         deseados = {r.id for r in self._asignados}
         for recurso_id in deseados - actuales.keys():
-            self._store.asignar_recurso(tarea_id, recurso_id)
+            self._store.asignar_recurso(tarea_id, recurso_id, self._dedicaciones.get(recurso_id, 100))
+        for recurso_id in deseados & actuales.keys():
+            self._store.actualizar_dedicacion(tarea_id, recurso_id, self._dedicaciones.get(recurso_id, 100))
         for recurso_id in actuales.keys() - deseados:
             self._store.quitar_asignacion(actuales[recurso_id])
 

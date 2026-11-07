@@ -165,4 +165,5 @@ def test_limitar_hijos_tras_redimensionar_recorta_nietos_en_cascada():
         for t in ganttcalc.limitar_hijos_tras_redimensionar([padre, hijo, nieto], 1, date(2026, 3, 1), 3)
     }
     assert cambiadas[2].duracion_dias == 3  # la hija se recorta al rango del padre (01-04/03)
+
     assert cambiadas[3].fecha_inicio == "2026-03-03"  # la nieta se recorta al rango ya recortado

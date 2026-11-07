@@ -6,9 +6,10 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, Gio, GObject, Gtk
+from gi.repository import Gdk, Gio, GObject, Gtk, Pango
 
-from gnomilestone.i18n import _
+from gnomilestone.ganttcalc import tarea_vencida
+from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
 
@@ -32,10 +33,13 @@ def asegurar_css_fila_fija() -> None:
     global _css_fila_aplicado
     if _css_fila_aplicado:
         return
+    display = Gdk.Display.get_default()
+    if display is None:
+        return
     proveedor = Gtk.CssProvider()
     proveedor.load_from_string(_CSS_FILA_FIJA)
     Gtk.StyleContext.add_provider_for_display(
-        Gdk.Display.get_default(), proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        display, proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
     _css_fila_aplicado = True
 
@@ -60,7 +64,19 @@ class TareaRow(GObject.Object):
 
     @property
     def fecha_inicio(self) -> str:
-        return self.tarea.fecha_inicio or "" if self.tarea else ""
+        return formatear_fecha_local(self.tarea.fecha_inicio) if self.tarea and self.tarea.fecha_inicio else ""
+
+    @property
+    def fecha_fin_planificada(self) -> str:
+        return (
+            formatear_fecha_local(self.tarea.fecha_fin_planificada)
+            if self.tarea and self.tarea.fecha_fin_planificada
+            else ""
+        )
+
+    @property
+    def fecha_limite(self) -> str:
+        return formatear_fecha_local(self.tarea.fecha_limite) if self.tarea and self.tarea.fecha_limite else ""
 
     @property
     def duracion_dias(self) -> int:
@@ -237,7 +253,9 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
 
     def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         expander = Gtk.TreeExpander()
-        expander.set_child(Gtk.Label(xalign=0, height_request=ALTURA_FILA))
+        label = Gtk.Label(xalign=0, height_request=ALTURA_FILA)
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        expander.set_child(label)
         item.set_child(expander)
 
     def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
@@ -245,7 +263,16 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
         fila: TareaRow = tree_row.get_item()
         expander = item.get_child()
         expander.set_list_row(tree_row)
-        expander.get_child().set_label(fila.titulo)
+        label = expander.get_child()
+        label.set_label(fila.titulo)
+        vencida = fila.tarea is not None and tarea_vencida(fila.tarea)
+        tooltip = fila.titulo
+        if vencida:
+            tooltip += f"\n({_('Vencida: ya pasó su fecha de fin')})"
+            label.add_css_class("error")
+        else:
+            label.remove_css_class("error")
+        label.set_tooltip_text(tooltip)
         _bind_fila(expander, fila)
 
     factory.connect("setup", _setup)
@@ -274,6 +301,18 @@ def _recursos_factory() -> Gtk.SignalListItemFactory:
     return factory
 
 
+COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
+    ("titulo", _("Título"), True, True),
+    ("asignado", _("Asignado"), False, True),
+    ("estado", _("Columna"), False, False),
+    ("fecha_inicio", _("Inicio"), False, False),
+    ("fecha_fin_planificada", _("Final planificado"), False, False),
+    ("fecha_limite", _("Fecha límite"), False, False),
+    ("duracion_dias", _("Duración (días)"), False, False),
+    ("porcentaje_completado", _("% completado"), False, False),
+)
+
+
 class TaskTreeView(Gtk.ColumnView):
     """Árbol de tareas/subtareas sincronizable (por fila visible) con el Gantt.
 
@@ -292,30 +331,53 @@ class TaskTreeView(Gtk.ColumnView):
         self._selection = Gtk.SingleSelection(model=self.tree_model)
         super().__init__(model=self._selection)
         self.add_css_class(CLASE_FILA_FIJA)
-        self.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Título"), factory=_titulo_factory(), expand=True, resizable=True
-            )
+
+        self._columnas: dict[str, Gtk.ColumnViewColumn] = {}
+
+        col_titulo = Gtk.ColumnViewColumn(
+            title=_("Título"), factory=_titulo_factory(), expand=True, resizable=True
         )
-        self.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Asignado"), factory=_recursos_factory(), resizable=True
-            )
+        self.append_column(col_titulo)
+        self._columnas["titulo"] = col_titulo
+
+        col_asignado = Gtk.ColumnViewColumn(
+            title=_("Asignado"), factory=_recursos_factory(), resizable=True
         )
-        for titulo, propiedad in (
-            (_("Columna"), "estado"),
-            (_("Inicio"), "fecha_inicio"),
-            (_("Duración (días)"), "duracion_dias"),
-            (_("% completado"), "porcentaje_completado"),
+        self.append_column(col_asignado)
+        self._columnas["asignado"] = col_asignado
+
+        for clave, titulo, propiedad, visible_defecto in (
+            ("estado", _("Columna"), "estado", False),
+            ("fecha_inicio", _("Inicio"), "fecha_inicio", False),
+            ("fecha_fin_planificada", _("Final planificado"), "fecha_fin_planificada", False),
+            ("fecha_limite", _("Fecha límite"), "fecha_limite", False),
+            ("duracion_dias", _("Duración (días)"), "duracion_dias", False),
+            ("porcentaje_completado", _("% completado"), "porcentaje_completado", False),
         ):
-            self.append_column(
-                Gtk.ColumnViewColumn(title=titulo, factory=_texto_factory(propiedad), resizable=True)
+            col = Gtk.ColumnViewColumn(
+                title=titulo, factory=_texto_factory(propiedad), resizable=True
             )
+            col.set_visible(visible_defecto)
+            self.append_column(col)
+            self._columnas[clave] = col
 
         if on_editar is not None:
             self.connect("activate", self._on_activate, on_editar)
         if on_editar is not None and on_eliminar is not None:
             adjuntar_menu_contextual(self, on_editar, on_eliminar)
+
+    def columnas_disponibles(self) -> list[tuple[str, str, bool]]:
+        """Devuelve (clave, etiqueta, es_fija) para cada columna del árbol."""
+        return [(clave, etiqueta, fija) for clave, etiqueta, fija, _def in COLUMNAS_INFO]
+
+    def set_columna_visible(self, clave: str, visible: bool) -> None:
+        col = self._columnas.get(clave)
+        if col is not None:
+            col.set_visible(visible)
+
+    def is_columna_visible(self, clave: str) -> bool:
+        col = self._columnas.get(clave)
+        return col.get_visible() if col is not None else False
 
     def _on_activate(
         self, _view: Gtk.ColumnView, posicion: int, on_editar: Callable[[Tarea], None]

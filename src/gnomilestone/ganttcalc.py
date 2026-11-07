@@ -95,6 +95,55 @@ def trasladar_hijos(tareas: list[Tarea], tarea_id: int, delta_dias: int) -> list
     return resultado
 
 
+def tarea_vencida(tarea: Tarea, hoy: date | None = None) -> bool:
+    """True si la fecha de fin (inicio + duración) ya pasó y la tarea no está al 100 %.
+    Sin fecha, o ya completada, nunca está vencida."""
+    if not tarea.fecha_inicio or tarea.porcentaje_completado >= 100:
+        return False
+    fecha_fin = (
+        parse_fecha(tarea.fecha_limite)
+        if tarea.fecha_limite
+        else parse_fecha(tarea.fecha_inicio) + timedelta(days=max(tarea.duracion_dias, 1))
+    )
+    return fecha_fin <= (hoy or date.today())
+
+
+def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
+    """% completado agregado de cada tarea con subtareas (resumen), para la barra fina
+    del Gantt que lo muestra.
+
+    Se pondera por la duración de cada hoja descendiente, recursivamente (no solo
+    hijas directas): una subtarea de 10 días pesa más que una de 1 día, y una nieta
+    cuenta igual que una hija. El % propio que pueda tener guardado una tarea resumen
+    (el campo existe en el modelo, el diálogo de tarea no lo oculta) se ignora: solo
+    tiene sentido en una tarea hoja, en una resumen siempre se deriva de sus hojas.
+    """
+    hijos_por_padre: dict[int | None, list[Tarea]] = {}
+    for tarea in tareas:
+        hijos_por_padre.setdefault(tarea.padre_id, []).append(tarea)
+
+    resultado: dict[int, int] = {}
+
+    def _peso_y_suma(tarea: Tarea) -> tuple[int, int]:
+        hijos = hijos_por_padre.get(tarea.id, [])
+        if not hijos:
+            peso = 1 if tarea.es_hito else max(tarea.duracion_dias, 1)
+            return peso, peso * tarea.porcentaje_completado
+
+        peso_total = 0
+        suma_total = 0
+        for hijo in hijos:
+            peso, suma = _peso_y_suma(hijo)
+            peso_total += peso
+            suma_total += suma
+        resultado[tarea.id] = round(suma_total / peso_total) if peso_total else 0
+        return peso_total, suma_total
+
+    for raiz in hijos_por_padre.get(None, []):
+        _peso_y_suma(raiz)
+    return resultado
+
+
 def limitar_hijos_tras_redimensionar(
     tareas: list[Tarea], tarea_id: int, fecha_inicio_padre: date, duracion_padre_dias: int
 ) -> list[Tarea]:
