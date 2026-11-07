@@ -134,18 +134,20 @@ def fecha_fin_planificada(tarea: Tarea) -> date | None:
 def estado_vencimiento(tarea: Tarea, hoy: date | None = None) -> str | None:
     """Nivel de vencimiento de una tarea aún sin completar, o None si no aplica.
 
-    - ``VENCIDA``: ya pasó su fecha límite (el aviso más grave, en rojo).
-    - ``PLANIFICADA_PASADA``: ya pasó su final planificado pero no su fecha límite
-      (aviso intermedio, en naranja).
+    - ``VENCIDA``: hoy es o ya pasó su fecha límite (el aviso más grave, en rojo).
+    - ``PLANIFICADA_PASADA``: hoy es o ya pasó su final planificado pero no su fecha
+      límite (aviso intermedio, en naranja).
     - ``None``: completada, sin fechas o todavía dentro de plazo.
     """
     if tarea.porcentaje_completado >= 100:
         return None
     hoy = hoy or date.today()
-    if tarea.fecha_limite and parse_fecha(tarea.fecha_limite) < hoy:
+    # La fecha límite se comprueba primero para que el rojo predomine si coincide
+    # con el último día planificado.
+    if tarea.fecha_limite and parse_fecha(tarea.fecha_limite) <= hoy:
         return VENCIDA
     fin_planificada = fecha_fin_planificada(tarea)
-    if fin_planificada is not None and fin_planificada < hoy:
+    if fin_planificada is not None and fin_planificada <= hoy:
         return PLANIFICADA_PASADA
     return None
 

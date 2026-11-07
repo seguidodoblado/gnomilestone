@@ -207,24 +207,24 @@ def test_fecha_fin_planificada_cae_al_ultimo_dia_de_la_duracion():
     assert ganttcalc.fecha_fin_planificada(tarea) == date(2026, 3, 5)
 
 
-def test_estado_vencimiento_naranja_al_pasar_el_final_planificado():
+def test_estado_vencimiento_naranja_al_llegar_al_final_planificado():
     tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-05")
     assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 6)) == ganttcalc.PLANIFICADA_PASADA
 
 
-def test_estado_vencimiento_no_marca_el_ultimo_dia_planificado():
+def test_estado_vencimiento_marca_el_ultimo_dia_planificado():
     tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-05")
-    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 5)) is None
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 5)) == ganttcalc.PLANIFICADA_PASADA
 
 
-def test_estado_vencimiento_rojo_al_pasar_la_fecha_limite():
+def test_estado_vencimiento_rojo_al_llegar_a_la_fecha_limite():
     tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
     assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 9)) == ganttcalc.VENCIDA
 
 
-def test_estado_vencimiento_no_marca_el_dia_de_la_fecha_limite():
+def test_estado_vencimiento_rojo_predomina_en_la_fecha_limite():
     tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
-    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 8)) == ganttcalc.PLANIFICADA_PASADA
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 8)) == ganttcalc.VENCIDA
 
 
 def test_estado_vencimiento_rojo_sin_fecha_de_inicio():
