@@ -10,11 +10,17 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GObject, Gtk
 
-from gnomilestone.ganttcalc import tarea_vencida
+from gnomilestone.filtros import ocultar_completadas
+from gnomilestone.ganttcalc import VENCIDA
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Tarea
 from gnomilestone.store import Store
 from gnomilestone.ui.avatar_widget import fila_avatares
+from gnomilestone.ui.vencimiento import (
+    aplicar_estilo_vencimiento,
+    asegurar_css_vencimientos,
+    texto_vencimiento,
+)
 
 log = logging.getLogger(__name__)
 
@@ -96,8 +102,10 @@ class KanbanView(Gtk.Box):
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         _asegurar_css_columnas()
+        asegurar_css_vencimientos()
         self._store = store
         self._proyecto_id: int | None = None
+        self._mostrar_completadas = True
         self._on_editar_tarea = on_editar_tarea
         self._on_eliminar_tarea = on_eliminar_tarea
         # Arrastrar una tarjeta cambia tarea.estado_id directamente en el store (este
@@ -122,8 +130,9 @@ class KanbanView(Gtk.Box):
         scroller.set_child(self._columnas_box)
         self.append(scroller)
 
-    def mostrar_proyecto(self, proyecto_id: int) -> None:
+    def mostrar_proyecto(self, proyecto_id: int, mostrar_completadas: bool = True) -> None:
         self._proyecto_id = proyecto_id
+        self._mostrar_completadas = mostrar_completadas
         self.refrescar()
 
     def refrescar(self) -> None:
@@ -136,8 +145,11 @@ class KanbanView(Gtk.Box):
             return
 
         estados = self._store.listar_estados(self._proyecto_id)
+        tareas = self._store.listar_tareas(self._proyecto_id)
+        if not self._mostrar_completadas:
+            tareas = ocultar_completadas(tareas)
         tareas_por_estado: dict[int | None, list[Tarea]] = {}
-        for tarea in self._store.listar_tareas(self._proyecto_id):
+        for tarea in tareas:
             tareas_por_estado.setdefault(tarea.estado_id, []).append(tarea)
 
         for indice, estado in enumerate(estados):
@@ -201,10 +213,10 @@ class KanbanView(Gtk.Box):
 
         fila_titulo = Gtk.Box(spacing=4)
         etiqueta = Gtk.Label(label=tarea.titulo, xalign=0, wrap=True, hexpand=True)
-        vencida = tarea_vencida(tarea)
-        if vencida:
-            etiqueta.add_css_class("error")
-            etiqueta.set_tooltip_text(_("Vencida: ya pasó su fecha de fin"))
+        estado = aplicar_estilo_vencimiento(etiqueta, tarea)
+        aviso = texto_vencimiento(estado)
+        if aviso:
+            etiqueta.set_tooltip_text(aviso)
         fila_titulo.append(etiqueta)
         if recursos:
             fila_titulo.append(fila_avatares(recursos, size=22, maximo=3))
@@ -223,12 +235,12 @@ class KanbanView(Gtk.Box):
                 label=(
                     f"{formatear_fecha_local(tarea.fecha_inicio)} · "
                     f"{tarea.duracion_dias}d · {tarea.porcentaje_completado}%"
-                    + (_(" · vencida") if vencida else "")
+                    + (_(" · vencida") if estado == VENCIDA else "")
                 ),
                 xalign=0,
             )
             info.add_css_class("caption")
-            info.add_css_class("error" if vencida else "dim-label")
+            info.add_css_class("error" if estado == VENCIDA else "dim-label")
             tarjeta.append(info)
 
         if self._on_editar_tarea is not None:

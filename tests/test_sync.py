@@ -52,7 +52,9 @@ def test_sync_pull_project_v2(tmp_path):
     assert t.github_issue_number == 1
     assert t.github_item_id == "ITEM_1"
     assert t.fecha_inicio == "2026-11-01"
-    assert t.duracion_dias == 2
+    # Del 1 al 3 de noviembre, ambos inclusive: 3 días.
+    assert t.duracion_dias == 3
+    assert t.fecha_fin_planificada == "2026-11-03"
 
     # Verificar asignación
     recursos = store.listar_recursos_de_tarea(t.id)
@@ -171,3 +173,35 @@ def test_sync_pull_no_sobrescribe_tarea_editada_tras_el_ultimo_sync(tmp_path):
     assert res.tareas_actualizadas == 0
     assert len(res.conflictos) == 1
     assert store.obtener_tarea(t.id).titulo == "Título original"
+
+
+def test_sync_pull_actualiza_duracion_y_final_planificado(tmp_path):
+    db_file = tmp_path / "test.db"
+    store = Store(db_file)
+    p = store.crear_proyecto("Bloguero", github_repo_owner="testuser", github_project_v2_id="11")
+    t = store.crear_tarea(p.id, "Diseñar UI", fecha_inicio="2026-11-01", duracion_dias=1)
+    t.github_item_id = "ITEM_1"
+    store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": None},
+        [],
+        [
+            GitHubItem(
+                id="ITEM_1",
+                title="Diseñar UI",
+                issue_number=1,
+                url="https://github.com/testuser/bloguero/issues/1",
+                start_date="2026-11-01",
+                target_date="2026-11-03",
+            )
+        ],
+    )
+
+    sync = GitHubSyncManager(store, client)
+    sync.pull_proyecto(p.id)
+
+    actualizada = store.obtener_tarea(t.id)
+    assert actualizada.duracion_dias == 3
+    assert actualizada.fecha_fin_planificada == "2026-11-03"

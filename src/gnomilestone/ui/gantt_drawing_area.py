@@ -11,6 +11,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Pango, PangoCairo
 
 from gnomilestone import ganttcalc, settings, theme
+from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Dependencia, Tarea
 from gnomilestone.ui.task_tree_view import ALTURA_FILA, TareaRow
 
@@ -19,6 +20,8 @@ _ALTURA_REGLA = 28
 _ANCHO_ASA_REDIMENSIONAR = 8  # franja en píxeles junto al borde derecho de la barra
 _COLOR_ACENTO_RESPALDO = (0.0, 0.47, 0.84)  # azul, si el tema no expone "accent_color"
 _COLOR_HOY = (0.86, 0.2, 0.2)  # rojo fijo (no depende del tema): línea del día actual
+_COLOR_LIMITE = (0.85, 0.11, 0.14)  # rojo de la fecha límite y su línea de holgura
+_COLOR_LIMITE_PLANIFICADA = (0.93, 0.53, 0.0)  # naranja: plan ya pasado, límite aún no
 
 # Estilos disponibles para la barra de tarea resumen (Preferencias), con su vista previa
 # en `preferences.py` reutilizando las funciones de dibujo de abajo.
@@ -271,13 +274,20 @@ class GanttDrawingArea(Gtk.DrawingArea):
         self._filas = filas
         self._dependencias = dependencias
         self._progreso_resumen = progreso_resumen or {}
-        fechas_inicio = [
+        fechas_origen = [
             ganttcalc.parse_fecha(fila.tarea.fecha_inicio)
             for fila, _profundidad in filas
             if fila.tarea and fila.tarea.fecha_inicio
         ]
+        # La fecha límite también cuenta para el origen: si el plan se ha movido a la
+        # derecha de ella, la bandera debe seguir siendo visible.
+        fechas_origen.extend(
+            ganttcalc.parse_fecha(fila.tarea.fecha_limite)
+            for fila, _profundidad in filas
+            if fila.tarea and fila.tarea.fecha_inicio and fila.tarea.fecha_limite
+        )
         self.fecha_origen = (
-            min(fechas_inicio) - timedelta(days=_MARGEN_DIAS) if fechas_inicio else date.today()
+            min(fechas_origen) - timedelta(days=_MARGEN_DIAS) if fechas_origen else date.today()
         )
         self.ruler.fecha_origen = self.fecha_origen
         self._recalcular_tamano()
@@ -294,6 +304,11 @@ class GanttDrawingArea(Gtk.DrawingArea):
                 continue
             fecha_mostrada, duracion_mostrada = self._valores_mostrados(fila.tarea)
             fechas_fin.append(fecha_mostrada + timedelta(days=max(duracion_mostrada, 1)))
+            if fila.tarea.fecha_limite:
+                # La fecha límite es un día inclusive: su borde derecho es el día siguiente.
+                fechas_fin.append(
+                    ganttcalc.parse_fecha(fila.tarea.fecha_limite) + timedelta(days=1)
+                )
         base = max(fechas_fin) if fechas_fin else self.fecha_origen + timedelta(days=30)
         return base + timedelta(days=_MARGEN_DIAS)
 
@@ -346,6 +361,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
         if self._arrastre is not None:
             return  # no cambiar el cursor en mitad de un arrastre ya iniciado
+        self._actualizar_tooltip_limite(x, y)
         resultado = self._modo_en(x, y)
         if resultado is None:
             self.set_cursor_from_name(None)
@@ -356,6 +372,53 @@ class GanttDrawingArea(Gtk.DrawingArea):
     def _on_motion_leave(self, _controller: Gtk.EventControllerMotion) -> None:
         if self._arrastre is None:
             self.set_cursor_from_name(None)
+        self.set_tooltip_text(None)
+
+    def _x_limite(self, fecha_limite: str) -> float:
+        # La fecha límite es inclusiva: se marca al final de ese día, que es el mismo
+        # borde que usa la barra para su último día planificado.
+        return ganttcalc.fecha_a_x(
+            ganttcalc.parse_fecha(fecha_limite) + timedelta(days=1),
+            self.fecha_origen,
+            self.px_por_dia,
+        )
+
+    def _tarea_limite_en(self, x: float, y: float) -> Tarea | None:
+        indice = int(y // ALTURA_FILA)
+        if indice < 0 or indice >= len(self._filas):
+            return None
+        fila, _profundidad = self._filas[indice]
+        tarea = fila.tarea
+        if tarea is None or not tarea.fecha_inicio or not tarea.fecha_limite:
+            return None
+        x_limite = self._x_limite(tarea.fecha_limite)
+        if x_limite < 0:
+            return None
+        return tarea if abs(x - x_limite) <= 6 else None
+
+    def _texto_limite(self, tarea: Tarea) -> str:
+        if not tarea.fecha_limite:
+            return ""
+        texto = _("Fecha límite: {fecha}").format(
+            fecha=formatear_fecha_local(tarea.fecha_limite)
+        )
+        fin = ganttcalc.fecha_fin_planificada(tarea)
+        if fin is None:
+            return texto
+        margen = (ganttcalc.parse_fecha(tarea.fecha_limite) - fin).days
+        if margen < 0:
+            sufijo = _("planificada después del límite")
+        elif margen == 0:
+            sufijo = _("sin margen")
+        elif margen == 1:
+            sufijo = _("margen de 1 día")
+        else:
+            sufijo = _("margen de {dias} días").format(dias=margen)
+        return f"{texto} · {sufijo}"
+
+    def _actualizar_tooltip_limite(self, x: float, y: float) -> None:
+        tarea = self._tarea_limite_en(x, y)
+        self.set_tooltip_text(self._texto_limite(tarea) if tarea is not None else None)
 
     def _on_clic(
         self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float
@@ -371,6 +434,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
         if resultado is None:
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
+        self.set_tooltip_text(None)
         tarea, modo = resultado
         fecha_inicio, duracion_dias = self._valores_mostrados(tarea)
         self._arrastre = {
@@ -501,6 +565,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             Gtk.Settings.get_default().get_property("gtk-theme-name")
         )
         posiciones: dict[int, tuple[float, float, float]] = {}
+        limites: list[tuple[float, float, float, tuple[float, float, float, float]]] = []
 
         alto_total = max(len(self._filas), 1) * ALTURA_FILA
         x_hoy = ganttcalc.fecha_a_x(date.today(), self.fecha_origen, self.px_por_dia)
@@ -528,6 +593,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             if tarea.es_hito:
                 self._dibujar_hito(cr, x, centro_y, color_acento)
                 posiciones[tarea.id] = (x, x, centro_y)
+                self._anotar_limite(limites, tarea, x, centro_y)
                 continue
 
             ancho_barra = ganttcalc.ancho_duracion(duracion_mostrada, self.px_por_dia)
@@ -542,6 +608,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
                     dibujar_resumen_corchetes(cr, x, x + ancho_barra, y_linea, color_acento)
                 else:
                     y_barra = y + (ALTURA_FILA - ALTO_RESUMEN_PROGRESO) / 2
+                    y_linea = y_barra + ALTO_RESUMEN_PROGRESO / 2
                     progreso = self._progreso_resumen.get(tarea.id, 0)
                     dibujar_resumen_progreso(
                         cr,
@@ -554,6 +621,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
                         progreso,
                     )
                 posiciones[tarea.id] = (x, x + ancho_barra, centro_y)
+                self._anotar_limite(limites, tarea, x + ancho_barra, y_linea)
                 continue
 
             alto_barra = ALTURA_FILA * 0.8
@@ -589,6 +657,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             )
 
             posiciones[tarea.id] = (x, x + ancho_barra, centro_y)
+            self._anotar_limite(limites, tarea, x + ancho_barra, centro_y)
 
         cr.set_source_rgba(*color_texto, 0.6)
         cr.set_line_width(1.5)
@@ -597,6 +666,66 @@ class GanttDrawingArea(Gtk.DrawingArea):
             destino = posiciones.get(dependencia.tarea_destino_id)
             if origen and destino:
                 self._dibujar_flecha(cr, origen[1], origen[2], destino[0], destino[2])
+
+        # Las fechas límite se dibujan al final para que la bandera quede por encima de
+        # barras y flechas cuando cae dentro de una barra.
+        for x_barra_fin, x_limite, y_linea, color in limites:
+            self._dibujar_limite(cr, x_barra_fin, x_limite, y_linea, color)
+
+    def _color_limite(self, tarea: Tarea) -> tuple[float, float, float, float]:
+        estado = ganttcalc.estado_vencimiento(tarea)
+        if estado == ganttcalc.VENCIDA:
+            return (*_COLOR_LIMITE, 1.0)
+        if estado == ganttcalc.PLANIFICADA_PASADA:
+            return (*_COLOR_LIMITE_PLANIFICADA, 1.0)
+        return (*_COLOR_LIMITE, 0.55)
+
+    def _anotar_limite(
+        self,
+        limites: list[tuple[float, float, float, tuple[float, float, float, float]]],
+        tarea: Tarea,
+        x_barra_fin: float,
+        y_linea: float,
+    ) -> None:
+        if not tarea.fecha_limite:
+            return
+        x_limite = self._x_limite(tarea.fecha_limite)
+        if x_limite >= 0:
+            limites.append((x_barra_fin, x_limite, y_linea, self._color_limite(tarea)))
+
+    def _dibujar_limite(
+        self,
+        cr,
+        x_barra_fin: float,
+        x_limite: float,
+        y_linea: float,
+        color: tuple[float, float, float, float],
+    ) -> None:
+        if x_limite > x_barra_fin + 0.5:
+            cr.set_source_rgba(color[0], color[1], color[2], min(color[3], 0.6))
+            cr.set_line_width(1.5)
+            cr.set_dash([3.0, 3.0])
+            cr.move_to(x_barra_fin, y_linea)
+            cr.line_to(x_limite, y_linea)
+            cr.stroke()
+            cr.set_dash([])
+        self._dibujar_bandera(cr, x_limite, y_linea, color)
+
+    def _dibujar_bandera(
+        self, cr, x: float, y: float, color: tuple[float, float, float, float]
+    ) -> None:
+        alto = 9.0
+        ancho = 7.0
+        cr.set_source_rgba(*color)
+        cr.set_line_width(1.5)
+        cr.move_to(x, y - alto)
+        cr.line_to(x, y + alto)
+        cr.stroke()
+        cr.move_to(x, y - alto)
+        cr.line_to(x + ancho, y - alto + 3.5)
+        cr.line_to(x, y - alto + 7)
+        cr.close_path()
+        cr.fill()
 
     def _dibujar_hito(self, cr, x: float, centro_y: float, color: tuple[float, float, float]) -> None:
         radio = ALTURA_FILA * 0.3

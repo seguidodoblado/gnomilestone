@@ -10,6 +10,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gtk
 
 from gnomilestone import ganttcalc
+from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto, Tarea
 from gnomilestone.resource_usage import construir_filas_uso
@@ -76,6 +77,17 @@ class ProjectDetailView(Gtk.Box):
         new_task_button.add_css_class("suggested-action")
         new_task_button.connect("clicked", self._on_new_task)
         toolbar.append(new_task_button)
+
+        self._mostrar_completadas = True
+        self._mostrar_completadas_check = Gtk.CheckButton(label=_("Mostrar completadas"))
+        self._mostrar_completadas_check.set_active(True)
+        self._mostrar_completadas_check.set_tooltip_text(
+            _("Incluir en las vistas las tareas al 100 %")
+        )
+        self._mostrar_completadas_check.connect(
+            "toggled", self._on_mostrar_completadas_toggled
+        )
+        toolbar.append(self._mostrar_completadas_check)
 
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
@@ -163,6 +175,14 @@ class ProjectDetailView(Gtk.Box):
     def _on_rail_toggled(self, boton: Gtk.ToggleButton, nombre: str) -> None:
         if boton.get_active():
             self._vista_stack.set_visible_child_name(nombre)
+            # Recursos y Uso no listan tareas: el filtro no pinta nada ahí.
+            self._mostrar_completadas_check.set_visible(
+                nombre in ("tabla", "tablero", "gantt")
+            )
+
+    def _on_mostrar_completadas_toggled(self, check: Gtk.CheckButton) -> None:
+        self._mostrar_completadas = check.get_active()
+        self.refrescar()
 
     def mostrar_proyecto(self, proyecto: Proyecto) -> None:
         self._proyecto = proyecto
@@ -174,15 +194,18 @@ class ProjectDetailView(Gtk.Box):
         estados = self._store.listar_estados(self._proyecto.id)
         estados_por_id = {estado.id: estado.nombre for estado in estados}
         tareas = self._store.listar_tareas(self._proyecto.id)
+        tareas_visibles = tareas if self._mostrar_completadas else ocultar_completadas(tareas)
         recursos_por_tarea = self._store.listar_recursos_por_tarea(self._proyecto.id)
 
-        self._tabla.set_tareas(tareas, estados, estados_por_id, recursos_por_tarea)
+        self._tabla.set_tareas(tareas_visibles, estados, estados_por_id, recursos_por_tarea)
 
-        filas_arbol = construir_filas(tareas, estados_por_id, recursos_por_tarea)
+        filas_arbol = construir_filas(tareas_visibles, estados_por_id, recursos_por_tarea)
         dependencias = self._store.listar_dependencias(self._proyecto.id)
-        self._gantt.set_filas(filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas))
+        self._gantt.set_filas(
+            filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas_visibles)
+        )
 
-        self._tablero.mostrar_proyecto(self._proyecto.id)
+        self._tablero.mostrar_proyecto(self._proyecto.id, self._mostrar_completadas)
         self._recursos.mostrar_proyecto(self._proyecto.id)
 
         recursos = self._store.listar_recursos(self._proyecto.id)
@@ -200,6 +223,7 @@ class ProjectDetailView(Gtk.Box):
         duracion_original = tarea.duracion_dias
         tarea.fecha_inicio = nueva_fecha_iso
         tarea.duracion_dias = nueva_duracion_dias
+        tarea = ganttcalc.sincronizar_fin_planificado(tarea)
         self._store.actualizar_tarea(tarea)
         afectadas = {tarea.id}
         afectadas |= self._propagar_jerarquia(tarea, fecha_original, duracion_original)

@@ -8,10 +8,14 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GObject, Gtk, Pango
 
-from gnomilestone.ganttcalc import tarea_vencida
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
+from gnomilestone.ui.vencimiento import (
+    aplicar_estilo_vencimiento,
+    asegurar_css_vencimientos,
+    texto_vencimiento,
+)
 
 ALTURA_FILA = 32
 
@@ -265,13 +269,11 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
         expander.set_list_row(tree_row)
         label = expander.get_child()
         label.set_label(fila.titulo)
-        vencida = fila.tarea is not None and tarea_vencida(fila.tarea)
+        estado = aplicar_estilo_vencimiento(label, fila.tarea)
+        aviso = texto_vencimiento(estado)
         tooltip = fila.titulo
-        if vencida:
-            tooltip += f"\n({_('Vencida: ya pasó su fecha de fin')})"
-            label.add_css_class("error")
-        else:
-            label.remove_css_class("error")
+        if aviso:
+            tooltip += f"\n({aviso})"
         label.set_tooltip_text(tooltip)
         _bind_fila(expander, fila)
 
@@ -326,6 +328,7 @@ class TaskTreeView(Gtk.ColumnView):
         on_eliminar: Callable[[Tarea], None] | None = None,
     ) -> None:
         asegurar_css_fila_fija()
+        asegurar_css_vencimientos()
         self._root_store = Gio.ListStore(item_type=GObject.Object)
         self.tree_model = Gtk.TreeListModel.new(self._root_store, False, True, _crear_modelo_hijos)
         self._selection = Gtk.SingleSelection(model=self.tree_model)

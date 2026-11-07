@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 
+from gnomilestone import ganttcalc
 from gnomilestone.github import GitHubClient, GitHubItem
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import Store
@@ -158,7 +159,8 @@ class GitHubSyncManager:
                 try:
                     f_ini = date.fromisoformat(item.start_date)
                     f_fin = date.fromisoformat(item.target_date)
-                    duracion_dias = max((f_fin - f_ini).days, 1)
+                    # La fecha objetivo es un día inclusive, igual que la duración local.
+                    duracion_dias = max((f_fin - f_ini).days + 1, 1)
                 except ValueError:
                     duracion_dias = 1
             elif not fecha_inicio and item.target_date:
@@ -194,6 +196,15 @@ class GitHubSyncManager:
                     if duracion_dias != tarea_existente.duracion_dias:
                         tarea_existente.duracion_dias = duracion_dias
                         modificada = True
+                    if item.target_date:
+                        if tarea_existente.fecha_fin_planificada != item.target_date:
+                            tarea_existente.fecha_fin_planificada = item.target_date
+                            modificada = True
+                    else:
+                        sincronizada = ganttcalc.sincronizar_fin_planificado(tarea_existente)
+                        if sincronizada is not tarea_existente:
+                            tarea_existente = sincronizada
+                            modificada = True
                     if (
                         tarea_existente.github_item_id != item.id
                         or tarea_existente.github_url != item.url
@@ -214,6 +225,7 @@ class GitHubSyncManager:
                     descripcion=item.body or "",
                     estado_id=estado_id,
                     fecha_inicio=fecha_inicio,
+                    fecha_fin_planificada=item.target_date or fecha_inicio,
                     duracion_dias=duracion_dias,
                     es_hito=es_hito,
                     github_issue_number=item.issue_number,
@@ -300,6 +312,7 @@ class GitHubSyncManager:
                             descripcion=body,
                             estado_id=estado_id,
                             fecha_inicio=fecha_inicio,
+                            fecha_fin_planificada=fecha_inicio,
                             es_hito=es_hito,
                             porcentaje_completado=100 if is_closed else 0,
                             github_issue_number=num,

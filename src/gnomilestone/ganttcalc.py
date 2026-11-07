@@ -15,6 +15,21 @@ def formatear_fecha(fecha: date) -> str:
     return fecha.isoformat()
 
 
+def sincronizar_fin_planificado(tarea: Tarea) -> Tarea:
+    """Devuelve la tarea con el final planificado coherente con inicio y duración.
+
+    `fecha_fin_planificada` es el último día inclusive: inicio + duración - 1. Si la
+    tarea no tiene fecha de inicio, se devuelve tal cual (no hay nada que calcular).
+    """
+    if not tarea.fecha_inicio:
+        return tarea
+    fin = parse_fecha(tarea.fecha_inicio) + timedelta(days=max(tarea.duracion_dias, 1) - 1)
+    fecha_fin = formatear_fecha(fin)
+    if tarea.fecha_fin_planificada == fecha_fin:
+        return tarea
+    return replace(tarea, fecha_fin_planificada=fecha_fin)
+
+
 def fecha_a_x(fecha: date, fecha_origen: date, px_por_dia: float) -> float:
     return (fecha - fecha_origen).days * px_por_dia
 
@@ -55,7 +70,9 @@ def recalcular_dependientes(
             if destino is None or not destino.fecha_inicio:
                 continue
             if parse_fecha(destino.fecha_inicio) < fin_origen:
-                cambiadas[destino_id] = replace(destino, fecha_inicio=formatear_fecha(fin_origen))
+                cambiadas[destino_id] = sincronizar_fin_planificado(
+                    replace(destino, fecha_inicio=formatear_fecha(fin_origen))
+                )
                 pendientes.append(destino_id)
 
     return list(cambiadas.values())
@@ -90,22 +107,47 @@ def trasladar_hijos(tareas: list[Tarea], tarea_id: int, delta_dias: int) -> list
         for hijo in hijos_por_padre.get(actual_id, []):
             if hijo.fecha_inicio:
                 nueva_fecha = parse_fecha(hijo.fecha_inicio) + timedelta(days=delta_dias)
-                resultado.append(replace(hijo, fecha_inicio=formatear_fecha(nueva_fecha)))
+                resultado.append(
+                    sincronizar_fin_planificado(
+                        replace(hijo, fecha_inicio=formatear_fecha(nueva_fecha))
+                    )
+                )
             pendientes.append(hijo.id)
     return resultado
 
 
-def tarea_vencida(tarea: Tarea, hoy: date | None = None) -> bool:
-    """True si la fecha de fin (inicio + duración) ya pasó y la tarea no está al 100 %.
-    Sin fecha, o ya completada, nunca está vencida."""
-    if not tarea.fecha_inicio or tarea.porcentaje_completado >= 100:
-        return False
-    fecha_fin = (
-        parse_fecha(tarea.fecha_limite)
-        if tarea.fecha_limite
-        else parse_fecha(tarea.fecha_inicio) + timedelta(days=max(tarea.duracion_dias, 1))
-    )
-    return fecha_fin <= (hoy or date.today())
+# Niveles del aviso de vencimiento, de menos a más grave (ver `estado_vencimiento`).
+PLANIFICADA_PASADA = "planificada_pasada"
+VENCIDA = "vencida"
+
+
+def fecha_fin_planificada(tarea: Tarea) -> date | None:
+    """Último día planificado (inclusive): la fecha explícita o, si no la hay, el último
+    día de la duración contada desde la fecha de inicio."""
+    if tarea.fecha_fin_planificada:
+        return parse_fecha(tarea.fecha_fin_planificada)
+    if tarea.fecha_inicio:
+        return parse_fecha(tarea.fecha_inicio) + timedelta(days=max(tarea.duracion_dias, 1) - 1)
+    return None
+
+
+def estado_vencimiento(tarea: Tarea, hoy: date | None = None) -> str | None:
+    """Nivel de vencimiento de una tarea aún sin completar, o None si no aplica.
+
+    - ``VENCIDA``: ya pasó su fecha límite (el aviso más grave, en rojo).
+    - ``PLANIFICADA_PASADA``: ya pasó su final planificado pero no su fecha límite
+      (aviso intermedio, en naranja).
+    - ``None``: completada, sin fechas o todavía dentro de plazo.
+    """
+    if tarea.porcentaje_completado >= 100:
+        return None
+    hoy = hoy or date.today()
+    if tarea.fecha_limite and parse_fecha(tarea.fecha_limite) < hoy:
+        return VENCIDA
+    fin_planificada = fecha_fin_planificada(tarea)
+    if fin_planificada is not None and fin_planificada < hoy:
+        return PLANIFICADA_PASADA
+    return None
 
 
 def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
@@ -165,8 +207,12 @@ def limitar_hijos_tras_redimensionar(
                 fecha_actual, actual.duracion_dias, fecha_padre, duracion_padre
             )
             if nueva_fecha != fecha_actual or nueva_duracion != actual.duracion_dias:
-                cambiadas[tarea.id] = replace(
-                    actual, fecha_inicio=formatear_fecha(nueva_fecha), duracion_dias=nueva_duracion
+                cambiadas[tarea.id] = sincronizar_fin_planificado(
+                    replace(
+                        actual,
+                        fecha_inicio=formatear_fecha(nueva_fecha),
+                        duracion_dias=nueva_duracion,
+                    )
                 )
             # Se sigue bajando con el rango de esta tarea (ya recortado si hizo falta),
             # para que sus propias hijas se ajusten a él.

@@ -8,6 +8,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 from gnomilestone import ganttcalc
+from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.i18n import _
 from gnomilestone.models import Dependencia, Tarea
 from gnomilestone.store import Store
@@ -36,6 +37,15 @@ class GlobalGanttView(Gtk.Box):
             margin_end=6,
         )
         panel_proyectos.append(Gtk.Label(label=_("Proyectos a comparar"), xalign=0))
+        self._mostrar_completadas_check = Gtk.CheckButton(label=_("Mostrar completadas"))
+        self._mostrar_completadas_check.set_active(True)
+        self._mostrar_completadas_check.set_tooltip_text(
+            _("Incluir en las vistas las tareas al 100 %")
+        )
+        self._mostrar_completadas_check.connect(
+            "toggled", lambda _check: self._actualizar_gantt()
+        )
+        panel_proyectos.append(self._mostrar_completadas_check)
         self._checks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         panel_proyectos.append(self._checks_box)
         self.append(panel_proyectos)
@@ -89,6 +99,7 @@ class GlobalGanttView(Gtk.Box):
         duracion_original = tarea.duracion_dias
         tarea.fecha_inicio = nueva_fecha_iso
         tarea.duracion_dias = nueva_duracion_dias
+        tarea = ganttcalc.sincronizar_fin_planificado(tarea)
         self._store.actualizar_tarea(tarea)
 
         tareas = self._store.listar_tareas(tarea.proyecto_id)
@@ -137,6 +148,8 @@ class GlobalGanttView(Gtk.Box):
                 continue
             estados_por_id = {e.id: e.nombre for e in self._store.listar_estados(proyecto_id)}
             tareas = self._store.listar_tareas(proyecto_id)
+            if not self._mostrar_completadas_check.get_active():
+                tareas = ocultar_completadas(tareas)
             recursos_por_tarea = self._store.listar_recursos_por_tarea(proyecto_id)
             fila_proyecto = TareaRow(
                 proyecto.nombre,

@@ -7,7 +7,6 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gio, Gtk
 
-from gnomilestone.ganttcalc import tarea_vencida
 from gnomilestone.i18n import _
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
@@ -18,6 +17,11 @@ from gnomilestone.ui.task_tree_view import (
     adjuntar_menu_contextual,
     asegurar_css_fila_fija,
     ordenar_jerarquicamente,
+)
+from gnomilestone.ui.vencimiento import (
+    aplicar_estilo_vencimiento,
+    asegurar_css_vencimientos,
+    texto_vencimiento,
 )
 
 
@@ -60,12 +64,8 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
         label = item.get_child()
         label.set_label(fila.titulo)
         label.fila_asociada = fila
-        vencida = fila.tarea is not None and tarea_vencida(fila.tarea)
-        label.set_tooltip_text(_("Vencida: ya pasó su fecha de fin") if vencida else None)
-        if vencida:
-            label.add_css_class("error")
-        else:
-            label.remove_css_class("error")
+        estado = aplicar_estilo_vencimiento(label, fila.tarea)
+        label.set_tooltip_text(texto_vencimiento(estado))
 
     factory.connect("setup", _setup)
     factory.connect("bind", _bind)
@@ -104,6 +104,7 @@ class TableView(Gtk.Box):
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         asegurar_css_fila_fija()
+        asegurar_css_vencimientos()
         self._on_editar_tarea = on_editar_tarea
         self._estado_filtro: int | None = None
 
