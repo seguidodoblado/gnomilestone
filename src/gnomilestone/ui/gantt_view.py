@@ -16,7 +16,7 @@ from gnomilestone.ui.gantt_drawing_area import GanttDrawingArea
 from gnomilestone.ui.task_tree_view import TareaRow, TaskTreeView
 
 _PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
-_ESCALAS = (("Semanal", 36.0), ("Mensual", 18.0), ("Trimestral", 8.0), ("Anual", 4.0))
+_ESCALAS = (("Diario", 80.0), ("Semanal", 36.0), ("Mensual", 18.0), ("Trimestral", 8.0), ("Anual", 4.0))
 
 
 class GanttView(Gtk.Box):
@@ -29,8 +29,8 @@ class GanttView(Gtk.Box):
         on_tarea_arrastrada: Callable[[int, str, int], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        self._indice_zoom = _PASOS_ZOOM.index(36.0)
-        self._escala_activa = "Semanal"
+        self._indice_zoom = _PASOS_ZOOM.index(80.0)
+        self._escala_activa = "Diario"
         self._timeout_guardar_ancho: int | None = None
         self._ultimo_ancho_guardado: int | None = None
 
@@ -60,9 +60,15 @@ class GanttView(Gtk.Box):
         zoom_in.connect("clicked", self._on_zoom_in)
         toolbar.append(zoom_in)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        grupo_escalas: Gtk.ToggleButton | None = None
         for etiqueta, px_por_dia in _ESCALAS:
-            boton_escala = Gtk.Button(label=_(etiqueta))
-            boton_escala.add_css_class("flat")
+            boton_escala = Gtk.ToggleButton(label=_(etiqueta))
+            boton_escala.add_css_class("linked")
+            if grupo_escalas is None:
+                grupo_escalas = boton_escala
+            else:
+                boton_escala.set_group(grupo_escalas)
+            boton_escala.set_active(etiqueta == self._escala_activa)
             boton_escala.connect("clicked", self._on_escala, etiqueta, px_por_dia)
             toolbar.append(boton_escala)
         self.append(toolbar)

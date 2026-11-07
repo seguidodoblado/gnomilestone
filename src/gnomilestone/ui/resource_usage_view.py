@@ -7,7 +7,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, Gtk, Pango, PangoCairo
+from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo
 
 from gnomilestone import ganttcalc, theme
 from gnomilestone.i18n import _
@@ -22,6 +22,7 @@ from gnomilestone.resource_usage import (
 from gnomilestone.ui.avatar_widget import AvatarWidget
 
 _PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
+_ESCALAS = (("Diario", 80.0), ("Semanal", 36.0), ("Mensual", 18.0), ("Trimestral", 8.0), ("Anual", 4.0))
 _ALTURA_FILA = 48
 _ALTURA_REGLA = 28
 _ALTURA_CARGA_EQUIPO = 14
@@ -33,6 +34,41 @@ _COLOR_CARGA_OK = (0.18, 0.6, 0.32)
 _COLOR_CARGA_NORMAL = (0.21, 0.52, 0.89)  # azul fijo, no el acento del tema: no se puede
 # confundir con las barras de los propios recursos, que sí cambian con el acento.
 _COLOR_ACENTO_RESPALDO = (0.21, 0.52, 0.89)
+_CSS_CARGA_APLICADO = False
+
+
+def _asegurar_css_carga() -> None:
+    global _CSS_CARGA_APLICADO
+    if _CSS_CARGA_APLICADO:
+        return
+    display = Gdk.Display.get_default()
+    if display is None:
+        return
+    proveedor = Gtk.CssProvider()
+    proveedor.load_from_string(
+        ".gnomilestone-carga-baja { color: #33d17a; }\n"
+        ".gnomilestone-carga-normal { color: #3584e4; }\n"
+        ".gnomilestone-carga-alta { color: #e01b24; }\n"
+    )
+    Gtk.StyleContext.add_provider_for_display(
+        display, proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+    _CSS_CARGA_APLICADO = True
+
+
+def _aplicar_color_carga(widget: Gtk.Widget, porcentaje: int) -> None:
+    for clase in (
+        "gnomilestone-carga-baja",
+        "gnomilestone-carga-normal",
+        "gnomilestone-carga-alta",
+    ):
+        widget.remove_css_class(clase)
+    if porcentaje > 100:
+        widget.add_css_class("gnomilestone-carga-alta")
+    elif porcentaje >= _UMBRAL_CARGA_NORMAL:
+        widget.add_css_class("gnomilestone-carga-normal")
+    else:
+        widget.add_css_class("gnomilestone-carga-baja")
 
 
 def _color_acento(widget: Gtk.Widget) -> tuple[float, float, float]:
@@ -144,14 +180,17 @@ class _LienzoUso(Gtk.DrawingArea):
     def __init__(
         self,
         on_editar_tarea: Callable[[int], None] | None = None,
+        on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
     ) -> None:
         super().__init__()
         self.ruler = _ReglaFechas()
         self._filas: list[FilaUso] = []
+        self._click_pendiente: int | None = None
         self._filas_dibujo: list[tuple[FilaUso, SegmentoUso | None]] = []
         self.px_por_dia = 24.0
         self.fecha_origen = date.today()
         self._on_editar_tarea = on_editar_tarea
+        self._on_dedicacion_changed = on_dedicacion_changed
         self.set_draw_func(self._draw)
 
         if on_editar_tarea is not None:
@@ -281,15 +320,24 @@ class _LienzoUso(Gtk.DrawingArea):
         PangoCairo.show_layout(cr, layout)
 
     def _segmento_en(self, x: float, y: float) -> SegmentoUso | None:
-        indice = int(y // _ALTURA_FILA)
-        if indice < 0 or indice >= len(self._filas):
-            return None
-        _fila, segmento_fila = self._filas_dibujo[indice]
-        if segmento_fila is not None:
-            x0 = ganttcalc.fecha_a_x(segmento_fila.fecha_inicio, self.fecha_origen, self.px_por_dia)
+        # Buscar por los límites de cada fila, en vez de confiar solo en y // altura:
+        # el lienzo puede tener desplazamiento vertical y las filas pueden cambiar al
+        # reconstruirse tras filtrar completadas.
+        encontrados: list[SegmentoUso] = []
+        for indice, (_fila, segmento_fila) in enumerate(self._filas_dibujo):
+            if segmento_fila is None:
+                continue
+            y0 = indice * _ALTURA_FILA
+            if not y0 <= y < y0 + _ALTURA_FILA:
+                continue
+            x0 = ganttcalc.fecha_a_x(
+                segmento_fila.fecha_inicio, self.fecha_origen, self.px_por_dia
+            )
             x1 = x0 + ganttcalc.ancho_duracion(segmento_fila.duracion_dias, self.px_por_dia)
-            return segmento_fila if x0 <= x <= x1 else None
-        # El de más a la derecha debajo del puntero gana (suele ser el más “arriba” visualmente).
+            if x0 <= x <= x1:
+                encontrados.append(segmento_fila)
+        if encontrados:
+            return encontrados[-1]
         return None
 
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
@@ -300,9 +348,23 @@ class _LienzoUso(Gtk.DrawingArea):
         if segmento is None:
             return
         if n_press == 2 and self._on_editar_tarea is not None:
+            if self._click_pendiente is not None:
+                GLib.source_remove(self._click_pendiente)
+                self._click_pendiente = None
             self._on_editar_tarea(segmento.tarea_id)
         elif n_press == 1:
-            self._mostrar_menu_dedicacion(segmento, x, y)
+            if self._click_pendiente is not None:
+                GLib.source_remove(self._click_pendiente)
+            self._click_pendiente = GLib.timeout_add(
+                250, self._mostrar_menu_dedicacion_pendiente, segmento, x, y
+            )
+
+    def _mostrar_menu_dedicacion_pendiente(
+        self, segmento: SegmentoUso, x: float, y: float
+    ) -> bool:
+        self._click_pendiente = None
+        self._mostrar_menu_dedicacion(segmento, x, y)
+        return False
 
     def _mostrar_menu_dedicacion(self, segmento: SegmentoUso, x: float, y: float) -> None:
         popover = Gtk.Popover()
@@ -329,14 +391,27 @@ class _LienzoUso(Gtk.DrawingArea):
         def _cambio(slider: Gtk.Scale) -> None:
             porcentaje = round(slider.get_value())
             valor.set_text(f"{porcentaje} %")
-            if self._on_dedicacion_changed is not None:
-                self._on_dedicacion_changed(segmento.tarea_id, self._recurso_id_de_segmento(segmento), porcentaje)
 
         escala.connect("value-changed", _cambio)
         caja.append(escala)
         popover.set_child(caja)
         popover.set_has_arrow(True)
-        popover.set_pointing_to(Gtk.Rectangle(x=int(x), y=int(y), width=1, height=1))
+        rectangulo = Gdk.Rectangle()
+        rectangulo.x = int(x)
+        rectangulo.y = int(y)
+        rectangulo.width = 1
+        rectangulo.height = 1
+        popover.set_pointing_to(rectangulo)
+
+        def _guardar_al_cerrar(_popover: Gtk.Popover) -> None:
+            if self._on_dedicacion_changed is not None:
+                self._on_dedicacion_changed(
+                    segmento.tarea_id,
+                    self._recurso_id_de_segmento(segmento),
+                    round(escala.get_value()),
+                )
+
+        popover.connect("closed", _guardar_al_cerrar)
         popover.popup()
 
     def _recurso_id_de_segmento(self, segmento: SegmentoUso) -> int:
@@ -354,10 +429,11 @@ class ResourceUsageView(Gtk.Box):
         on_editar_tarea: Callable[[Tarea], None] | None = None,
         on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
     ) -> None:
+        _asegurar_css_carga()
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._on_editar_tarea = on_editar_tarea
         self._tareas_por_id: dict[int, Tarea] = {}
-        self._indice_zoom = _PASOS_ZOOM.index(36.0)  # vista semanal por defecto
+        self._indice_zoom = _PASOS_ZOOM.index(80.0)  # vista diaria por defecto
         self._on_dedicacion_changed = on_dedicacion_changed
         self._filas: list[FilaUso] = []
 
@@ -368,6 +444,19 @@ class ResourceUsageView(Gtk.Box):
         zoom_in = Gtk.Button(icon_name="zoom-in-symbolic", tooltip_text=_("Acercar"))
         zoom_in.connect("clicked", self._on_zoom_in)
         toolbar.append(zoom_in)
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        grupo_escalas: Gtk.ToggleButton | None = None
+        for etiqueta, px_por_dia in _ESCALAS:
+            boton_escala = Gtk.ToggleButton(label=_(etiqueta))
+            boton_escala.add_css_class("linked")
+            if grupo_escalas is None:
+                grupo_escalas = boton_escala
+            else:
+                boton_escala.set_group(grupo_escalas)
+            boton_escala.set_active(etiqueta == "Diario")
+            boton_escala.connect("clicked", self._on_escala, px_por_dia)
+            toolbar.append(boton_escala)
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         leyenda = Gtk.Label(
             label=_(
                 "Rojo de fondo: más del 100 % de dedicación ese día · "
@@ -416,7 +505,10 @@ class ResourceUsageView(Gtk.Box):
         self._panel.append(lateral_scroller)
 
         canvas_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
-        self._lienzo = _LienzoUso(on_editar_tarea=self._on_editar_desde_lienzo)
+        self._lienzo = _LienzoUso(
+            on_editar_tarea=self._on_editar_desde_lienzo,
+            on_dedicacion_changed=self._on_dedicacion_changed,
+        )
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
 
         ruler_scroller = Gtk.ScrolledWindow(
@@ -507,10 +599,18 @@ class ResourceUsageView(Gtk.Box):
             meta = _("Sin tareas datadas")
         detalle = Gtk.Label(label=meta, xalign=0)
         detalle.add_css_class("caption")
-        if fila.sobrecargado:
+        porcentaje_color = (
+            segmento.porcentaje_dedicacion if segmento is not None else fila.carga_maxima
+        )
+        _aplicar_color_carga(detalle, porcentaje_color)
+        if segmento is None and not fila.sobrecargado:
+            detalle.add_css_class("dim-label")
+        elif segmento is None and fila.sobrecargado:
             detalle.add_css_class("error")
         else:
-            detalle.add_css_class("dim-label")
+            # La clase de carga sustituye al gris de dim-label para que el porcentaje
+            # individual siga el mismo código cromático que la franja superior.
+            pass
         textos.append(detalle)
         caja.append(textos)
         return caja
@@ -530,6 +630,13 @@ class ResourceUsageView(Gtk.Box):
     def _on_zoom_out(self, _button: Gtk.Button | None = None) -> None:
         self._indice_zoom = max(self._indice_zoom - 1, 0)
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
+        self._actualizar_barra_equipo()
+
+    def _on_escala(self, _button: Gtk.ToggleButton, px_por_dia: float) -> None:
+        self._indice_zoom = min(
+            range(len(_PASOS_ZOOM)), key=lambda i: abs(_PASOS_ZOOM[i] - px_por_dia)
+        )
+        self._lienzo.set_zoom(px_por_dia)
         self._actualizar_barra_equipo()
 
     def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:

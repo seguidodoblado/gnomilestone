@@ -214,7 +214,7 @@ def test_estado_vencimiento_naranja_al_llegar_al_final_planificado():
 
 def test_estado_vencimiento_marca_el_ultimo_dia_planificado():
     tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-05")
-    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 5)) == ganttcalc.PLANIFICADA_PASADA
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 5)) is None
 
 
 def test_estado_vencimiento_rojo_al_llegar_a_la_fecha_limite():
@@ -222,9 +222,30 @@ def test_estado_vencimiento_rojo_al_llegar_a_la_fecha_limite():
     assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 9)) == ganttcalc.VENCIDA
 
 
-def test_estado_vencimiento_rojo_predomina_en_la_fecha_limite():
+def test_estado_vencimiento_no_marca_rojo_hasta_pasada_la_fecha_limite():
     tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
     assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 8)) == ganttcalc.VENCIDA
+
+
+def test_estado_vencimiento_rojo_un_dia_antes_de_la_fecha_limite():
+    tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 7)) == ganttcalc.VENCIDA
+
+
+def test_estado_vencimiento_usa_una_ventana_configurable():
+    tarea = _tarea_vencimiento(
+        "2026-03-01", fecha_fin_planificada="2026-03-20", fecha_limite="2026-03-10"
+    )
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 7), dias_alerta=2) is None
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 7), dias_alerta=3) == ganttcalc.VENCIDA
+
+
+def test_estado_vencimiento_con_cero_dias_espera_al_dia_limite():
+    tarea = _tarea_vencimiento(
+        "2026-03-01", fecha_fin_planificada="2026-03-20", fecha_limite="2026-03-10"
+    )
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 9), dias_alerta=0) is None
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 10), dias_alerta=0) == ganttcalc.VENCIDA
 
 
 def test_estado_vencimiento_rojo_sin_fecha_de_inicio():

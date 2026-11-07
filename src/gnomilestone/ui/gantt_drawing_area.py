@@ -558,7 +558,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             arrastre["duracion_preview"],
         )
 
-    def _draw(self, _area: Gtk.DrawingArea, cr, _width: int, _height: int) -> None:
+    def _draw(self, _area: Gtk.DrawingArea, cr, width: int, _height: int) -> None:
         color_acento = _color_acento(self)
         color_texto = _color_texto(self)
         tema_oscuro = theme.is_dark_theme(
@@ -568,6 +568,36 @@ class GanttDrawingArea(Gtk.DrawingArea):
         limites: list[tuple[float, float, float, tuple[float, float, float, float]]] = []
 
         alto_total = max(len(self._filas), 1) * ALTURA_FILA
+        # Cuadrícula de referencia, igual que en Uso: blanco en oscuro y negro en claro.
+        color_division = (1.0, 1.0, 1.0) if tema_oscuro else (0.0, 0.0, 0.0)
+        dias = int(width / self.px_por_dia) + 2
+        anual = self.px_por_dia <= 4.0
+        if anual:
+            fecha = self.fecha_origen.replace(day=1)
+            if fecha < self.fecha_origen:
+                fecha = (fecha.replace(day=28) + timedelta(days=4)).replace(day=1)
+            fechas = []
+            while ganttcalc.fecha_a_x(fecha, self.fecha_origen, self.px_por_dia) <= width:
+                fechas.append(fecha)
+                fecha = (fecha.replace(day=28) + timedelta(days=4)).replace(day=1)
+        else:
+            paso = 7 if self.px_por_dia < 40 else 1
+            fechas = [
+                self.fecha_origen + timedelta(days=indice)
+                for indice in range(0, dias, paso)
+            ]
+        cr.set_source_rgba(*color_division, 0.12)
+        cr.set_line_width(1)
+        for fecha in fechas:
+            x = ganttcalc.fecha_a_x(fecha, self.fecha_origen, self.px_por_dia)
+            cr.move_to(x, 0)
+            cr.line_to(x, alto_total)
+        for indice in range(1, len(self._filas) + 1):
+            y = indice * ALTURA_FILA
+            cr.move_to(0, y)
+            cr.line_to(width, y)
+        cr.stroke()
+
         x_hoy = ganttcalc.fecha_a_x(date.today(), self.fecha_origen, self.px_por_dia)
         if x_hoy >= 0:
             cr.set_source_rgba(*_COLOR_HOY, 0.5)
@@ -597,7 +627,6 @@ class GanttDrawingArea(Gtk.DrawingArea):
                 continue
 
             ancho_barra = ganttcalc.ancho_duracion(duracion_mostrada, self.px_por_dia)
-
             if tarea.id in ids_con_hijos:
                 # Tarea resumen (tiene subtareas): una fila fina arriba de la fila normal,
                 # para distinguirla de un vistazo de una tarea hoja. El estilo exacto
@@ -673,12 +702,23 @@ class GanttDrawingArea(Gtk.DrawingArea):
             self._dibujar_limite(cr, x_barra_fin, x_limite, y_linea, color)
 
     def _color_limite(self, tarea: Tarea) -> tuple[float, float, float, float]:
-        estado = ganttcalc.estado_vencimiento(tarea)
+        dias_alerta = settings.read_settings().get("dias_alerta_vencimiento", 1)
+        try:
+            dias_alerta = max(0, int(dias_alerta))
+        except (TypeError, ValueError):
+            dias_alerta = 1
+        estado = ganttcalc.estado_vencimiento(tarea, dias_alerta=dias_alerta)
         if estado == ganttcalc.VENCIDA:
             return (*_COLOR_LIMITE, 1.0)
         if estado == ganttcalc.PLANIFICADA_PASADA:
             return (*_COLOR_LIMITE_PLANIFICADA, 1.0)
-        return (*_COLOR_LIMITE, 0.55)
+        # Una fecha límite futura y alejada es informativa, no una alerta: blanco puro
+        # sobre tema oscuro y negro puro sobre tema claro, con baja opacidad.
+        tema_oscuro = theme.is_dark_theme(
+            Gtk.Settings.get_default().get_property("gtk-theme-name")
+        )
+        color_neutro = (1.0, 1.0, 1.0) if tema_oscuro else (0.0, 0.0, 0.0)
+        return (*color_neutro, 0.55)
 
     def _anotar_limite(
         self,
