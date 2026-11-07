@@ -17,6 +17,11 @@ CLASE_VENCIDA = "gnomilestone-vencida"
 _CSS = (
     f".{CLASE_PLANIFICADA_PASADA} {{ color: #e66100; }}\n"
     f".{CLASE_VENCIDA} {{ color: #e01b24; }}\n"
+    # La selección de ColumnView tiene prioridad visual sobre el aviso: el texto debe
+    # seguir siendo legible sin perder el naranja/rojo cuando la fila deja de estar
+    # seleccionada.
+    f"columnview row:selected label.{CLASE_PLANIFICADA_PASADA}, "
+    f"columnview row:selected label.{CLASE_VENCIDA} {{ color: #ffffff; }}\n"
 )
 _css_aplicado = False
 

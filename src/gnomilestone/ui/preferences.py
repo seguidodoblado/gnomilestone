@@ -111,6 +111,20 @@ class PreferencesWindow(Gtk.Window):
         )
         box.append(self._theme_dropdown)
 
+        box.append(Gtk.Label(label=_("Aviso rojo antes de la fecha límite (días)"), xalign=0))
+        ajuste_alerta = Gtk.Adjustment(
+            value=max(0, min(30, int(config.get("dias_alerta_vencimiento", 1)))),
+            lower=0,
+            upper=30,
+            step_increment=1,
+            page_increment=7,
+        )
+        self._dias_alerta_spin = Gtk.SpinButton(adjustment=ajuste_alerta, numeric=True)
+        self._dias_alerta_spin.set_tooltip_text(
+            _("La bandera roja aparece cuando faltan estos días o menos")
+        )
+        box.append(self._dias_alerta_spin)
+
         box.append(Gtk.Label(label=_("Barra de tareas resumen en el Gantt"), xalign=0))
         estilo_actual = config.get(
             "estilo_barra_resumen", gantt_drawing_area.ESTILO_RESUMEN_PROGRESO
@@ -174,6 +188,7 @@ class PreferencesWindow(Gtk.Window):
         config = settings.read_settings()
         config["language"] = _LANGUAGE_CODES[self._language_dropdown.get_selected()]
         config["dark_mode"] = _THEME_VALUES[self._theme_dropdown.get_selected()]
+        config["dias_alerta_vencimiento"] = self._dias_alerta_spin.get_value_as_int()
         config["estilo_barra_resumen"] = next(
             valor for valor, radio in self._estilo_resumen_botones.items() if radio.get_active()
         )

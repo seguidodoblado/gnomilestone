@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import date, timedelta
+from pathlib import Path
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, Gtk
+from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import ganttcalc
 from gnomilestone.filtros import ocultar_completadas
@@ -34,10 +36,11 @@ _VISTAS_RAIL = (
     ("gantt", "view-continuous-symbolic", _("Gantt"), _("Gantt")),
     ("recursos", "system-users-symbolic", _("Recursos"), _("Recursos")),
     ("uso", "preferences-system-time-symbolic", _("Uso"), _("Uso de recursos")),
-    ("informes", "view-statistics-symbolic", _("Informes"), _("Informes del proyecto")),
+    ("informes", "x-office-chart-bar-symbolic", _("Informes"), _("Informes del proyecto")),
 )
 
 _css_rail_aplicado = False
+_REPORT_ICON = Path(__file__).resolve().parent.parent / "assets" / "mintinstall-office-symbolic.svg"
 
 
 def _asegurar_css_rail() -> None:
@@ -80,9 +83,9 @@ class ProjectDetailView(Gtk.Box):
         new_task_button.connect("clicked", self._on_new_task)
         toolbar.append(new_task_button)
 
-        self._mostrar_completadas = True
+        self._mostrar_completadas = False
         self._mostrar_completadas_check = Gtk.CheckButton(label=_("Mostrar completadas"))
-        self._mostrar_completadas_check.set_active(True)
+        self._mostrar_completadas_check.set_active(False)
         self._mostrar_completadas_check.set_tooltip_text(
             _("Incluir en las vistas las tareas al 100 %")
         )
@@ -162,7 +165,10 @@ class ProjectDetailView(Gtk.Box):
             boton.set_tooltip_text(tooltip)
             cuerpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             cuerpo.set_halign(Gtk.Align.CENTER)
-            cuerpo.append(Gtk.Image.new_from_icon_name(icono))
+            if nombre == "informes":
+                cuerpo.append(Gtk.Image.new_from_file(str(_REPORT_ICON)))
+            else:
+                cuerpo.append(Gtk.Image.new_from_icon_name(icono))
             texto = Gtk.Label(label=etiqueta)
             texto.add_css_class("caption")
             cuerpo.append(texto)
@@ -181,7 +187,7 @@ class ProjectDetailView(Gtk.Box):
             self._vista_stack.set_visible_child_name(nombre)
             # Recursos y Uso no listan tareas: el filtro no pinta nada ahí.
             self._mostrar_completadas_check.set_visible(
-                nombre in ("tabla", "tablero", "gantt")
+                nombre in ("tabla", "tablero", "gantt", "uso", "informes")
             )
 
     def _on_mostrar_completadas_toggled(self, check: Gtk.CheckButton) -> None:
@@ -214,16 +220,98 @@ class ProjectDetailView(Gtk.Box):
 
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
-        self._uso.set_filas(construir_filas_uso(recursos, tareas, asignaciones), tareas)
-        self._informes.set_data(tareas, estados)
+        tareas_uso = tareas if self._mostrar_completadas else ocultar_completadas(tareas)
+        self._uso.set_filas(construir_filas_uso(recursos, tareas_uso, asignaciones), tareas_uso)
+        self._informes.set_data(tareas_visibles, estados, recursos, asignaciones)
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
         self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
+        self.refrescar()
 
     def _on_tarea_arrastrada(self, tarea_id: int, nueva_fecha_iso: str, nueva_duracion_dias: int) -> None:
         tarea = self._store.obtener_tarea(tarea_id)
         if tarea is None:
             return
+        nuevo_fin = date.fromisoformat(nueva_fecha_iso) + timedelta(
+            days=max(nueva_duracion_dias, 1) - 1
+        )
+        if tarea.fecha_limite and nuevo_fin > date.fromisoformat(tarea.fecha_limite):
+            self._pedir_nueva_fecha_limite(tarea, nueva_fecha_iso, nueva_duracion_dias, nuevo_fin)
+            return
+        self._aplicar_movimiento_tarea(tarea, nueva_fecha_iso, nueva_duracion_dias)
+
+    def _pedir_nueva_fecha_limite(
+        self, tarea: Tarea, nueva_fecha_iso: str, nueva_duracion_dias: int, nuevo_fin: date
+    ) -> None:
+        ventana = Gtk.Window(
+            title=_("Nueva fecha límite"),
+            transient_for=self.get_root(),
+            modal=True,
+            default_width=360,
+            default_height=420,
+        )
+        caja = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=12,
+            margin_top=18,
+            margin_bottom=18,
+            margin_start=18,
+            margin_end=18,
+        )
+        ventana.set_child(caja)
+        caja.append(
+            Gtk.Label(
+                label=_(
+                    "La nueva fecha de finalización ({fecha}) supera la fecha límite actual. "
+                    "Selecciona una nueva fecha límite."
+                ).format(fecha=nuevo_fin.strftime("%d/%m/%Y")),
+                wrap=True,
+                xalign=0,
+            )
+        )
+        calendario = Gtk.Calendar()
+        fecha_inicial = max(date.fromisoformat(tarea.fecha_limite), nuevo_fin)
+        calendario.select_day(
+            GLib.DateTime.new_local(
+                fecha_inicial.year, fecha_inicial.month, fecha_inicial.day, 0, 0, 0
+            )
+        )
+        caja.append(calendario)
+        error = Gtk.Label(xalign=0, wrap=True)
+        error.add_css_class("error")
+        caja.append(error)
+        botones = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8, halign=Gtk.Align.END)
+        cancelar = Gtk.Button(label=_("Cancelar"))
+        aceptar = Gtk.Button(label=_("Mover y actualizar fecha"))
+        aceptar.add_css_class("suggested-action")
+        botones.append(cancelar)
+        botones.append(aceptar)
+        caja.append(botones)
+
+        cancelar.connect("clicked", lambda _button: ventana.close())
+
+        def confirmar(_button: Gtk.Button) -> None:
+            seleccion = calendario.get_date()
+            fecha_limite = date(
+                seleccion.get_year(), seleccion.get_month(), seleccion.get_day_of_month()
+            )
+            if fecha_limite < nuevo_fin:
+                error.set_text(
+                    _("La fecha límite debe ser igual o posterior al {fecha}.").format(
+                        fecha=nuevo_fin.strftime("%d/%m/%Y")
+                    )
+                )
+                return
+            tarea.fecha_limite = fecha_limite.isoformat()
+            ventana.close()
+            self._aplicar_movimiento_tarea(tarea, nueva_fecha_iso, nueva_duracion_dias)
+
+        aceptar.connect("clicked", confirmar)
+        ventana.present()
+
+    def _aplicar_movimiento_tarea(
+        self, tarea: Tarea, nueva_fecha_iso: str, nueva_duracion_dias: int
+    ) -> None:
         fecha_original = tarea.fecha_inicio
         duracion_original = tarea.duracion_dias
         tarea.fecha_inicio = nueva_fecha_iso
@@ -232,7 +320,7 @@ class ProjectDetailView(Gtk.Box):
         self._store.actualizar_tarea(tarea)
         afectadas = {tarea.id}
         afectadas |= self._propagar_jerarquia(tarea, fecha_original, duracion_original)
-        afectadas |= self._propagar_dependencias(tarea.proyecto_id, tarea_id)
+        afectadas |= self._propagar_dependencias(tarea.proyecto_id, tarea.id)
         self.refrescar()
         # Mover o redimensionar en el Gantt cambia fechas tanto como guardar el diálogo de
         # tarea, y de la misma forma debe llegar a GitHub si el proyecto está vinculado
