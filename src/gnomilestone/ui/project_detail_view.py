@@ -18,6 +18,7 @@ from gnomilestone.store import Store
 from gnomilestone.ui.board_settings_dialog import BoardSettingsDialog
 from gnomilestone.ui.gantt_view import GanttView
 from gnomilestone.ui.kanban_view import KanbanView
+from gnomilestone.ui.report_view import ReportView
 from gnomilestone.ui.resource_dialog import ResourceView
 from gnomilestone.ui.resource_usage_view import ResourceUsageView
 from gnomilestone.ui.table_view import TableView
@@ -33,6 +34,7 @@ _VISTAS_RAIL = (
     ("gantt", "view-continuous-symbolic", _("Gantt"), _("Gantt")),
     ("recursos", "system-users-symbolic", _("Recursos"), _("Recursos")),
     ("uso", "preferences-system-time-symbolic", _("Uso"), _("Uso de recursos")),
+    ("informes", "view-statistics-symbolic", _("Informes"), _("Informes del proyecto")),
 )
 
 _css_rail_aplicado = False
@@ -143,6 +145,8 @@ class ProjectDetailView(Gtk.Box):
             on_dedicacion_changed=self._on_dedicacion_changed,
         )
         self._vista_stack.add_named(self._uso, "uso")
+        self._informes = ReportView()
+        self._vista_stack.add_named(self._informes, "informes")
 
         contenido.append(self._vista_stack)
         self.append(contenido)
@@ -211,6 +215,7 @@ class ProjectDetailView(Gtk.Box):
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
         self._uso.set_filas(construir_filas_uso(recursos, tareas, asignaciones), tareas)
+        self._informes.set_data(tareas, estados)
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
         self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
