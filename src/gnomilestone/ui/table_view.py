@@ -18,6 +18,11 @@ from gnomilestone.ui.task_tree_view import (
     asegurar_css_fila_fija,
     ordenar_jerarquicamente,
 )
+from gnomilestone.ui.vencimiento import (
+    aplicar_estilo_vencimiento,
+    asegurar_css_vencimientos,
+    texto_vencimiento,
+)
 
 
 def coincide_con_filtro(fila: TareaRow, texto: str, estado_id: int | None) -> bool:
@@ -59,6 +64,8 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
         label = item.get_child()
         label.set_label(fila.titulo)
         label.fila_asociada = fila
+        estado = aplicar_estilo_vencimiento(label, fila.tarea)
+        label.set_tooltip_text(texto_vencimiento(estado))
 
     factory.connect("setup", _setup)
     factory.connect("bind", _bind)
@@ -97,6 +104,7 @@ class TableView(Gtk.Box):
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         asegurar_css_fila_fija()
+        asegurar_css_vencimientos()
         self._on_editar_tarea = on_editar_tarea
         self._estado_filtro: int | None = None
 
@@ -136,6 +144,8 @@ class TableView(Gtk.Box):
         for titulo, propiedad in (
             (_("Columna"), "estado"),
             (_("Inicio"), "fecha_inicio"),
+            (_("Final planificado"), "fecha_fin_planificada"),
+            (_("Fecha límite"), "fecha_limite"),
             (_("Duración (días)"), "duracion_dias"),
             (_("% completado"), "porcentaje_completado"),
         ):

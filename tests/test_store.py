@@ -23,8 +23,23 @@ def test_listar_proyectos_devuelve_los_creados(store):
 def test_actualizar_proyecto(store):
     proyecto = store.crear_proyecto("Original")
     proyecto.nombre = "Renombrado"
+    proyecto.descripcion = "Descripción del proyecto"
+    proyecto.fecha_inicio = "2026-11-07"
+    proyecto.fecha_fin_estimada = "2026-12-01"
+    proyecto.estado = "en_curso"
+    proyecto.archivado = True
+    proyecto.icon_name = "starred-symbolic"
+    proyecto.icon_path = "/tmp/icono-proyecto.png"
     store.actualizar_proyecto(proyecto)
-    assert store.obtener_proyecto(proyecto.id).nombre == "Renombrado"
+    actual = store.obtener_proyecto(proyecto.id)
+    assert actual.nombre == "Renombrado"
+    assert actual.descripcion == "Descripción del proyecto"
+    assert actual.fecha_inicio == "2026-11-07"
+    assert actual.fecha_fin_estimada == "2026-12-01"
+    assert actual.estado == "en_curso"
+    assert actual.archivado is True
+    assert actual.icon_name == "starred-symbolic"
+    assert actual.icon_path == "/tmp/icono-proyecto.png"
 
 
 def test_eliminar_proyecto_borra_en_cascada_tareas_y_estados(store):
@@ -49,10 +64,15 @@ def test_actualizar_tarea(store):
     tarea = store.crear_tarea(proyecto.id, "Tarea")
     tarea.porcentaje_completado = 50
     tarea.es_hito = True
+    tarea.fecha_inicio = "2026-11-07"
+    tarea.fecha_fin_planificada = "2026-11-09"
+    tarea.fecha_limite = "2026-11-10"
     store.actualizar_tarea(tarea)
     actualizada = store.obtener_tarea(tarea.id)
     assert actualizada.porcentaje_completado == 50
     assert actualizada.es_hito is True
+    assert actualizada.fecha_fin_planificada == "2026-11-09"
+    assert actualizada.fecha_limite == "2026-11-10"
 
 
 def test_eliminar_tarea(store):
@@ -157,6 +177,32 @@ def test_contar_y_listar_titulos_asignados(store):
     assert store.contar_asignaciones_recurso(r.id) == 2
     assert store.listar_titulos_asignados(r.id) == ["Uno", "Dos"]
     assert [x.nombre for x in store.listar_recursos_de_tarea(t1.id)] == ["Ana"]
+
+
+def test_recurso_global_aparece_en_otro_proyecto(store):
+    p1 = store.crear_proyecto("Proyecto 1")
+    p2 = store.crear_proyecto("Proyecto 2")
+    ana = store.crear_recurso(p1.id, "Ana", categoria="personas", es_global=True)
+    luis = store.crear_recurso(p1.id, "Luis")  # no global: solo en p1
+
+    nombres_p2 = {r.nombre for r in store.listar_recursos(p2.id)}
+    assert "Ana" in nombres_p2
+    assert "Luis" not in nombres_p2
+
+    recursos_p1 = store.listar_recursos(p1.id)
+    assert {r.id for r in recursos_p1} == {ana.id, luis.id}
+
+
+def test_actualizar_recurso_guarda_categoria_y_global(store):
+    proyecto = store.crear_proyecto("Proyecto")
+    recurso = store.crear_recurso(proyecto.id, "Sala A", categoria="lugares")
+    recurso.categoria = "equipos"
+    recurso.es_global = True
+    store.actualizar_recurso(recurso)
+
+    actualizado = next(r for r in store.listar_recursos(proyecto.id) if r.id == recurso.id)
+    assert actualizado.categoria == "equipos"
+    assert actualizado.es_global is True
 
 
 def test_listar_recursos_por_tarea(store):

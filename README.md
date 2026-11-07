@@ -1,7 +1,7 @@
 # GnoMilestone
 
 Gestor de proyectos de escritorio para GNOME (GTK4/Adwaita), heredero espiritual de
-GNOME Planner: proyectos, tareas y subtareas con diagrama de Gantt, vista de tabla y
+GNOME Planner: proyectos, tareas y subtareas con diagrama de Gantt, lista de tareas y
 tablero Kanban, con integración opcional con GitHub Issues y GitHub Projects.
 
 En desarrollo: esta primera versión solo trae la ventana principal, el selector de
@@ -35,6 +35,11 @@ python3 -m venv --system-site-packages .venv
 sh i18n-compile.sh   # genera los catálogos .mo antes de ejecutar la app o los tests de i18n
 python3 -m gnomilestone.app
 ```
+
+## Próximas tareas
+
+- Definir una sección de Informes con gráficos configurables (circular, barras, líneas y
+  araña) para consultar el cumplimiento y otras métricas del proyecto.
 
 ## Licencia
 

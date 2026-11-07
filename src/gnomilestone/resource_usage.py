@@ -25,7 +25,6 @@ class SegmentoUso:
     fecha_inicio: date
     duracion_dias: int
     porcentaje_dedicacion: int
-    color_hex: str | None
 
     @property
     def fecha_fin(self) -> date:
@@ -107,7 +106,6 @@ def construir_filas_uso(
                     fecha_inicio=parse_fecha(tarea.fecha_inicio),
                     duracion_dias=duracion_efectiva(tarea),
                     porcentaje_dedicacion=asignacion.porcentaje_dedicacion,
-                    color_hex=recurso.color_hex,
                 )
             )
         segmentos.sort(key=lambda s: (s.fecha_inicio, s.titulo, s.tarea_id))
@@ -123,6 +121,28 @@ def construir_filas_uso(
             )
         )
     return filas
+
+
+def carga_equipo_por_dia(filas: list[FilaUso]) -> dict[date, int]:
+    """Carga del equipo por día, en % sobre su capacidad ese día.
+
+    La capacidad del equipo ese día es el número de personas con algo asignado × 100
+    (cada persona aporta 100 de capacidad "normal", tenga lo que tenga asignado). Por
+    debajo de 100 hay margen: alguien asignado solo al 50 % ese día, sin nadie más,
+    sale al 50 % (poca carga), no se infla a 100 solo por no estar sobrecargado. Por
+    encima de 100, lo asignado supera la capacidad normal del equipo ese día, ya sea
+    por solapes entre varias personas o porque una sola está individualmente
+    sobrecargada. Quien dibuja la franja decide los cortes entre "poca carga", "carga
+    normal" y "sobrecarga" (ver `_UMBRAL_CARGA_NORMAL` en `resource_usage_view.py`).
+    """
+    carga_total: dict[date, int] = {}
+    capacidad_total: dict[date, int] = {}
+    for fila in filas:
+        carga_persona = carga_por_dia(fila.segmentos)
+        for dia, valor in carga_persona.items():
+            carga_total[dia] = carga_total.get(dia, 0) + valor
+            capacidad_total[dia] = capacidad_total.get(dia, 0) + 100
+    return {dia: round(100 * carga_total[dia] / capacidad_total[dia]) for dia in carga_total}
 
 
 def rango_fechas(filas: list[FilaUso]) -> tuple[date, date] | None:

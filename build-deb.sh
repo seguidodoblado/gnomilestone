@@ -16,12 +16,13 @@ command -v dpkg-deb >/dev/null 2>&1 || { echo "Falta dpkg-deb (instala dpkg-dev)
 sh "$base/i18n-compile.sh"
 rm -rf "$stage"
 doc="$stage/usr/share/doc/gnomilestone"
-mkdir -p "$stage/DEBIAN" "$stage/usr/share/gnomilestone" "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" "$doc"
+mkdir -p "$stage/DEBIAN" "$stage/usr/share/gnomilestone" "$stage/usr/bin" "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/icons/hicolor/scalable/actions" "$doc"
 cp -a "$base/src/gnomilestone" "$stage/usr/share/gnomilestone/"
 find "$stage/usr/share/gnomilestone" -type d -name __pycache__ -prune -exec rm -rf {} +
 cp "$base/debian/gnomilestone-launcher" "$stage/usr/bin/gnomilestone"
 cp "$base/debian/gnomilestone.desktop" "$stage/usr/share/applications/"
 cp "$base/src/gnomilestone/assets/gnomilestone.svg" "$stage/usr/share/icons/hicolor/scalable/apps/"
+cp "$base/src/gnomilestone/assets/github-symbolic.svg" "$stage/usr/share/icons/hicolor/scalable/actions/"
 cp "$base/debian/copyright" "$doc/copyright"
 gzip -9n -c "$base/debian/changelog" > "$doc/changelog.Debian.gz"
 # Páginas de manual (inglés en man1, español en es/man1); la versión se rellena aquí

@@ -165,4 +165,115 @@ def test_limitar_hijos_tras_redimensionar_recorta_nietos_en_cascada():
         for t in ganttcalc.limitar_hijos_tras_redimensionar([padre, hijo, nieto], 1, date(2026, 3, 1), 3)
     }
     assert cambiadas[2].duracion_dias == 3  # la hija se recorta al rango del padre (01-04/03)
+
     assert cambiadas[3].fecha_inicio == "2026-03-03"  # la nieta se recorta al rango ya recortado
+
+
+def _tarea_vencimiento(
+    fecha_inicio=None,
+    fecha_fin_planificada=None,
+    fecha_limite=None,
+    duracion_dias=1,
+    porcentaje_completado=0,
+):
+    return Tarea(
+        id=1,
+        proyecto_id=1,
+        titulo="T",
+        fecha_inicio=fecha_inicio,
+        fecha_fin_planificada=fecha_fin_planificada,
+        fecha_limite=fecha_limite,
+        duracion_dias=duracion_dias,
+        porcentaje_completado=porcentaje_completado,
+    )
+
+
+def test_estado_vencimiento_sin_fechas_ni_porcentaje_no_aplica():
+    assert ganttcalc.estado_vencimiento(_tarea_vencimiento(), hoy=date(2026, 3, 1)) is None
+
+
+def test_estado_vencimiento_no_marca_tareas_completadas():
+    tarea = _tarea_vencimiento("2026-01-01", "2026-01-01", "2026-01-02", porcentaje_completado=100)
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 1)) is None
+
+
+def test_fecha_fin_planificada_usa_la_fecha_explicita():
+    tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-10", duracion_dias=20)
+    assert ganttcalc.fecha_fin_planificada(tarea) == date(2026, 3, 10)
+
+
+def test_fecha_fin_planificada_cae_al_ultimo_dia_de_la_duracion():
+    tarea = _tarea_vencimiento("2026-03-01", duracion_dias=5)
+    assert ganttcalc.fecha_fin_planificada(tarea) == date(2026, 3, 5)
+
+
+def test_estado_vencimiento_naranja_al_pasar_el_final_planificado():
+    tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-05")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 6)) == ganttcalc.PLANIFICADA_PASADA
+
+
+def test_estado_vencimiento_no_marca_el_ultimo_dia_planificado():
+    tarea = _tarea_vencimiento("2026-03-01", fecha_fin_planificada="2026-03-05")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 5)) is None
+
+
+def test_estado_vencimiento_rojo_al_pasar_la_fecha_limite():
+    tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 9)) == ganttcalc.VENCIDA
+
+
+def test_estado_vencimiento_no_marca_el_dia_de_la_fecha_limite():
+    tarea = _tarea_vencimiento("2026-03-01", "2026-03-05", "2026-03-08")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 8)) == ganttcalc.PLANIFICADA_PASADA
+
+
+def test_estado_vencimiento_rojo_sin_fecha_de_inicio():
+    tarea = _tarea_vencimiento(fecha_limite="2026-03-08")
+    assert ganttcalc.estado_vencimiento(tarea, hoy=date(2026, 3, 9)) == ganttcalc.VENCIDA
+
+
+def test_sincronizar_fin_planificado_usa_el_ultimo_dia_de_la_duracion():
+    tarea = ganttcalc.sincronizar_fin_planificado(_tarea(1, "2026-03-01", 5))
+    assert tarea.fecha_fin_planificada == "2026-03-05"
+
+
+def test_sincronizar_fin_planificado_corrige_un_valor_obsoleto():
+    tarea = _tarea(1, "2026-03-01", 5)
+    tarea.fecha_fin_planificada = "2026-03-20"
+    assert ganttcalc.sincronizar_fin_planificado(tarea).fecha_fin_planificada == "2026-03-05"
+
+
+def test_sincronizar_fin_planificado_no_toca_tareas_sin_inicio():
+    tarea = _tarea(1, None, 5)
+    assert ganttcalc.sincronizar_fin_planificado(tarea) is tarea
+
+
+def test_trasladar_hijos_actualiza_el_final_planificado():
+    padre = _tarea(1, "2026-03-01", 5)
+    hijo = _tarea(2, "2026-03-02", 2)
+    hijo.padre_id = 1
+    cambiadas = ganttcalc.trasladar_hijos([padre, hijo], 1, 3)
+    assert cambiadas[0].fecha_inicio == "2026-03-05"
+    assert cambiadas[0].fecha_fin_planificada == "2026-03-06"
+
+
+def test_recalcular_dependientes_actualiza_el_final_planificado():
+    tareas = [_tarea(1, "2026-03-01", 5), _tarea(2, "2026-03-03", 2)]
+    deps = [Dependencia(id=1, tarea_origen_id=1, tarea_destino_id=2)]
+    cambiadas = ganttcalc.recalcular_dependientes(tareas, deps, 1)
+    assert cambiadas[0].fecha_inicio == "2026-03-06"
+    assert cambiadas[0].fecha_fin_planificada == "2026-03-07"
+
+
+def test_limitar_hijos_tras_redimensionar_actualiza_el_final_planificado():
+    padre = _tarea(1, "2026-03-01", 10)
+    fuera = _tarea(3, "2026-03-05", 20)
+    fuera.padre_id = 1
+    cambiadas = {
+        t.id: t
+        for t in ganttcalc.limitar_hijos_tras_redimensionar(
+            [padre, fuera], 1, date(2026, 3, 1), 10
+        )
+    }
+    assert cambiadas[3].duracion_dias == 6
+    assert cambiadas[3].fecha_fin_planificada == "2026-03-10"
