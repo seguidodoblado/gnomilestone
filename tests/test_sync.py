@@ -629,3 +629,59 @@ def test_push_sigue_enviando_la_tarea_aunque_no_se_puedan_leer_las_etiquetas(tmp
     assert enviado["titulo"] == tarea.titulo
     assert enviado["labels"] is None  # etiquetas sin tocar
     assert store.etiquetas_base_github(tarea.id) == ["x"]  # la base no cambia
+
+
+def test_renombrar_en_local_y_sincronizar_no_duplica_la_tarea(tmp_path):
+    """Issue #28: renombrar en local y volver a sincronizar (pull y push) no crea copias."""
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "Bloguero",
+        github_repo_owner="testuser",
+        github_repo_name="bloguero",
+        github_project_v2_id="11",
+    )
+    t = store.crear_tarea(p.id, "Título original")
+    t.github_issue_number = 1
+    t.github_item_id = "ITEM_1"
+    store.actualizar_tarea(t)
+    with closing(store._connect()) as db, db:
+        db.execute("UPDATE tarea SET github_synced_at = '2026-01-01 00:00:00' WHERE id = ?", (t.id,))
+
+    t = store.obtener_tarea(t.id)
+    t.titulo = "Título renombrado en local"
+    store.actualizar_tarea(t)
+
+    item = GitHubItem(
+        id="ITEM_1",
+        title="Título original",
+        issue_number=1,
+        url="https://github.com/testuser/bloguero/issues/1",
+    )
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": None},
+        [],
+        [item],
+    )
+    client.listar_issues.return_value = [{"number": 1, "title": "Título original", "state": "open"}]
+    client.obtener_issue.return_value = {"labels": []}
+
+    sync = GitHubSyncManager(store, client)
+    res = sync.pull_proyecto(p.id)
+    assert res.tareas_creadas == 0
+    assert len(res.conflictos) == 1
+    assert [x.titulo for x in store.listar_tareas(p.id)] == ["Título renombrado en local"]
+
+    assert sync.push_tarea(t.id) is True
+    assert client.actualizar_issue.call_args.kwargs["titulo"] == "Título renombrado en local"
+    client.crear_issue.assert_not_called()
+
+    # GitHub ya tiene el título nuevo: otro pull sigue sin duplicar ni dar conflicto.
+    item.title = "Título renombrado en local"
+    client.listar_issues.return_value = [
+        {"number": 1, "title": item.title, "state": "open"}
+    ]
+    res = sync.pull_proyecto(p.id)
+    assert res.tareas_creadas == 0
+    assert res.conflictos == []
+    assert [x.titulo for x in store.listar_tareas(p.id)] == ["Título renombrado en local"]
