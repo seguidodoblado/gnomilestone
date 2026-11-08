@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -17,6 +18,8 @@ from gnomilestone.ganttcalc import (
 )
 from gnomilestone.i18n import _
 from gnomilestone.models import Asignacion, EstadoTablero, Recurso, Tarea
+from gnomilestone.models import Dependencia
+from gnomilestone.report_metrics import estado_github, proximos_hitos, reparto_por_recurso, ruta_critica
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 
 
@@ -32,11 +35,21 @@ class ReportView(Gtk.Box):
         self._summary = Gtk.Label(xalign=0)
         self._summary.add_css_class("title-3")
         self.append(self._summary)
+        self._details = Gtk.Label(xalign=0, wrap=True)
+        self._details.add_css_class("dim-label")
+        self.append(self._details)
         self._drawing = Gtk.DrawingArea(content_width=720, content_height=420)
         self._drawing.set_hexpand(True)
         self._drawing.set_vexpand(True)
         self._drawing.set_draw_func(self._draw)
         self.append(self._drawing)
+        self._insights = Gtk.DrawingArea(content_width=720, content_height=330)
+        self._insights.set_hexpand(True)
+        self._insights.set_content_height(330)
+        self._insights.set_vexpand(False)
+        self._insights.set_can_target(True)
+        self._insights.set_draw_func(self._draw_insights)
+        self.append(self._insights)
         self._tareas: list[Tarea] = []
         self._estados: list[EstadoTablero] = []
         self._font_family = "Sans"
@@ -44,6 +57,19 @@ class ReportView(Gtk.Box):
         self._recursos: list[Recurso] = []
         self._asignaciones: list[Asignacion] = []
         self._alertas = (0, 0, 0)
+        self._reparto = []
+        self._critica = []
+        self._hitos = []
+        self._tareas_semana = []
+        self._tarea_expandida = None
+        self._criticos_colapsados = set()
+        self._hitos_expandidos = set()
+        self._timeline_hitboxes = []
+        self._dependencias = []
+        gesto = Gtk.GestureClick()
+        gesto.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        gesto.connect("pressed", self._on_insights_pressed)
+        self._insights.add_controller(gesto)
 
     def set_data(
         self,
@@ -51,11 +77,34 @@ class ReportView(Gtk.Box):
         estados: list[EstadoTablero],
         recursos: list[Recurso] | None = None,
         asignaciones: list[Asignacion] | None = None,
+        dependencias: list[Dependencia] | None = None,
     ) -> None:
         self._tareas = tareas
         self._estados = estados
         self._recursos = recursos or []
         self._asignaciones = asignaciones or []
+        reparto = sorted(
+            reparto_por_recurso(self._recursos, tareas, self._asignaciones),
+            key=lambda fila: (-fila.tareas, -fila.progreso_medio, fila.recurso.nombre.casefold()),
+        )
+        sin_tareas = sum(fila.tareas == 0 for fila in reparto)
+        critica = ruta_critica(tareas, dependencias or [])
+        hitos = proximos_hitos(tareas, estados)
+        self._reparto, self._critica, self._hitos = reparto, critica, hitos
+        self._dependencias = dependencias or []
+        self._tareas_semana = [
+            tarea for tarea in tareas
+            if tarea.fecha_inicio
+        ]
+        github = estado_github(tareas)
+        self._details.set_text(
+            _("Ruta crítica: {critica} · Próximos hitos: {hitos} · "
+              "Recursos sin tareas: {sin_tareas} · GitHub vinculadas: {vinculadas}, locales: {locales}").format(
+                critica=" → ".join(t.titulo for t in critica) or _("sin dependencias"),
+                hitos=len(hitos), sin_tareas=sin_tareas,
+                vinculadas=github.vinculadas, locales=github.locales,
+            )
+        )
         hoy = datetime.now().astimezone().date()
         dias_alerta = settings.read_settings().get("dias_alerta_vencimiento", 1)
         try:
@@ -80,6 +129,311 @@ class ReportView(Gtk.Box):
             )
         )
         self._drawing.queue_draw()
+        self._insights.queue_draw()
+
+    def _draw_insights(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
+        """Gráficos adicionales: reparto, ruta crítica y próximos hitos."""
+        cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+        cr.select_font_face(self._font_family, 0, 0)
+        cr.set_font_size(max(11, self._font_size))
+        gap = 22
+        left_w = max(250, int(width * 0.29))
+        mid_w = max(420, int(width * 0.45))
+        right_x = left_w + mid_w + gap * 2
+        self._draw_insight_panel(cr, 0, 0, left_w, height, _("Reparto por persona"))
+        self._draw_insight_panel(cr, left_w + gap, 0, mid_w, height, _("Ruta crítica"))
+        self._draw_insight_panel(cr, right_x, 0, max(220, width - right_x), height, _("Próximos hitos"))
+        self._draw_resource_bars(cr, 18, 48, left_w - 36)
+        self._draw_critical_path(cr, left_w + gap + 18, 48, mid_w - 36)
+        self._draw_milestones(cr, right_x + 18, 70, max(190, width - right_x - 36))
+
+    def _draw_insight_panel(self, cr, x, y, width, height, title):
+        cr.set_source_rgba(0.12, 0.13, 0.15, 0.24)
+        cr.rectangle(x, y, width, height)
+        cr.fill()
+        cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+        cr.set_font_size(max(14, self._font_size + 2))
+        cr.move_to(x + 12, y + 22)
+        cr.show_text(title)
+
+    def _draw_resource_bars(self, cr, x, y, width):
+        filas = self._reparto[:7]
+        if not filas:
+            return
+        max_tareas = max(1, max(f.tareas for f in filas))
+        cr.set_font_size(max(12, self._font_size))
+        for i, fila in enumerate(filas):
+            yy = y + i * 31
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.move_to(x, yy + 12)
+            cr.show_text(fila.recurso.nombre[:14])
+            bx = x + min(100, width * 0.42)
+            bw = max(20, width - (bx - x) - 8)
+            bar_y, bar_h, radius = yy, 20, 10
+            self._rounded_rectangle(cr, bx, bar_y, bw, bar_h, radius)
+            cr.set_source_rgba(0.12, 0.22, 0.38, 0.75)
+            cr.fill()
+            progreso_w = bw * fila.tareas / max_tareas
+            if progreso_w:
+                self._rounded_rectangle(cr, bx, bar_y, progreso_w, bar_h, radius)
+                gradiente = cairo.LinearGradient(bx, bar_y, bx + progreso_w, bar_y + bar_h)
+                gradiente.add_color_stop_rgb(0, 0.18, 0.42, 0.78)
+                gradiente.add_color_stop_rgb(1, 0.30, 0.62, 0.95)
+                cr.set_source(gradiente)
+                cr.fill()
+            cr.set_source_rgb(0.96, 0.98, 1.0)
+            cr.set_font_size(max(12, self._font_size))
+            etiqueta = _("{tareas} tareas · {progreso:.0f}%").format(
+                tareas=fila.tareas, progreso=fila.progreso_medio
+            )
+            ext = cr.text_extents(etiqueta)
+            cr.move_to(bx + (bw - ext.width) / 2, bar_y + 14)
+            cr.show_text(etiqueta)
+
+    def _draw_critical_path(self, cr, x, y, width):
+        if self._tareas_semana:
+            self._draw_week_timeline(cr, x, y, width)
+            return
+        if not self._critica:
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.set_font_size(max(12, self._font_size))
+            cr.move_to(x, y + 32)
+            cr.show_text(_("No hay dependencias críticas"))
+            return
+        paso = max(34, min(76, width / len(self._critica)))
+        cadena_w = paso * max(0, len(self._critica) - 1)
+        x += max(0, (width - cadena_w) / 2)
+        cr.set_line_width(3)
+        cr.set_source_rgb(0.88, 0.20, 0.14)
+        node_w, node_h = min(92, paso * 0.72), 42
+        node_y = y + 12
+        line_y = node_y + node_h / 2
+        cr.move_to(x, line_y)
+        cr.line_to(x + paso * max(0, len(self._critica) - 1), line_y)
+        cr.stroke()
+        cr.set_font_size(max(11, self._font_size - 1))
+        for i, tarea in enumerate(self._critica):
+            xx = x + i * paso
+            cr.set_source_rgb(0.88, 0.20, 0.14)
+            self._rounded_rectangle(cr, xx - node_w / 2, node_y, node_w, node_h, 8)
+            cr.fill()
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.set_font_size(max(11, self._font_size - 1))
+            titulo = tarea.titulo[:13]
+            ext = cr.text_extents(titulo)
+            cr.move_to(xx - ext.width / 2, node_y + 17)
+            cr.show_text(titulo)
+            cr.set_font_size(max(9, self._font_size - 3))
+            detalle = f"{max(tarea.duracion_dias, 1)} d · {tarea.porcentaje_completado}%"
+            ext = cr.text_extents(detalle)
+            cr.move_to(xx - ext.width / 2, node_y + 33)
+            cr.show_text(detalle)
+        cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+        cr.set_font_size(max(12, self._font_size))
+        if len(self._critica) == 1:
+            leyenda = _("Única tarea crítica")
+        else:
+            leyenda = _("Esta cadena puede retrasar el proyecto")
+        ext = cr.text_extents(leyenda)
+        # x es el centro de la cadena; la leyenda se centra en el ancho disponible
+        # de la tarjeta, no en el primer nodo.
+        centro = x + cadena_w / 2
+        cr.move_to(centro - ext.width / 2, y + 112)
+        cr.show_text(leyenda)
+
+    def _draw_week_timeline(self, cr, x, y, width):
+        """Línea temporal centrada en el primer evento crítico."""
+        criticos = {t.id for t in self._critica}
+        criticos_datos = sorted(
+            (t for t in self._tareas_semana if t.id in criticos),
+            key=lambda t: t.fecha_inicio or "",
+        )
+        centro = parse_fecha(criticos_datos[0].fecha_inicio) if criticos_datos else parse_fecha(self._tareas_semana[0].fecha_inicio)
+        inicio = centro - timedelta(days=3)
+        fin = centro + timedelta(days=3)
+        tareas = [
+            t for t in self._tareas_semana
+            if t.fecha_inicio and inicio <= parse_fecha(t.fecha_inicio) <= fin
+        ]
+        self._timeline_hitboxes = []
+        cr.set_font_size(max(9, self._font_size - 2))
+        eje_y = y + 118
+        cr.set_line_width(2)
+        cr.set_source_rgba(*getattr(self, "_text_color", (0.2, 0.2, 0.2)), 0.45)
+        cr.move_to(x, eje_y)
+        cr.line_to(x + width, eje_y)
+        cr.stroke()
+        for dia in range(7):
+            xx = x + width * dia / 6
+            cr.set_source_rgba(*getattr(self, "_text_color", (0.2, 0.2, 0.2)), 0.35)
+            cr.move_to(xx, eje_y - 5)
+            cr.line_to(xx, eje_y + 5)
+            cr.stroke()
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.move_to(xx - 8, eje_y + 72)
+            cr.show_text((inicio + timedelta(days=dia)).strftime("%a")[:3])
+        tareas = sorted(
+            tareas,
+            key=lambda t: (t.fecha_inicio or "", t.id not in criticos, t.id),
+        )[:8]
+        por_dia = {}
+        for tarea in tareas:
+            por_dia.setdefault(parse_fecha(tarea.fecha_inicio), []).append(tarea)
+        for indice, tarea in enumerate(tareas):
+            fecha = parse_fecha(tarea.fecha_inicio)
+            dia = max(0, min(6, (fecha - inicio).days))
+            grupo = por_dia[fecha]
+            posicion = grupo.index(tarea)
+            desplazamiento = (posicion - (len(grupo) - 1) / 2) * min(30, width / 18)
+            xx = max(x + 5, min(x + width - 5, x + width * dia / 6 + desplazamiento))
+            critico = tarea.id in criticos
+            expandido = (critico and tarea.id not in self._criticos_colapsados) or tarea.id == self._tarea_expandida
+            color = (0.88, 0.20, 0.14) if critico else (0.22, 0.47, 0.84)
+            if not expandido:
+                cr.set_source_rgb(*color)
+                cr.arc(xx, eje_y, 5, 0, 2 * math.pi)
+                cr.fill()
+                self._timeline_hitboxes.append((xx - 12, eje_y - 12, xx + 12, eje_y + 12, tarea.id))
+                continue
+            popup_w = min(112, max(72, width / 2.8))
+            popup_h = 34 if critico else 28
+            encima = indice % 2 == 0
+            popup_y = eje_y - 68 if encima else eje_y + 18
+            popup_x = max(x, min(x + width - popup_w, xx - popup_w / 2))
+            self._rounded_rectangle(cr, popup_x, popup_y, popup_w, popup_h, 7)
+            if critico:
+                oscuro, claro = (0.68, 0.08, 0.10), (0.96, 0.25, 0.20)
+            else:
+                oscuro, claro = (0.12, 0.34, 0.68), (0.28, 0.62, 0.95)
+            gradiente = cairo.LinearGradient(popup_x, popup_y, popup_x, popup_y + popup_h)
+            gradiente.add_color_stop_rgb(0, *claro)
+            gradiente.add_color_stop_rgb(1, *oscuro)
+            cr.set_source(gradiente)
+            cr.fill()
+            cr.set_line_width(1.5)
+            cr.move_to(xx, popup_y + popup_h if encima else popup_y)
+            cr.line_to(xx, eje_y)
+            cr.stroke()
+            cr.set_source_rgb(*color)
+            cr.arc(xx, eje_y, 6 if critico else 4, 0, 2 * math.pi)
+            cr.fill()
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.set_font_size(max(9, self._font_size - 3))
+            titulo = tarea.titulo[:15]
+            ext = cr.text_extents(titulo)
+            cr.move_to(popup_x + (popup_w - ext.width) / 2, popup_y + 14)
+            cr.show_text(titulo)
+            if critico:
+                cr.set_font_size(max(8, self._font_size - 4))
+                detalle = f"{tarea.porcentaje_completado}% · {tarea.duracion_dias} d"
+                ext = cr.text_extents(detalle)
+                cr.move_to(popup_x + (popup_w - ext.width) / 2, popup_y + 27)
+                cr.show_text(detalle)
+            self._timeline_hitboxes.append((popup_x, popup_y, popup_x + popup_w, popup_y + popup_h, tarea.id))
+        cr.set_font_size(max(10, self._font_size - 1))
+        cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+        cr.set_font_size(max(10, self._font_size - 1))
+        leyenda = _("Ventana de 7 días centrada en el primer evento crítico · rojo = crítico")
+        if not self._critica:
+            leyenda = _("Ventana de 7 días centrada en el primer evento relevante")
+        ext = cr.text_extents(leyenda)
+        cr.move_to(x + (width - ext.width) / 2, y + 250)
+        cr.show_text(leyenda)
+
+    def _on_insights_pressed(self, _gesture, _n_press, x, y):
+        for x0, y0, x1, y1, hito_id in getattr(self, "_milestone_hitboxes", []):
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                if hito_id in self._hitos_expandidos:
+                    self._hitos_expandidos.remove(hito_id)
+                else:
+                    self._hitos_expandidos.add(hito_id)
+                self._insights.queue_draw()
+                return
+        if not self._timeline_hitboxes:
+            return
+        for x0, y0, x1, y1, tarea_id in self._timeline_hitboxes:
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                if tarea_id in {t.id for t in self._critica}:
+                    if tarea_id in self._criticos_colapsados:
+                        self._criticos_colapsados.remove(tarea_id)
+                    else:
+                        self._criticos_colapsados.add(tarea_id)
+                else:
+                    self._tarea_expandida = None if self._tarea_expandida == tarea_id else tarea_id
+                self._insights.queue_draw()
+                return
+
+    @staticmethod
+    def _rounded_rectangle(cr, x, y, width, height, radius):
+        """Dibuja un rectángulo redondeado compatible con pycairo."""
+        radius = min(radius, width / 2, height / 2)
+        cr.new_sub_path()
+        cr.arc(x + width - radius, y + radius, radius, -math.pi / 2, 0)
+        cr.arc(x + width - radius, y + height - radius, radius, 0, math.pi / 2)
+        cr.arc(x + radius, y + height - radius, radius, math.pi / 2, math.pi)
+        cr.arc(x + radius, y + radius, radius, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+
+    def _draw_milestones(self, cr, x, y, width):
+        self._milestone_hitboxes = []
+        hitos = self._hitos[:6]
+        if not hitos:
+            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
+            cr.set_font_size(max(12, self._font_size))
+            mensaje = _("No hay próximos hitos")
+            ext = cr.text_extents(mensaje)
+            cr.move_to(x + (width - ext.width) / 2, y + 112)
+            cr.show_text(mensaje)
+            return
+        tareas_por_id = {t.id: t for t in self._tareas}
+        for i, tarea in enumerate(hitos):
+            yy = y + i * 104
+            card_w, card_h = width - 16, 38
+            card_x = x + 8
+            gradiente = cairo.LinearGradient(card_x, yy, card_x, yy + card_h)
+            gradiente.add_color_stop_rgb(0, 1.0, 0.72, 0.22)
+            gradiente.add_color_stop_rgb(1, 0.78, 0.34, 0.06)
+            self._rounded_rectangle(cr, card_x, yy, card_w, card_h, 10)
+            cr.set_source(gradiente)
+            cr.fill()
+            cr.set_source_rgb(0.16, 0.12, 0.06)
+            cr.set_font_size(max(12, self._font_size))
+            titulo = f"{tarea.titulo}  ·  {tarea.fecha_limite or ''}"
+            ext = cr.text_extents(titulo)
+            cr.move_to(card_x + (card_w - ext.width) / 2, yy + 24)
+            cr.show_text(titulo)
+            self._milestone_hitboxes.append((card_x, yy, card_x + card_w, yy + card_h, tarea.id))
+            if tarea.id not in self._hitos_expandidos:
+                continue
+            predecesoras = [
+                tareas_por_id[d.tarea_origen_id]
+                for d in self._dependencias
+                if d.tarea_destino_id == tarea.id and d.tarea_origen_id in tareas_por_id
+            ]
+            filas = []
+            hijos_por_padre = {}
+            for hijo in self._tareas:
+                hijos_por_padre.setdefault(hijo.padre_id, []).append(hijo)
+            for previa in predecesoras:
+                filas.append((previa, 0))
+                filas.extend((hijo, 1) for hijo in hijos_por_padre.get(previa.id, [])[:2])
+            for j, (previa, nivel) in enumerate(filas[:6]):
+                    px = card_x + 12 + nivel * 18
+                    py = yy + 50 + j * 31
+                    fila_w = card_w - 24 - nivel * 18
+                    fila_h = 28 if nivel == 0 else 24
+                    gradiente = cairo.LinearGradient(px, py, px, py + fila_h)
+                    gradiente.add_color_stop_rgb(0, 0.28, 0.62, 0.95)
+                    gradiente.add_color_stop_rgb(1, 0.12, 0.34, 0.68)
+                    self._rounded_rectangle(cr, px, py, fila_w, fila_h, fila_h / 2)
+                    cr.set_source(gradiente)
+                    cr.fill()
+                    cr.set_source_rgb(0.96, 0.98, 1.0)
+                    cr.set_font_size(max(10, self._font_size - (2 if nivel else 1)))
+                    texto = previa.titulo[:22]
+                    ext = cr.text_extents(texto)
+                    cr.move_to(px + (fila_w - ext.width) / 2, py + fila_h / 2 + 4)
+                    cr.show_text(texto)
 
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
         settings = Gtk.Settings.get_default()
@@ -122,11 +476,20 @@ class ReportView(Gtk.Box):
         avg = sum(t.porcentaje_completado for t in tasks) / len(tasks) if tasks else 0
         x, y, w, h = 42, 72, max(160, width - 84), 58
         cr.set_source_rgb(0.82, 0.84, 0.87)
-        cr.rectangle(x, y, w, h)
+        self._rounded_rectangle(cr, x, y, w, h, h / 2)
         cr.fill()
-        cr.set_source_rgb(0.20, 0.55, 0.38)
-        cr.rectangle(x, y, w * min(100, max(0, avg)) / 100, h)
-        cr.fill()
+        gradiente = cairo.LinearGradient(x, y, x + w, y + h)
+        gradiente.add_color_stop_rgb(0, 0.12, 0.42, 0.30)
+        gradiente.add_color_stop_rgb(1, 0.30, 0.72, 0.48)
+        cr.set_source(gradiente)
+        relleno = w * min(100, max(0, avg)) / 100
+        if relleno > 0:
+            cr.save()
+            self._rounded_rectangle(cr, x, y, w, h, h / 2)
+            cr.clip()
+            cr.rectangle(x, y, relleno, h)
+            cr.fill()
+            cr.restore()
         cr.set_source_rgb(*self._text_color)
         cr.select_font_face(self._font_family, 0, 1)
         cr.set_font_size(max(13, self._font_size + 1))
@@ -151,8 +514,11 @@ class ReportView(Gtk.Box):
         for i, (name, count, color) in enumerate(counts):
             x = x0 + i * (w / len(counts)) + 10
             bh = h * count / max_count
-            cr.set_source_rgb(*color)
-            cr.rectangle(x, y0 + h - bh, bar_w, bh)
+            gradiente = cairo.LinearGradient(x, y0 + h - bh, x + bar_w, y0 + h)
+            gradiente.add_color_stop_rgb(0, *tuple(min(1, c * 0.72) for c in color))
+            gradiente.add_color_stop_rgb(1, *color)
+            cr.set_source(gradiente)
+            self._rounded_rectangle(cr, x, y0 + h - bh, bar_w, bh, min(8, bar_w / 2, bh / 2))
             cr.fill()
             cr.set_source_rgb(*self._text_color)
             cr.set_font_size(max(12, self._font_size + 1))
@@ -184,12 +550,16 @@ class ReportView(Gtk.Box):
                    sum(t.porcentaje_completado >= 100 for t in self._tareas)]
         labels = [_('Sin empezar'), _('En curso'), _('Completadas')]
         total = max(1, sum(buckets))
-        cx, cy, radius = panel_x + panel_w // 2, panel_y + panel_h // 2, min(100, max(62, panel_w // 4))
+        # El circular ocupa la mitad superior; la leyenda queda siempre debajo.
+        cx, cy, radius = panel_x + panel_w // 2, panel_y + panel_h * 0.36, min(88, max(58, panel_w // 4))
         start = -math.pi / 2
         colors = ((0.62, 0.65, 0.70), (0.95, 0.65, 0.20), (0.20, 0.55, 0.38))
         for count, color in zip(buckets, colors):
             sweep = 2 * math.pi * count / total
-            cr.set_source_rgb(*color)
+            gradiente = cairo.RadialGradient(cx - radius * 0.35, cy - radius * 0.45, radius * 0.1, cx, cy, radius)
+            gradiente.add_color_stop_rgb(0, *(min(1, c * 1.18) for c in color))
+            gradiente.add_color_stop_rgb(1, *color)
+            cr.set_source(gradiente)
             cr.move_to(cx, cy)
             cr.arc(cx, cy, radius, start, start + sweep)
             cr.close_path()
@@ -201,7 +571,7 @@ class ReportView(Gtk.Box):
         cr.show_text(_("Avance"))
         cr.set_font_size(max(12, self._font_size + 1))
         for i, label in enumerate(labels):
-            cr.move_to(panel_x + 28, panel_y + panel_h - 62 + i * 18)
+            cr.move_to(panel_x + 28, panel_y + panel_h - 76 + i * 18)
             cr.show_text(f"{label}: {buckets[i]}")
         self._draw_alerts(cr, panel_x, panel_y, panel_w, panel_h)
 
@@ -209,7 +579,7 @@ class ReportView(Gtk.Box):
         """Muestra un resumen de fechas para detectar desviaciones rápidamente."""
         vencidas, planificadas, proximas = self._alertas
         x = panel_x + panel_w * 0.55
-        y = panel_y + panel_h - 80
+        y = panel_y + panel_h - 76
         cr.set_font_size(max(12, self._font_size + 1))
         cr.set_source_rgb(*self._text_color)
         cr.move_to(x, y - 18)
