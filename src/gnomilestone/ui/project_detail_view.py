@@ -251,7 +251,10 @@ class ProjectDetailView(Gtk.Box):
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
         tareas_uso = tareas_visibles
         self._uso.set_filas(construir_filas_uso(recursos, tareas_uso, asignaciones), tareas_uso)
-        self._informes.set_data(tareas_visibles, estados, recursos, asignaciones)
+        self._informes.set_data(
+            tareas_visibles, estados, recursos, asignaciones,
+            dependencias=self._store.listar_dependencias(self._proyecto.id),
+        )
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
         self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
