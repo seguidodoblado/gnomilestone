@@ -20,6 +20,7 @@ from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.archived_dialog import ArchivedTasksDialog
 from gnomilestone.ui.board_settings_dialog import BoardSettingsDialog
+from gnomilestone.ui.documentation_view import DocumentationView
 from gnomilestone.ui.gantt_view import GanttView
 from gnomilestone.ui.kanban_view import KanbanView
 from gnomilestone.ui.labels_dialog import LabelsDialog
@@ -40,6 +41,12 @@ _VISTAS_RAIL = (
     ("recursos", "system-users-symbolic", _("Recursos"), _("Recursos")),
     ("uso", "preferences-system-time-symbolic", _("Uso"), _("Uso de recursos")),
     ("informes", "x-office-chart-bar-symbolic", _("Informes"), _("Informes del proyecto")),
+    (
+        "documentacion",
+        "text-x-generic-symbolic",
+        _("Documentación"),
+        _("Documentación del proyecto"),
+    ),
 )
 
 _css_rail_aplicado = False
@@ -167,6 +174,8 @@ class ProjectDetailView(Gtk.Box):
         self._vista_stack.add_named(self._uso, "uso")
         self._informes = ReportView()
         self._vista_stack.add_named(self._informes, "informes")
+        self._documentacion = DocumentationView(store)
+        self._vista_stack.add_named(self._documentacion, "documentacion")
 
         contenido.append(self._vista_stack)
         self.append(contenido)
@@ -204,7 +213,7 @@ class ProjectDetailView(Gtk.Box):
     def _on_rail_toggled(self, boton: Gtk.ToggleButton, nombre: str) -> None:
         if boton.get_active():
             self._vista_stack.set_visible_child_name(nombre)
-            # Recursos y Uso no listan tareas: el filtro no pinta nada ahí.
+            # Recursos y Documentación no listan tareas: el filtro no pinta nada ahí.
             self._mostrar_completadas_check.set_visible(
                 nombre in ("tabla", "tablero", "gantt", "uso", "informes")
             )
@@ -246,6 +255,7 @@ class ProjectDetailView(Gtk.Box):
 
         self._tablero.mostrar_proyecto(self._proyecto.id, self._mostrar_completadas)
         self._recursos.mostrar_proyecto(self._proyecto.id)
+        self._documentacion.mostrar_proyecto(self._proyecto.id)
 
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)

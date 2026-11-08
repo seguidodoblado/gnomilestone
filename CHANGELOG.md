@@ -7,6 +7,7 @@ en este archivo.
 
 ### Added
 
+- Sección «Documentación» en el rail de cada proyecto (#27): notas Markdown propias de la app, agrupadas en Arquitectura, Especificaciones, Blueprint y Decisiones técnicas, con alta, renombrado, baja y guardado automático; el editor con vista previa del diálogo de tarea pasa a ser un componente reutilizable (`MarkdownEditor`)
 - Estructura inicial del proyecto: paquete `gnomilestone` (app, settings, theme, i18n, ui) y tests básicos
 - Ventana principal con menú de cabecera ("Preferencias", "Acerca de GnoMilestone") y estado vacío a la espera de la gestión de proyectos; el panel lateral de proyectos se puede colapsar desde un botón en la cabecera
 - Preferencias de idioma y tema: selector Sistema/Español/English y Sistema/Claro/Oscuro, persistidos en `~/.config/gnomilestone/settings.json` y aplicados reiniciando la app

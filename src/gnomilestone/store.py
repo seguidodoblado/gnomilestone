@@ -7,11 +7,13 @@ from contextlib import closing
 from pathlib import Path
 
 from gnomilestone.models import (
+    SECCIONES_DOCUMENTACION,
     Asignacion,
     Comentario,
     Dependencia,
     EstadoTablero,
     Etiqueta,
+    NotaDocumentacion,
     Proyecto,
     Recurso,
     Tarea,
@@ -334,6 +336,21 @@ class Store:
             if "archivada" not in cols_tarea:
                 db.execute("ALTER TABLE tarea ADD COLUMN archivada INTEGER NOT NULL DEFAULT 0")
             db.execute("PRAGMA user_version = 17")
+            version = 17
+        if version < 18:
+            # Notas de documentación del proyecto (Markdown propio de la app).
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS nota_documentacion ("
+                " id INTEGER PRIMARY KEY,"
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " seccion TEXT NOT NULL,"
+                " titulo TEXT NOT NULL,"
+                " contenido TEXT NOT NULL DEFAULT '',"
+                " orden INTEGER NOT NULL DEFAULT 0,"
+                " creado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),"
+                " actualizado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))"
+            )
+            db.execute("PRAGMA user_version = 18")
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -767,6 +784,60 @@ class Store:
                 "UPDATE tarea SET github_etiquetas = ? WHERE id = ?",
                 (json.dumps(nombres), tarea_id),
             )
+
+    # -- Documentación -----------------------------------------------------
+
+    def crear_nota_documentacion(
+        self, proyecto_id: int, seccion: str, titulo: str, contenido: str = ""
+    ) -> NotaDocumentacion:
+        if seccion not in SECCIONES_DOCUMENTACION:
+            raise ValueError(f"Sección de documentación desconocida: {seccion}")
+        with closing(self._connect()) as db, db:
+            orden = db.execute(
+                "SELECT COALESCE(MAX(orden), -1) + 1 FROM nota_documentacion "
+                "WHERE proyecto_id = ? AND seccion = ?",
+                (proyecto_id, seccion),
+            ).fetchone()[0]
+            cursor = db.execute(
+                "INSERT INTO nota_documentacion (proyecto_id, seccion, titulo, contenido, orden) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (proyecto_id, seccion, titulo, contenido, orden),
+            )
+            fila = db.execute(
+                "SELECT * FROM nota_documentacion WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return NotaDocumentacion(**dict(fila))
+
+    def listar_notas_documentacion(
+        self, proyecto_id: int, seccion: str | None = None
+    ) -> list[NotaDocumentacion]:
+        consulta = "SELECT * FROM nota_documentacion WHERE proyecto_id = ?"
+        parametros: list = [proyecto_id]
+        if seccion is not None:
+            consulta += " AND seccion = ?"
+            parametros.append(seccion)
+        with closing(self._connect()) as db:
+            filas = db.execute(consulta + " ORDER BY seccion, orden, id", parametros).fetchall()
+            return [NotaDocumentacion(**dict(f)) for f in filas]
+
+    def obtener_nota_documentacion(self, nota_id: int) -> NotaDocumentacion | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM nota_documentacion WHERE id = ?", (nota_id,)
+            ).fetchone()
+            return NotaDocumentacion(**dict(fila)) if fila else None
+
+    def actualizar_nota_documentacion(self, nota: NotaDocumentacion) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE nota_documentacion SET titulo = ?, contenido = ?, orden = ?, "
+                "actualizado = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+                (nota.titulo, nota.contenido, nota.orden, nota.id),
+            )
+
+    def eliminar_nota_documentacion(self, nota_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM nota_documentacion WHERE id = ?", (nota_id,))
 
     # -- Comentarios -------------------------------------------------------
 

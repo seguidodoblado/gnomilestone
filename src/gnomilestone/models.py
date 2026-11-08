@@ -111,3 +111,19 @@ class Etiqueta:
     proyecto_id: int
     nombre: str
     color: str = "6e7781"  # hex sin «#», como lo da GitHub
+
+
+# Secciones de la documentación del proyecto, en el orden en que se muestran.
+SECCIONES_DOCUMENTACION = ("arquitectura", "especificaciones", "blueprint", "decisiones_tecnicas")
+
+
+@dataclass
+class NotaDocumentacion:
+    id: int
+    proyecto_id: int
+    seccion: str  # una de SECCIONES_DOCUMENTACION
+    titulo: str
+    contenido: str = ""  # Markdown
+    orden: int = 0
+    creado: str = ""
+    actualizado: str = ""

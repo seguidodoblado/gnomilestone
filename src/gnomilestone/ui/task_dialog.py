@@ -18,9 +18,9 @@ from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
 from gnomilestone.sync import GitHubSyncManager
-from gnomilestone.ui import markdown_edicion
 from gnomilestone.ui.avatar_widget import AvatarWidget
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
+from gnomilestone.ui.markdown_editor import MarkdownEditor
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.task_tree_view import ordenar_jerarquicamente
 
@@ -356,44 +356,12 @@ class TaskDialog(Gtk.Window):
         self._titulo_entry = Gtk.Entry(text=tarea.titulo if tarea else "")
         box.append(self._titulo_entry)
 
-        cabecera = Gtk.Box(spacing=6)
-        cabecera.append(Gtk.Label(label=_("Descripción"), xalign=0, hexpand=True))
-        modo_box = Gtk.Box()
-        modo_box.add_css_class("linked")
-        self._editar_toggle = Gtk.ToggleButton(label=_("Editar"), active=True)
-        self._vista_toggle = Gtk.ToggleButton(label=_("Vista previa"), group=self._editar_toggle)
-        self._vista_toggle.connect("toggled", self._on_modo_descripcion)
-        modo_box.append(self._editar_toggle)
-        modo_box.append(self._vista_toggle)
-        cabecera.append(modo_box)
-        box.append(cabecera)
-
-        self._descripcion_buffer = Gtk.TextBuffer(text=tarea.descripcion if tarea else "")
-        self._formato_barra = self._crear_barra_formato()
-        box.append(self._formato_barra)
-        descripcion_view = Gtk.TextView(
-            buffer=self._descripcion_buffer,
-            wrap_mode=Gtk.WrapMode.WORD_CHAR,
-            top_margin=6,
-            bottom_margin=6,
-            left_margin=6,
-            right_margin=6,
+        self._descripcion_editor = MarkdownEditor(
+            _("Descripción"),
+            texto=tarea.descripcion if tarea else "",
+            texto_vacio=_("Sin descripción"),
         )
-        descripcion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        descripcion_scroller.set_child(descripcion_view)
-        self._vista_label = Gtk.Label(
-            xalign=0, yalign=0, wrap=True, selectable=True, use_markup=True, margin_top=6,
-            margin_bottom=6, margin_start=6, margin_end=6,
-        )
-        vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        vista_scroller.set_child(self._vista_label)
-        self._descripcion_stack = Gtk.Stack()
-        self._descripcion_stack.add_named(descripcion_scroller, "editar")
-        self._descripcion_stack.add_named(vista_scroller, "vista")
-        self._descripcion_stack.set_size_request(-1, 130)
-        self._descripcion_stack.set_vexpand(True)  # crece al maximizar la ventana
-        self._descripcion_stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
-        box.append(self._descripcion_stack)
+        box.append(self._descripcion_editor)
 
         box.append(Gtk.Label(label=_("Tarea padre"), xalign=0))
         self._padre_dropdown = self._crear_selector_tareas(tarea)
@@ -748,59 +716,6 @@ class TaskDialog(Gtk.Window):
 
     # ------------------------------------------------------------------ interacción
 
-    def _on_modo_descripcion(self, boton: Gtk.ToggleButton) -> None:
-        if boton.get_active():
-            inicio, fin = self._descripcion_buffer.get_bounds()
-            texto = self._descripcion_buffer.get_text(inicio, fin, False)
-            if texto.strip():
-                self._vista_label.set_markup(markdown_a_pango(texto))
-            else:
-                self._vista_label.set_markup(f"<i>{GLib.markup_escape_text(_('Sin descripción'))}</i>")
-            self._descripcion_stack.set_visible_child_name("vista")
-            self._formato_barra.set_visible(False)
-        else:
-            self._descripcion_stack.set_visible_child_name("editar")
-            self._formato_barra.set_visible(True)
-
-    def _crear_barra_formato(self) -> Gtk.Box:
-        barra = Gtk.Box(spacing=4)
-        botones = (
-            ("format-text-bold-symbolic", _("Negrita"), "**", "**", _("texto")),
-            ("format-text-italic-symbolic", _("Cursiva"), "*", "*", _("texto")),
-            ("format-text-strikethrough-symbolic", _("Tachado"), "~~", "~~", _("texto")),
-            ("utilities-terminal-symbolic", _("Código"), "`", "`", _("código")),
-            ("insert-link-symbolic", _("Enlace"), "[", "](https://)", _("texto")),
-        )
-        for icono, tooltip, antes, despues, ejemplo in botones:
-            boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
-            boton.add_css_class("flat")
-            boton.connect("clicked", lambda _b, a=antes, d=despues, e=ejemplo: self._envolver(a, d, e))
-            barra.append(boton)
-        barra.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
-        lineas = (
-            ("H", _("Título"), "## "),
-            ("view-list-bullet-symbolic", _("Lista"), "- "),
-            ("view-list-ordered-symbolic", _("Lista numerada"), "1. "),
-            ("selection-mode-symbolic", _("Lista de tareas"), "- [ ] "),
-            ("format-indent-more-symbolic", _("Cita"), "> "),
-        )
-        for icono, tooltip, prefijo in lineas:
-            if icono == "H":  # no hay icono simbólico de título fiable en todos los temas
-                boton = Gtk.Button(tooltip_text=tooltip)
-                boton.set_child(Gtk.Label(label="<b>H</b>", use_markup=True))
-            else:
-                boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
-            boton.add_css_class("flat")
-            boton.connect("clicked", lambda _b, p=prefijo: self._prefijar_lineas(p))
-            barra.append(boton)
-        return barra
-
-    def _envolver(self, antes: str, despues: str, ejemplo: str) -> None:
-        markdown_edicion.envolver(self._descripcion_buffer, antes, despues, ejemplo)
-
-    def _prefijar_lineas(self, prefijo: str) -> None:
-        markdown_edicion.prefijar_lineas(self._descripcion_buffer, prefijo)
-
     def _on_buscar_dependencia(self, entrada: Gtk.SearchEntry) -> None:
         texto = entrada.get_text().strip().casefold()
         for _origen_id, check in self._dependencia_checks:
@@ -848,10 +763,9 @@ class TaskDialog(Gtk.Window):
     # ------------------------------------------------------------------ cambios sin guardar
 
     def _capturar_estado(self) -> tuple:
-        inicio, fin = self._descripcion_buffer.get_bounds()
         return (
             self._titulo_entry.get_text(),
-            self._descripcion_buffer.get_text(inicio, fin, False),
+            self._descripcion_editor.obtener_texto(),
             self._padre_dropdown.get_selected(),
             self._estado_dropdown.get_selected(),
             self._prioridad_dropdown.get_selected(),
@@ -991,8 +905,7 @@ class TaskDialog(Gtk.Window):
         estado_id = (
             self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
         )
-        inicio, fin = self._descripcion_buffer.get_bounds()
-        descripcion = self._descripcion_buffer.get_text(inicio, fin, False).strip()
+        descripcion = self._descripcion_editor.obtener_texto().strip()
         if es_hito:
             duracion = 1
         elif fecha and fecha_fin:

@@ -376,3 +376,37 @@ def test_las_tareas_archivadas_no_salen_en_listar_tareas_de_proyectos(store):
     proyecto, padre, *_resto = _arbol_para_archivo(store)
     store.archivar_tarea(padre.id)
     assert [t.titulo for t in store.listar_tareas_de_proyectos([proyecto.id])] == ["Otra"]
+
+
+def test_notas_de_documentacion_crud_y_orden(store):
+    proyecto = store.crear_proyecto("Docs")
+    a = store.crear_nota_documentacion(proyecto.id, "arquitectura", "Capas", "# Capas")
+    b = store.crear_nota_documentacion(proyecto.id, "arquitectura", "Datos")
+    c = store.crear_nota_documentacion(proyecto.id, "blueprint", "Roadmap")
+    assert (a.orden, b.orden, c.orden) == (0, 1, 0)
+    assert [n.titulo for n in store.listar_notas_documentacion(proyecto.id, "arquitectura")] == [
+        "Capas", "Datos",
+    ]
+    assert len(store.listar_notas_documentacion(proyecto.id)) == 3
+
+    b.titulo = "Modelo de datos"
+    b.contenido = "Tablas"
+    store.actualizar_nota_documentacion(b)
+    guardada = store.obtener_nota_documentacion(b.id)
+    assert (guardada.titulo, guardada.contenido) == ("Modelo de datos", "Tablas")
+
+    store.eliminar_nota_documentacion(a.id)
+    assert store.obtener_nota_documentacion(a.id) is None
+
+
+def test_nota_de_documentacion_rechaza_seccion_desconocida(store):
+    proyecto = store.crear_proyecto("Docs")
+    with pytest.raises(ValueError):
+        store.crear_nota_documentacion(proyecto.id, "otra", "X")
+
+
+def test_eliminar_proyecto_borra_sus_notas_de_documentacion(store):
+    proyecto = store.crear_proyecto("Docs")
+    store.crear_nota_documentacion(proyecto.id, "blueprint", "Roadmap")
+    store.eliminar_proyecto(proyecto.id)
+    assert store.listar_notas_documentacion(proyecto.id) == []
