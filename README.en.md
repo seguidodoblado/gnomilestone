@@ -29,23 +29,35 @@ with GitHub Issues and GitHub Projects.
 
 - **Projects and tasks**: create/delete projects, tasks and subtasks with hierarchy,
   board column, dates, duration, % complete, milestones, dependencies (with cycle
-  detection) and people assignment.
+  detection), people assignment with their dedication, priority, colored labels and
+  comments.
+- **Task dialog**: a tabbed window (General, Dates and progress, Assignments,
+  Dependencies and Comments), a Markdown description with a formatting bar and preview,
+  searchable pickers for the parent task and dependencies, a calendar with shortcuts
+  (Today, Tomorrow, Next week), field-by-field validation and a warning about unsaved
+  changes.
 - **Views within a project** (Planner-style icon rail): List (flat listing with
-  hierarchy indentation, text search and board-column filter), Kanban board
-  (configurable columns, draggable cards), Gantt (bars with progress fill, milestones,
-  dependency arrows, drag to move/resize, zoom and cascading propagation to children
-  and dependents), Resources (create/edit, avatar, workload per person) and Resource
-  usage (occupancy over time, with overload marked in red).
+  hierarchy indentation, text search and board-column filter, with priority and label
+  columns), Kanban board (configurable columns, draggable cards), Gantt (bars with
+  progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
+  propagation to children and dependents), Resources (create/edit, avatar, workload per
+  person) and Resource usage (occupancy over time, with overload marked in red).
 - **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
   between them.
 - **Reports**: a visual panel with overall progress, tasks per status, progress
   breakdown (not started/in progress/completed) and date alerts (overdue, past
   planned end, due within 7 days, active resources).
 - **Due dates**: a task's name is shown in orange once it is past its planned end,
-  and in red once it is past its deadline; a filter to hide completed tasks.
+  and in red once it is past its deadline, and the deadline is marked with a flag in the
+  Gantt and in Usage; completed tasks are shown by default, with a filter to hide them.
+- **Completed column and archive**: a board column can be marked as the “completed” one
+  (entering it sets the task to 100% and leaving it undoes that), and tasks that no
+  longer matter can be archived —including all the completed ones at once— and
+  recovered later from a list of archived tasks.
 - **GitHub integration**: optionally link a project to a repository (and a GitHub
   Project), with two-way synchronization of Issues (pull and create tasks, push
-  status changes) and of the Project's fields.
+  status changes), of the Project's fields (including the board columns and the
+  priority), of labels and of comments; deleting a task also deletes its issue.
 - **Preferences**: language selector (System/Español/English) and theme selector
   (System/Light/Dark), persisted in `~/.config/gnomilestone/settings.json`.
 
