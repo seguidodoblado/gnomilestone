@@ -10,11 +10,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
 from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Proyecto, Recurso, Tarea
-from gnomilestone.resource_usage import construir_filas_uso
 
 
 @dataclass(frozen=True)
@@ -103,7 +102,6 @@ def ruta_critica(tareas: list[Tarea], dependencias: list[Dependencia]) -> list[T
 
 
 def proximos_hitos(tareas: list[Tarea], estados: list[EstadoTablero]) -> list[Tarea]:
-    nombres = {e.id: e.nombre for e in estados}
     return sorted((t for t in tareas if t.es_hito and t.fecha_limite), key=lambda t: t.fecha_limite or "")
 
 
@@ -135,7 +133,15 @@ def resumen_multi_proyecto(
     proyectos: list[Proyecto], tareas: list[Tarea]
 ) -> dict[str, float | int]:
     activas = [t for t in tareas if not t.archivada]
-    vencidas = sum(bool(t.fecha_limite and t.porcentaje_completado < 100 and parse_fecha(t.fecha_limite) < date.today()) for t in activas)
+    hoy = datetime.now().astimezone().date()
+    vencidas = sum(
+        bool(
+            t.fecha_limite
+            and t.porcentaje_completado < 100
+            and parse_fecha(t.fecha_limite) < hoy
+        )
+        for t in activas
+    )
     return {
         "proyectos": len([p for p in proyectos if not p.archivado]),
         "tareas": len(activas),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import cairo
 import gi
@@ -17,9 +17,13 @@ from gnomilestone.ganttcalc import (
     parse_fecha,
 )
 from gnomilestone.i18n import _
-from gnomilestone.models import Asignacion, EstadoTablero, Recurso, Tarea
-from gnomilestone.models import Dependencia
-from gnomilestone.report_metrics import estado_github, proximos_hitos, reparto_por_recurso, ruta_critica
+from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Recurso, Tarea
+from gnomilestone.report_metrics import (
+    estado_github,
+    proximos_hitos,
+    reparto_por_recurso,
+    ruta_critica,
+)
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 
 

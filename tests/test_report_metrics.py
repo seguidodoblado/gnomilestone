@@ -1,8 +1,8 @@
-from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Proyecto, Recurso, Tarea
+from gnomilestone.models import Asignacion, Dependencia, Proyecto, Recurso, Tarea
 from gnomilestone.report_metrics import (
     estado_github,
-    reparto_por_recurso,
     recursos_sin_tareas,
+    reparto_por_recurso,
     resumen_multi_proyecto,
     ruta_critica,
 )
