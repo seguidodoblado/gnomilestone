@@ -29,24 +29,38 @@ bidireccional opcional con GitHub Issues y GitHub Projects.
 
 - **Proyectos y tareas**: alta/baja de proyectos, tareas y subtareas con jerarquía,
   columna de tablero, fechas, duración, % completado, hitos, dependencias (con
-  detección de ciclos) y asignación de personas.
+  detección de ciclos), asignación de personas con su dedicación, prioridad, etiquetas
+  de colores y comentarios.
+- **Diálogo de tarea**: ventana con pestañas (General, Fechas y progreso, Asignaciones,
+  Dependencias y Comentarios), descripción en Markdown con barra de formato y vista
+  previa, selectores con búsqueda para la tarea padre y las dependencias, calendario con
+  atajos (Hoy, Mañana, Próxima semana), validación campo a campo y aviso de cambios sin
+  guardar.
 - **Vistas de un proyecto** (rail de iconos al estilo Planner): Lista (listado plano
-  con indentación, búsqueda y filtro por columna), Tablero Kanban (columnas
-  configurables, tarjetas arrastrables), Gantt (barras con progreso, hitos, flechas
-  de dependencia, arrastre para mover/redimensionar, zoom y propagación en cascada a
-  hijas y dependientes), Recursos (alta/edición, avatar, carga por persona) y Uso de
-  recursos (ocupación en el tiempo, con sobrecarga marcada en rojo).
+  con indentación, búsqueda y filtro por columna, con columnas de prioridad y
+  etiquetas), Tablero Kanban (columnas configurables, tarjetas arrastrables), Gantt
+  (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
+  zoom y propagación en cascada a hijas y dependientes), Recursos (alta/edición, avatar,
+  carga por persona) y Uso de recursos (ocupación en el tiempo, con sobrecarga marcada
+  en rojo).
 - **Gantt global**: superpone los proyectos elegidos en un único diagrama para
   detectar solapes entre ellos.
 - **Informes**: panel visual por proyecto con progreso global, tareas por estado,
   avance (sin empezar/en curso/completadas) y alertas de fechas (vencidas,
   planificadas pasadas, próximas 7 días, recursos activos).
 - **Vencimientos**: el nombre de una tarea se pinta en naranja si ya pasó su final
-  planificado y en rojo si ya pasó su fecha límite; filtro para ocultar las tareas
-  completadas.
+  planificado y en rojo si ya pasó su fecha límite, y la fecha límite se señala con una
+  bandera en el Gantt y en Uso; las tareas completadas se ven por defecto, con un filtro
+  para ocultarlas.
+- **Columna de completadas y archivo**: una columna del tablero se puede marcar como «de
+  completadas» (entrar en ella pone la tarea al 100 % y salir lo deshace), y las tareas
+  que ya no interesan se pueden archivar —incluso todas las completadas de golpe— y
+  recuperar después desde una lista de archivadas.
 - **Integración con GitHub**: vinculación opcional de un proyecto a un repositorio
   (y a un GitHub Project), con sincronización bidireccional de Issues (traer y crear
-  tareas, enviar cambios de estado) y de los campos del Project.
+  tareas, enviar cambios de estado), de los campos del Project (incluidas las columnas
+  del tablero y la prioridad), de las etiquetas y de los comentarios; eliminar una tarea
+  borra también su issue.
 - **Preferencias**: selector de idioma (Sistema/Español/English) y de tema
   (Sistema/Claro/Oscuro), persistidos en `~/.config/gnomilestone/settings.json`.
 
