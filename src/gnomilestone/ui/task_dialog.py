@@ -3,20 +3,30 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import gi
 
+gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gdk, GLib, Gtk
 
+from gnomilestone import completado
+from gnomilestone.etiquetas import color_automatico, color_de_texto
 from gnomilestone.i18n import _
+from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
 from gnomilestone.sync import GitHubSyncManager
+from gnomilestone.ui import markdown_edicion
 from gnomilestone.ui.avatar_widget import AvatarWidget
+from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
+from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
+from gnomilestone.ui.task_tree_view import ordenar_jerarquicamente
 
 log = logging.getLogger(__name__)
+
+_PORCENTAJES_RAPIDOS = (0, 25, 50, 75, 100)
 
 
 def _descendientes(tareas: list[Tarea], raiz_id: int) -> set[int]:
@@ -34,6 +44,181 @@ def _descendientes(tareas: list[Tarea], raiz_id: int) -> set[int]:
     return resultado
 
 
+def _fecha_a_iso(fecha: GLib.DateTime) -> str:
+    return f"{fecha.get_year():04d}-{fecha.get_month():02d}-{fecha.get_day_of_month():02d}"
+
+
+class _SelectorFecha:
+    """Botón con calendario emergente. `valor` es ISO o None.
+
+    El día elegido en el calendario no se aplica hasta pulsar «Aplicar»; los atajos
+    (Hoy, Mañana, Próxima semana, Sin fecha) aplican y cierran al momento."""
+
+    def __init__(self, fecha_inicial: str | None, on_change: Callable[[], None]) -> None:
+        self.valor = fecha_inicial
+        self._on_change = on_change
+        self.widget = Gtk.MenuButton()
+
+        popover = Gtk.Popover()
+        self._popover = popover
+        popover_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8,
+            margin_top=10,
+            margin_bottom=10,
+            margin_start=10,
+            margin_end=10,
+        )
+        self._calendar = Gtk.Calendar()
+        self._mostrar_en_calendario(fecha_inicial)
+        # Al reabrir, el calendario vuelve a mostrar la fecha aplicada (se descarta lo
+        # que se hubiera navegado o marcado sin pulsar «Aplicar»).
+        popover.connect("show", lambda _p: self._mostrar_en_calendario(self.valor))
+        popover_box.append(self._calendar)
+
+        botones_rapidos = Gtk.Box(spacing=6, homogeneous=True)
+        for icono, etiqueta, dias in (
+            ("x-office-calendar-symbolic", _("Hoy"), lambda hoy: 0),
+            ("go-next-symbolic", _("Mañana"), lambda hoy: 1),
+            # Lunes de la semana siguiente (si hoy es lunes, el de dentro de 7 días).
+            ("media-skip-forward-symbolic", _("Próxima semana"), lambda hoy: 7 - hoy.weekday()),
+        ):
+            boton = self._boton_con_icono(icono, etiqueta)
+            boton.connect("clicked", self._on_preset, dias)
+            botones_rapidos.append(boton)
+        popover_box.append(botones_rapidos)
+        quitar_button = self._boton_con_icono("edit-clear-symbolic", _("Sin fecha"))
+        quitar_button.connect("clicked", lambda _b: self._aplicar(None))
+        popover_box.append(quitar_button)
+        aplicar_button = Gtk.Button(label=_("Aplicar"))
+        aplicar_button.add_css_class("suggested-action")
+        aplicar_button.connect(
+            "clicked", lambda _b: self._aplicar(_fecha_a_iso(self._calendar.get_date()))
+        )
+        popover_box.append(aplicar_button)
+
+        popover.set_child(popover_box)
+        self.widget.set_popover(popover)
+        self._actualizar_etiqueta()
+
+    @staticmethod
+    def _boton_con_icono(icono: str, etiqueta: str) -> Gtk.Button:
+        contenido = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
+        contenido.append(Gtk.Image.new_from_icon_name(icono))
+        contenido.append(Gtk.Label(label=etiqueta))
+        boton = Gtk.Button()
+        boton.set_child(contenido)
+        return boton
+
+    def _mostrar_en_calendario(self, valor: str | None) -> None:
+        if valor:
+            anio, mes, dia = (int(parte) for parte in valor.split("-"))
+            self._calendar.select_day(GLib.DateTime.new_local(anio, mes, dia, 0, 0, 0))
+
+    def _actualizar_etiqueta(self) -> None:
+        if self.valor:
+            anio, mes, dia = self.valor.split("-")
+            self.widget.set_label(f"{dia}/{mes}/{anio}")
+        else:
+            self.widget.set_label(_("Sin fecha"))
+
+    def establecer(self, valor: str | None) -> None:
+        cambio = valor != self.valor
+        self.valor = valor
+        self._actualizar_etiqueta()
+        if cambio:
+            self._on_change()
+
+    def _aplicar(self, valor: str | None) -> None:
+        self.establecer(valor)
+        self._popover.popdown()
+
+    def _on_preset(self, _button: Gtk.Button, dias_desde_hoy: Callable[[date], int]) -> None:
+        ahora = GLib.DateTime.new_now_local()
+        hoy = date(ahora.get_year(), ahora.get_month(), ahora.get_day_of_month())
+        destino = hoy + timedelta(days=dias_desde_hoy(hoy))
+        # select_day no dispara "day-selected" si el calendario ya mostraba ese día
+        # (p. ej. al reabrir el diálogo): se actualiza el estado a mano, no solo por la señal.
+        self._mostrar_en_calendario(destino.isoformat())
+        self._aplicar(destino.isoformat())
+
+
+class _SugerenciasEntry:
+    """Lista de sugerencias bajo un `Gtk.Entry`: un clic en un nombre llama a `on_elegida`.
+
+    `obtener(texto)` recibe el texto ya en minúsculas y devuelve los nombres a mostrar.
+    La lista no toma el foco, así que el campo sigue recibiendo lo que se escribe.
+    """
+
+    def __init__(
+        self,
+        entry: Gtk.Entry,
+        obtener: Callable[[str], list[str]],
+        on_elegida: Callable[[str], None],
+    ) -> None:
+        self._entry = entry
+        self._obtener = obtener
+        self._on_elegida = on_elegida
+        self._lista = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, focusable=False)
+        self._lista.connect("row-activated", self._on_fila)
+        scroller = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            propagate_natural_height=True,
+            max_content_height=200,
+            focusable=False,
+        )
+        scroller.set_child(self._lista)
+        self._popover = Gtk.Popover(
+            autohide=False, has_arrow=False, position=Gtk.PositionType.BOTTOM, focusable=False
+        )
+        self._popover.set_child(scroller)
+        self._popover.set_parent(entry)
+        entry.connect("destroy", lambda _w: self._popover.unparent())
+        entry.connect("changed", lambda _e: self.actualizar(False))
+        foco = Gtk.EventControllerFocus()
+        foco.connect("enter", lambda _c: self.actualizar(True))
+        foco.connect("leave", lambda _c: GLib.timeout_add(150, self._ocultar))
+        entry.add_controller(foco)
+        teclas = Gtk.EventControllerKey()
+        teclas.connect("key-pressed", self._on_tecla)
+        entry.add_controller(teclas)
+
+    def _on_tecla(self, _ctrl, keyval, _keycode, _estado) -> bool:
+        if keyval == Gdk.KEY_Escape and self._popover.get_visible():
+            self._popover.popdown()
+            return True
+        return False
+
+    def _ocultar(self) -> bool:
+        if not self._entry.has_focus():
+            self._popover.popdown()
+        return GLib.SOURCE_REMOVE
+
+    def actualizar(self, mostrar_si_vacio: bool) -> None:
+        texto = self._entry.get_text().strip().casefold()
+        if not texto and not mostrar_si_vacio:
+            self._popover.popdown()
+            return
+        nombres = self._obtener(texto)
+        while (fila := self._lista.get_first_child()) is not None:
+            self._lista.remove(fila)
+        if not nombres:
+            self._popover.popdown()
+            return
+        for nombre in nombres:
+            self._lista.append(
+                Gtk.Label(
+                    label=nombre, xalign=0, margin_top=4, margin_bottom=4, margin_start=8, margin_end=8
+                )
+            )
+        self._popover.set_size_request(self._entry.get_width(), -1)
+        self._popover.popup()
+
+    def _on_fila(self, _lista: Gtk.ListBox, fila: Gtk.ListBoxRow) -> None:
+        self._popover.popdown()
+        self._on_elegida(fila.get_child().get_label())
+
+
 class TaskDialog(Gtk.Window):
     """Alta/edición de una tarea: jerarquía, estado, fechas, progreso y dependencias."""
 
@@ -47,21 +232,28 @@ class TaskDialog(Gtk.Window):
     ) -> None:
         super().__init__(
             title=_("Editar tarea") if tarea else _("Nueva tarea"),
-            transient_for=parent,
-            modal=True,
             default_width=560,
-            default_height=720,
+            default_height=640,
         )
         self.set_resizable(True)
+        # Ni modal ni «transient»: Mutter no deja maximizar los diálogos con ventana madre;
+        # así el escritorio ofrece su botón de maximizar normal.
+        self._parent = parent
         self._store = store
         self._proyecto_id = proyecto_id
         self._on_saved = on_saved
         self._tarea = tarea
+        self._cierre_forzado = False
+        self._actualizando_fechas = False
+        self._marcados_error: list[Gtk.Widget] = []
 
         todas = store.listar_tareas(proyecto_id)
         excluidas = {tarea.id} | _descendientes(todas, tarea.id) if tarea else set()
-        self._candidatas_padre = [t for t in todas if t.id not in excluidas]
-        self._candidatas_dependencia = [t for t in todas if t.id not in excluidas]
+        # Orden jerárquico (padre y luego hijos) con el prefijo de conectores del listado.
+        ordenadas = ordenar_jerarquicamente([t for t in todas if t.id not in excluidas])
+        self._candidatas_padre = [t for t, _prefijo in ordenadas]
+        self._prefijos_jerarquia = {t.id: prefijo for t, prefijo in ordenadas}
+        self._candidatas_dependencia = self._candidatas_padre
         self._estados = store.listar_estados(proyecto_id)
 
         dependencias_actuales = {
@@ -73,129 +265,35 @@ class TaskDialog(Gtk.Window):
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.set_child(root)
 
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=10,
-            margin_top=16,
-            margin_bottom=16,
-            margin_start=16,
-            margin_end=16,
+        self._notebook = Gtk.Notebook(vexpand=True)
+        root.append(self._notebook)
+        self._pagina_general = self._nueva_pagina(_("General"))
+        self._pagina_fechas = self._nueva_pagina(_("Fechas y progreso"))
+        self._pagina_asignaciones = self._nueva_pagina(_("Asignaciones"))
+        self._pagina_dependencias = self._nueva_pagina(_("Dependencias"))
+        # Los comentarios cuelgan de una tarea ya guardada: solo al editar.
+        self._pagina_comentarios = self._nueva_pagina(_("Comentarios")) if tarea else None
+
+        self._construir_general(tarea)
+        self._construir_fechas(tarea)
+        self._construir_asignaciones(tarea)
+        self._construir_dependencias(dependencias_actuales)
+        if tarea:
+            self._construir_comentarios()
+
+        self._error_label = Gtk.Label(
+            xalign=0, wrap=True, margin_start=16, margin_end=16, margin_top=4
         )
-        contenido_scroller = Gtk.ScrolledWindow(
-            vexpand=True,
-            hscrollbar_policy=Gtk.PolicyType.NEVER,
-            kinetic_scrolling=True,
-        )
-        contenido_scroller.set_child(box)
-        root.append(contenido_scroller)
-
-        box.append(Gtk.Label(label=_("Título"), xalign=0))
-        self._titulo_entry = Gtk.Entry(text=tarea.titulo if tarea else "")
-        box.append(self._titulo_entry)
-
-        box.append(Gtk.Label(label=_("Descripción"), xalign=0))
-        self._descripcion_buffer = Gtk.TextBuffer(text=tarea.descripcion if tarea else "")
-        descripcion_view = Gtk.TextView(
-            buffer=self._descripcion_buffer,
-            wrap_mode=Gtk.WrapMode.WORD_CHAR,
-            top_margin=6,
-            bottom_margin=6,
-            left_margin=6,
-            right_margin=6,
-        )
-        descripcion_scroller = Gtk.ScrolledWindow(
-            height_request=90, hscrollbar_policy=Gtk.PolicyType.NEVER
-        )
-        descripcion_scroller.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
-        descripcion_scroller.set_child(descripcion_view)
-        box.append(descripcion_scroller)
-
-        box.append(Gtk.Label(label=_("Tarea padre"), xalign=0))
-        padre_labels = [_("Ninguna")] + [t.titulo for t in self._candidatas_padre]
-        self._padre_dropdown = Gtk.DropDown.new_from_strings(padre_labels)
-        if tarea and tarea.padre_id is not None:
-            ids = [t.id for t in self._candidatas_padre]
-            if tarea.padre_id in ids:
-                self._padre_dropdown.set_selected(ids.index(tarea.padre_id) + 1)
-        box.append(self._padre_dropdown)
-
-        box.append(Gtk.Label(label=_("Columna"), xalign=0))
-        self._estado_dropdown = Gtk.DropDown.new_from_strings([e.nombre for e in self._estados])
-        if tarea and tarea.estado_id is not None:
-            ids = [e.id for e in self._estados]
-            if tarea.estado_id in ids:
-                self._estado_dropdown.set_selected(ids.index(tarea.estado_id))
-        box.append(self._estado_dropdown)
-
-        box.append(Gtk.Label(label=_("Fecha de inicio"), xalign=0))
-        box.append(self._build_fecha_selector(tarea.fecha_inicio if tarea else None))
-
-        fecha_fin = tarea.fecha_fin_planificada if tarea else None
-        if not fecha_fin and tarea and tarea.fecha_inicio:
-            fecha_fin = (
-                date.fromisoformat(tarea.fecha_inicio)
-                + timedelta(days=max(tarea.duracion_dias, 1) - 1)
-            ).isoformat()
-        box.append(Gtk.Label(label=_("Final planificado"), xalign=0))
-        box.append(self._build_fecha_selector(fecha_fin, "_fecha_fin_planificada_iso"))
-        box.append(Gtk.Label(label=_("Fecha límite"), xalign=0))
-        box.append(self._build_fecha_selector(tarea.fecha_limite if tarea else None, "_fecha_limite_iso"))
-
-        box.append(Gtk.Label(label=_("Porcentaje completado"), xalign=0))
-        self._porcentaje_spin = Gtk.SpinButton.new_with_range(0, 100, 5)
-        self._porcentaje_spin.set_value(tarea.porcentaje_completado if tarea else 0)
-        box.append(self._porcentaje_spin)
-
-        self._hito_check = Gtk.CheckButton(label=_("Es un hito"))
-        self._hito_check.set_active(bool(tarea and tarea.es_hito))
-        box.append(self._hito_check)
-
-        box.append(Gtk.Label(label=_("Asignado a"), xalign=0))
-        self._asignados: list[Recurso] = (
-            list(store.listar_recursos_de_tarea(tarea.id)) if tarea else []
-        )
-        self._dedicaciones: dict[int, int] = {
-            asignacion.recurso_id: asignacion.porcentaje_dedicacion
-            for asignacion in (store.listar_asignaciones(tarea.id) if tarea else [])
-        }
-        self._asignados_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        box.append(self._asignados_box)
-        asignar_fila = Gtk.Box(spacing=6)
-        self._asignar_entry = Gtk.Entry(
-            placeholder_text=_("Nombre (se crea al asignar)"), hexpand=True
-        )
-        self._asignar_entry.connect("activate", self._on_asignar)
-        self._configurar_autocompletado_recursos()
-        asignar_fila.append(self._asignar_entry)
-        asignar_button = Gtk.Button(icon_name="list-add-symbolic", tooltip_text=_("Asignar"))
-        asignar_button.connect("clicked", self._on_asignar)
-        asignar_fila.append(asignar_button)
-        box.append(asignar_fila)
-        self._refrescar_asignados()
-
-        if self._candidatas_dependencia:
-            box.append(Gtk.Label(label=_("Depende de"), xalign=0))
-            self._dependencia_checks: list[tuple[int, Gtk.CheckButton]] = []
-            dependencias_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            for candidata in self._candidatas_dependencia:
-                check = Gtk.CheckButton(label=candidata.titulo)
-                check.set_active(candidata.id in dependencias_actuales)
-                dependencias_box.append(check)
-                self._dependencia_checks.append((candidata.id, check))
-            box.append(dependencias_box)
-        else:
-            self._dependencia_checks = []
-
-        self._error_label = Gtk.Label(xalign=0, wrap=True)
         self._error_label.add_css_class("error")
         self._error_label.set_visible(False)
-        box.append(self._error_label)
+        root.append(self._error_label)
 
         if self._tarea and (self._tarea.github_url or self._tarea.github_issue_number):
             texto_gh = _("Ver en GitHub (#{num})").format(num=self._tarea.github_issue_number or "")
             gh_link = Gtk.LinkButton(uri=self._tarea.github_url or "", label=texto_gh)
             gh_link.set_halign(Gtk.Align.START)
-            box.append(gh_link)
+            gh_link.set_margin_start(10)
+            root.append(gh_link)
 
         acciones = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
@@ -204,105 +302,689 @@ class TaskDialog(Gtk.Window):
             margin_bottom=10,
             margin_start=16,
             margin_end=16,
-            halign=Gtk.Align.END,
         )
+        if self._tarea is not None:
+            eliminar_button = Gtk.Button(label=_("Eliminar"))
+            eliminar_button.add_css_class("destructive-action")
+            eliminar_button.connect("clicked", self._on_eliminar)
+            acciones.append(eliminar_button)
+            archivar_button = Gtk.Button(label=_("Archivar"))
+            archivar_button.set_tooltip_text(
+                _("Quitarla de todas las vistas; se recupera desde «Tareas archivadas»")
+            )
+            archivar_button.connect("clicked", self._on_archivar)
+            acciones.append(archivar_button)
+        acciones.append(Gtk.Box(hexpand=True))
         cancelar_button = Gtk.Button(label=_("Cancelar"))
         cancelar_button.connect("clicked", lambda _button: self.close())
         acciones.append(cancelar_button)
+        if self._tarea is None:
+            otra_button = Gtk.Button(label=_("Guardar y crear otra"))
+            otra_button.connect("clicked", self._on_guardar_y_crear_otra)
+            acciones.append(otra_button)
         save_button = Gtk.Button(label=_("Guardar"))
         save_button.add_css_class("suggested-action")
         save_button.connect("clicked", self._on_save)
         acciones.append(save_button)
         root.append(acciones)
 
-    def _build_fecha_selector(
-        self, fecha_inicial: str | None, atributo: str = "_fecha_iso"
-    ) -> Gtk.Widget:
-        setattr(self, atributo, fecha_inicial)
+        self._ajustar_visibilidad_hito()
+        self._estado_inicial = self._capturar_estado()
+        self.connect("close-request", self._on_close_request)
 
-        self._fecha_button = Gtk.MenuButton()
-        popover = Gtk.Popover()
-        popover_box = Gtk.Box(
+    # ------------------------------------------------------------------ construcción
+
+    def _nueva_pagina(self, titulo: str) -> Gtk.Box:
+        box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
-            spacing=8,
-            margin_top=10,
-            margin_bottom=10,
-            margin_start=10,
-            margin_end=10,
+            spacing=10,
+            margin_top=16,
+            margin_bottom=16,
+            margin_start=16,
+            margin_end=16,
+        )
+        scroller = Gtk.ScrolledWindow(
+            vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER, kinetic_scrolling=True
+        )
+        scroller.set_child(box)
+        self._notebook.append_page(scroller, Gtk.Label(label=titulo))
+        return box
+
+    def _construir_general(self, tarea: Tarea | None) -> None:
+        box = self._pagina_general
+        box.append(Gtk.Label(label=_("Título"), xalign=0))
+        self._titulo_entry = Gtk.Entry(text=tarea.titulo if tarea else "")
+        box.append(self._titulo_entry)
+
+        cabecera = Gtk.Box(spacing=6)
+        cabecera.append(Gtk.Label(label=_("Descripción"), xalign=0, hexpand=True))
+        modo_box = Gtk.Box()
+        modo_box.add_css_class("linked")
+        self._editar_toggle = Gtk.ToggleButton(label=_("Editar"), active=True)
+        self._vista_toggle = Gtk.ToggleButton(label=_("Vista previa"), group=self._editar_toggle)
+        self._vista_toggle.connect("toggled", self._on_modo_descripcion)
+        modo_box.append(self._editar_toggle)
+        modo_box.append(self._vista_toggle)
+        cabecera.append(modo_box)
+        box.append(cabecera)
+
+        self._descripcion_buffer = Gtk.TextBuffer(text=tarea.descripcion if tarea else "")
+        self._formato_barra = self._crear_barra_formato()
+        box.append(self._formato_barra)
+        descripcion_view = Gtk.TextView(
+            buffer=self._descripcion_buffer,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            top_margin=6,
+            bottom_margin=6,
+            left_margin=6,
+            right_margin=6,
+        )
+        descripcion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        descripcion_scroller.set_child(descripcion_view)
+        self._vista_label = Gtk.Label(
+            xalign=0, yalign=0, wrap=True, selectable=True, use_markup=True, margin_top=6,
+            margin_bottom=6, margin_start=6, margin_end=6,
+        )
+        vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        vista_scroller.set_child(self._vista_label)
+        self._descripcion_stack = Gtk.Stack()
+        self._descripcion_stack.add_named(descripcion_scroller, "editar")
+        self._descripcion_stack.add_named(vista_scroller, "vista")
+        self._descripcion_stack.set_size_request(-1, 130)
+        self._descripcion_stack.set_vexpand(True)  # crece al maximizar la ventana
+        self._descripcion_stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
+        box.append(self._descripcion_stack)
+
+        box.append(Gtk.Label(label=_("Tarea padre"), xalign=0))
+        self._padre_dropdown = self._crear_selector_tareas(tarea)
+        box.append(self._padre_dropdown)
+
+        box.append(Gtk.Label(label=_("Columna"), xalign=0))
+        self._estado_dropdown = self._crear_selector_columnas(tarea)
+        box.append(self._estado_dropdown)
+
+        box.append(Gtk.Label(label=_("Prioridad"), xalign=0))
+        self._prioridad_dropdown = self._crear_selector_prioridad(tarea)
+        box.append(self._prioridad_dropdown)
+
+        box.append(Gtk.Label(label=_("Etiquetas"), xalign=0))
+        self._colores_etiquetas = {
+            e.nombre.casefold(): e.color for e in self._store.listar_etiquetas(self._proyecto_id)
+        }
+        self._etiquetas: list[tuple[str, str]] = (
+            [(e.nombre, e.color) for e in self._store.listar_etiquetas_de_tarea(tarea.id)]
+            if tarea
+            else []
+        )
+        self._etiquetas_box = Gtk.FlowBox(
+            selection_mode=Gtk.SelectionMode.NONE,
+            max_children_per_line=6,
+            column_spacing=4,
+            row_spacing=4,
+            homogeneous=False,
+        )
+        box.append(self._etiquetas_box)
+        self._etiqueta_entry = Gtk.Entry(placeholder_text=_("Añadir etiqueta (Enter para crear)"))
+        self._etiqueta_entry.connect("activate", self._on_etiqueta_escrita)
+        _SugerenciasEntry(self._etiqueta_entry, self._sugerencias_etiquetas, self._anadir_etiqueta)
+        box.append(self._etiqueta_entry)
+        self._refrescar_etiquetas()
+
+    def _crear_selector_tareas(self, tarea: Tarea | None) -> Gtk.DropDown:
+        titulos = [_("Ninguna")] + [t.titulo for t in self._candidatas_padre]
+        dropdown = Gtk.DropDown.new_from_strings(titulos)
+        dropdown.set_enable_search(True)
+        dropdown.set_expression(Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
+        prefijos = [""] + [self._prefijos_jerarquia[t.id] for t in self._candidatas_padre]
+
+        # En la lista desplegable cada tarea lleva sus conectores de jerarquía; el botón
+        # cerrado solo muestra el título.
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", lambda _f, item: item.set_child(Gtk.Label(xalign=0)))
+
+        def _vincular(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            item.get_child().set_text(prefijos[item.get_position()] + item.get_item().get_string())
+
+        factory.connect("bind", _vincular)
+        dropdown.set_list_factory(factory)
+
+        if tarea and tarea.padre_id is not None:
+            ids = [t.id for t in self._candidatas_padre]
+            if tarea.padre_id in ids:
+                dropdown.set_selected(ids.index(tarea.padre_id) + 1)
+        return dropdown
+
+    def _crear_selector_prioridad(self, tarea: Tarea | None) -> Gtk.DropDown:
+        # El orden de la lista es el del nivel (0 ninguna … 3 alta): el índice seleccionado
+        # es directamente el valor que se guarda.
+        dropdown = Gtk.DropDown.new_from_strings(
+            [_("Sin prioridad"), _("Baja"), _("Media"), _("Alta")]
         )
 
-        self._calendar = Gtk.Calendar()
-        if fecha_inicial:
-            anio, mes, dia = (int(parte) for parte in fecha_inicial.split("-"))
-            self._calendar.select_day(GLib.DateTime.new_local(anio, mes, dia, 0, 0, 0))
-        self._calendar.connect("day-selected", self._on_fecha_seleccionada, atributo, self._fecha_button)
-        popover_box.append(self._calendar)
+        def _preparar(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            item.set_child(Gtk.Box(spacing=8))
 
-        botones_rapidos = Gtk.Box(spacing=6)
-        hoy_button = Gtk.Button(label=_("Hoy"))
-        hoy_button.connect("clicked", self._on_fecha_hoy, atributo, self._calendar, self._fecha_button)
-        botones_rapidos.append(hoy_button)
-        quitar_button = Gtk.Button(label=_("Sin fecha"))
-        quitar_button.connect("clicked", self._on_fecha_quitada, atributo, self._fecha_button)
-        botones_rapidos.append(quitar_button)
-        popover_box.append(botones_rapidos)
+        def _vincular(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            caja = item.get_child()
+            while (hijo := caja.get_first_child()) is not None:
+                caja.remove(hijo)
+            icono = crear_icono_prioridad(item.get_position())
+            # «Sin prioridad» lleva un hueco del tamaño del icono para alinear los textos.
+            caja.append(icono if icono is not None else Gtk.Box(width_request=16))
+            caja.append(Gtk.Label(label=item.get_item().get_string(), xalign=0))
 
-        popover.set_child(popover_box)
-        self._fecha_button.set_popover(popover)
-        self._actualizar_etiqueta_fecha(self._fecha_button, fecha_inicial)
-        return self._fecha_button
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", _preparar)
+        factory.connect("bind", _vincular)
+        dropdown.set_factory(factory)
+        dropdown.set_list_factory(factory)
+        dropdown.set_selected(tarea.prioridad if tarea else 0)
+        return dropdown
 
-    def _on_fecha_seleccionada(
-        self, calendario: Gtk.Calendar, atributo: str, boton: Gtk.MenuButton
-    ) -> None:
-        fecha = calendario.get_date()
-        valor = (
-            f"{fecha.get_year():04d}-{fecha.get_month():02d}-{fecha.get_day_of_month():02d}"
+    def _crear_selector_columnas(self, tarea: Tarea | None) -> Gtk.DropDown:
+        dropdown = Gtk.DropDown.new_from_strings([e.nombre for e in self._estados])
+        colores = [_PALETA_COLUMNAS[i % len(_PALETA_COLUMNAS)] for i in range(len(self._estados))]
+
+        # Punto del mismo color que la franja de la columna en el Tablero.
+        def _vincular(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            nombre = GLib.markup_escape_text(item.get_item().get_string())
+            item.get_child().set_markup(
+                f'<span foreground="{colores[item.get_position()]}">●</span> {nombre}'
+            )
+
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", lambda _f, item: item.set_child(Gtk.Label(xalign=0)))
+        factory.connect("bind", _vincular)
+        dropdown.set_factory(factory)
+        dropdown.set_list_factory(factory)
+
+        if tarea and tarea.estado_id is not None:
+            ids = [e.id for e in self._estados]
+            if tarea.estado_id in ids:
+                dropdown.set_selected(ids.index(tarea.estado_id))
+        return dropdown
+
+    def _construir_fechas(self, tarea: Tarea | None) -> None:
+        box = self._pagina_fechas
+        fecha_fin = tarea.fecha_fin_planificada if tarea else None
+        if not fecha_fin and tarea and tarea.fecha_inicio:
+            fecha_fin = (
+                date.fromisoformat(tarea.fecha_inicio)
+                + timedelta(days=max(tarea.duracion_dias, 1) - 1)
+            ).isoformat()
+
+        box.append(Gtk.Label(label=_("Fecha de inicio"), xalign=0))
+        self._inicio = _SelectorFecha(tarea.fecha_inicio if tarea else None, self._on_inicio_cambio)
+        box.append(self._inicio.widget)
+
+        fin_label = Gtk.Label(label=_("Planificado"), xalign=0)
+        self._fin = _SelectorFecha(fecha_fin, self._on_fin_cambio)
+        box.append(fin_label)
+        box.append(self._fin.widget)
+
+        duracion_label = Gtk.Label(label=_("Duración (días)"), xalign=0)
+        self._duracion_spin = Gtk.SpinButton.new_with_range(1, 3650, 1)
+        self._duracion_spin.set_value(max(tarea.duracion_dias, 1) if tarea else 1)
+        if tarea and tarea.fecha_inicio and fecha_fin:
+            self._duracion_spin.set_value(self._duracion_entre(tarea.fecha_inicio, fecha_fin))
+        self._duracion_spin.connect("value-changed", self._on_duracion_cambio)
+        box.append(duracion_label)
+        box.append(self._duracion_spin)
+        self._filas_no_hito = [fin_label, self._fin.widget, duracion_label, self._duracion_spin]
+
+        box.append(Gtk.Label(label=_("Límite"), xalign=0))
+        self._limite = _SelectorFecha(tarea.fecha_limite if tarea else None, lambda: None)
+        box.append(self._limite.widget)
+
+        box.append(Gtk.Label(label=_("Porcentaje completado"), xalign=0))
+        fila_porcentaje = Gtk.Box(spacing=8)
+        self._porcentaje_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
+        self._porcentaje_scale.set_digits(0)
+        self._porcentaje_scale.set_hexpand(True)
+        self._porcentaje_scale.set_value(tarea.porcentaje_completado if tarea else 0)
+        self._porcentaje_label = Gtk.Label(width_chars=5)
+        self._porcentaje_scale.connect("value-changed", self._on_porcentaje_cambio)
+        self._on_porcentaje_cambio(self._porcentaje_scale)
+        fila_porcentaje.append(self._porcentaje_scale)
+        fila_porcentaje.append(self._porcentaje_label)
+        box.append(fila_porcentaje)
+        rapidos = Gtk.Box(spacing=6)
+        for valor in _PORCENTAJES_RAPIDOS:
+            boton = Gtk.Button(label=f"{valor} %")
+            boton.connect("clicked", lambda _b, v=valor: self._porcentaje_scale.set_value(v))
+            rapidos.append(boton)
+        box.append(rapidos)
+
+        self._hito_check = Gtk.CheckButton(label=_("Es un hito"))
+        self._hito_check.set_active(bool(tarea and tarea.es_hito))
+        self._hito_check.connect("toggled", lambda _c: self._ajustar_visibilidad_hito())
+        box.append(self._hito_check)
+
+    def _construir_asignaciones(self, tarea: Tarea | None) -> None:
+        box = self._pagina_asignaciones
+        box.append(Gtk.Label(label=_("Asignado a"), xalign=0))
+        self._asignados: list[Recurso] = (
+            list(self._store.listar_recursos_de_tarea(tarea.id)) if tarea else []
         )
-        setattr(self, atributo, valor)
-        self._actualizar_etiqueta_fecha(boton, valor)
+        self._dedicaciones: dict[int, int] = {
+            asignacion.recurso_id: asignacion.porcentaje_dedicacion
+            for asignacion in (self._store.listar_asignaciones(tarea.id) if tarea else [])
+        }
+        self._asignados_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.append(self._asignados_box)
+        asignar_fila = Gtk.Box(spacing=6)
+        self._asignar_entry = Gtk.Entry(
+            placeholder_text=_("Nombre (se crea al asignar)"), hexpand=True
+        )
+        self._asignar_entry.connect("activate", self._on_asignar)
+        _SugerenciasEntry(self._asignar_entry, self._sugerencias_recursos, self._on_recurso_sugerido)
+        asignar_fila.append(self._asignar_entry)
+        asignar_button = Gtk.Button(icon_name="list-add-symbolic", tooltip_text=_("Asignar"))
+        asignar_button.connect("clicked", self._on_asignar)
+        asignar_fila.append(asignar_button)
+        box.append(asignar_fila)
+        self._refrescar_asignados()
 
-    def _on_fecha_hoy(
-        self,
-        _button: Gtk.Button,
-        atributo: str,
-        calendario: Gtk.Calendar,
-        boton: Gtk.MenuButton,
-    ) -> None:
-        hoy = GLib.DateTime.new_now_local()
-        # select_day no dispara "day-selected" si el calendario ya mostraba ese día
-        # (p. ej. al reabrir el diálogo): se actualiza el estado a mano, no solo por la señal.
-        calendario.select_day(hoy)
-        valor = f"{hoy.get_year():04d}-{hoy.get_month():02d}-{hoy.get_day_of_month():02d}"
-        setattr(self, atributo, valor)
-        self._actualizar_etiqueta_fecha(boton, valor)
+    def _construir_dependencias(self, dependencias_actuales: set[int]) -> None:
+        box = self._pagina_dependencias
+        self._dependencia_checks: list[tuple[int, Gtk.CheckButton]] = []
+        if not self._candidatas_dependencia:
+            vacio = Gtk.Label(label=_("No hay otras tareas de las que depender."), xalign=0)
+            vacio.add_css_class("dim-label")
+            box.append(vacio)
+            return
+        box.append(Gtk.Label(label=_("Depende de"), xalign=0))
+        self._dependencias_busqueda = Gtk.SearchEntry(
+            placeholder_text=_("Buscar tarea…"), hexpand=True
+        )
+        self._dependencias_busqueda.connect("search-changed", self._on_buscar_dependencia)
+        box.append(self._dependencias_busqueda)
+        dependencias_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        for candidata in self._candidatas_dependencia:
+            check = Gtk.CheckButton(
+                label=self._prefijos_jerarquia[candidata.id] + candidata.titulo
+            )
+            check.set_active(candidata.id in dependencias_actuales)
+            dependencias_box.append(check)
+            self._dependencia_checks.append((candidata.id, check))
+        box.append(dependencias_box)
 
-    def _on_fecha_quitada(
-        self, _button: Gtk.Button, atributo: str, boton: Gtk.MenuButton
-    ) -> None:
-        setattr(self, atributo, None)
-        self._actualizar_etiqueta_fecha(boton, None)
+    def _construir_comentarios(self) -> None:
+        box = self._pagina_comentarios
+        self._comentarios_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.append(self._comentarios_box)
+
+        self._comentario_editando: int | None = None
+        self._comentario_titulo = Gtk.Label(label=_("Nuevo comentario"), xalign=0, margin_top=8)
+        box.append(self._comentario_titulo)
+        self._comentario_buffer = Gtk.TextBuffer()
+        vista = Gtk.TextView(
+            buffer=self._comentario_buffer,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            top_margin=6,
+            bottom_margin=6,
+            left_margin=6,
+            right_margin=6,
+        )
+        scroller = Gtk.ScrolledWindow(height_request=80, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        scroller.add_css_class("card")
+        scroller.set_child(vista)
+        box.append(scroller)
+        botones = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        self._comentario_cancelar = Gtk.Button(label=_("Cancelar edición"), visible=False)
+        self._comentario_cancelar.connect("clicked", lambda _b: self._salir_de_edicion_comentario())
+        botones.append(self._comentario_cancelar)
+        self._comentario_enviar = Gtk.Button(label=_("Comentar"))
+        self._comentario_enviar.add_css_class("suggested-action")
+        self._comentario_enviar.connect("clicked", self._on_comentar)
+        botones.append(self._comentario_enviar)
+        box.append(botones)
+        self._refrescar_comentarios()
 
     @staticmethod
-    def _actualizar_etiqueta_fecha(boton: Gtk.MenuButton, fecha: str | None) -> None:
-        if fecha:
-            anio, mes, dia = fecha.split("-")
-            boton.set_label(f"{dia}/{mes}/{anio}")
+    def _fecha_comentario(creado: str) -> str:
+        try:
+            return datetime.fromisoformat(creado).astimezone().strftime(
+                "%d/%m/%Y %H:%M"
+            )
+        except ValueError:
+            return creado
+
+    def _refrescar_comentarios(self) -> None:
+        while (hijo := self._comentarios_box.get_first_child()) is not None:
+            self._comentarios_box.remove(hijo)
+        comentarios = self._store.listar_comentarios(self._tarea.id)
+        if not comentarios:
+            vacio = Gtk.Label(label=_("Sin comentarios"), xalign=0)
+            vacio.add_css_class("dim-label")
+            self._comentarios_box.append(vacio)
+            return
+        for comentario in comentarios:
+            tarjeta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            tarjeta.add_css_class("card")
+            cabecera = Gtk.Box(spacing=8, margin_top=6, margin_start=8, margin_end=4)
+            autor = Gtk.Label(label=comentario.autor or _("Tú"), xalign=0)
+            autor.add_css_class("heading")
+            cabecera.append(autor)
+            fecha = Gtk.Label(label=self._fecha_comentario(comentario.creado), xalign=0, hexpand=True)
+            fecha.add_css_class("dim-label")
+            fecha.add_css_class("caption")
+            cabecera.append(fecha)
+            editar = Gtk.Button(icon_name="document-edit-symbolic", tooltip_text=_("Editar comentario"))
+            editar.add_css_class("flat")
+            editar.add_css_class("circular")
+            editar.connect("clicked", self._on_editar_comentario, comentario)
+            cabecera.append(editar)
+            borrar = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text=_("Eliminar comentario"))
+            borrar.add_css_class("flat")
+            borrar.add_css_class("circular")
+            borrar.connect("clicked", self._on_eliminar_comentario, comentario.id)
+            cabecera.append(borrar)
+            tarjeta.append(cabecera)
+            cuerpo = Gtk.Label(
+                xalign=0, wrap=True, selectable=True, use_markup=True,
+                margin_start=8, margin_end=8, margin_bottom=8,
+            )
+            cuerpo.set_markup(markdown_a_pango(comentario.cuerpo))
+            tarjeta.append(cuerpo)
+            self._comentarios_box.append(tarjeta)
+
+    def _on_comentar(self, _button: Gtk.Button) -> None:
+        inicio, fin = self._comentario_buffer.get_bounds()
+        texto = self._comentario_buffer.get_text(inicio, fin, False).strip()
+        if not texto:
+            return
+        if self._comentario_editando is not None:
+            GitHubSyncManager(self._store).editar_comentario(self._comentario_editando, texto)
+            self._salir_de_edicion_comentario()
+            return
+        comentario = self._store.crear_comentario(self._tarea.id, texto)
+        self._comentario_buffer.set_text("")
+        self._refrescar_comentarios()
+
+        def _publicar() -> None:
+            try:
+                if GitHubSyncManager(self._store).push_comentario(comentario.id):
+                    GLib.idle_add(self._refrescar_comentarios)
+            except Exception as e:  # noqa: BLE001 - se reintenta en el siguiente sync
+                log.debug("Error publicando comentario: %s", e)
+
+        threading.Thread(target=_publicar, daemon=True).start()
+
+    def _on_editar_comentario(self, _button: Gtk.Button, comentario) -> None:
+        self._comentario_editando = comentario.id
+        self._comentario_buffer.set_text(comentario.cuerpo)
+        self._comentario_titulo.set_text(_("Editar comentario"))
+        self._comentario_enviar.set_label(_("Guardar cambios"))
+        self._comentario_cancelar.set_visible(True)
+
+    def _salir_de_edicion_comentario(self) -> None:
+        self._comentario_editando = None
+        self._comentario_buffer.set_text("")
+        self._comentario_titulo.set_text(_("Nuevo comentario"))
+        self._comentario_enviar.set_label(_("Comentar"))
+        self._comentario_cancelar.set_visible(False)
+        self._refrescar_comentarios()
+
+    def _on_eliminar_comentario(self, _button: Gtk.Button, comentario_id: int) -> None:
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(_("Eliminar comentario"))
+        dialog.set_detail(
+            _("Si el comentario está en GitHub, también se eliminará allí. No se puede deshacer.")
+        )
+        dialog.set_buttons([_("Cancelar"), _("Eliminar")])
+        dialog.set_cancel_button(0)
+        dialog.set_default_button(0)
+        dialog.choose(self, None, self._on_eliminar_comentario_respuesta, comentario_id)
+
+    def _on_eliminar_comentario_respuesta(self, dialog: Gtk.AlertDialog, result, comentario_id: int) -> None:
+        try:
+            eleccion = dialog.choose_finish(result)
+        except GLib.Error:
+            return
+        if eleccion == 1:
+            GitHubSyncManager(self._store).eliminar_comentario(comentario_id)
+            self._refrescar_comentarios()
+
+    # ------------------------------------------------------------------ interacción
+
+    def _on_modo_descripcion(self, boton: Gtk.ToggleButton) -> None:
+        if boton.get_active():
+            inicio, fin = self._descripcion_buffer.get_bounds()
+            texto = self._descripcion_buffer.get_text(inicio, fin, False)
+            if texto.strip():
+                self._vista_label.set_markup(markdown_a_pango(texto))
+            else:
+                self._vista_label.set_markup(f"<i>{GLib.markup_escape_text(_('Sin descripción'))}</i>")
+            self._descripcion_stack.set_visible_child_name("vista")
+            self._formato_barra.set_visible(False)
         else:
-            boton.set_label(_("Sin fecha"))
+            self._descripcion_stack.set_visible_child_name("editar")
+            self._formato_barra.set_visible(True)
+
+    def _crear_barra_formato(self) -> Gtk.Box:
+        barra = Gtk.Box(spacing=4)
+        botones = (
+            ("format-text-bold-symbolic", _("Negrita"), "**", "**", _("texto")),
+            ("format-text-italic-symbolic", _("Cursiva"), "*", "*", _("texto")),
+            ("format-text-strikethrough-symbolic", _("Tachado"), "~~", "~~", _("texto")),
+            ("utilities-terminal-symbolic", _("Código"), "`", "`", _("código")),
+            ("insert-link-symbolic", _("Enlace"), "[", "](https://)", _("texto")),
+        )
+        for icono, tooltip, antes, despues, ejemplo in botones:
+            boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
+            boton.add_css_class("flat")
+            boton.connect("clicked", lambda _b, a=antes, d=despues, e=ejemplo: self._envolver(a, d, e))
+            barra.append(boton)
+        barra.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        lineas = (
+            ("H", _("Título"), "## "),
+            ("view-list-bullet-symbolic", _("Lista"), "- "),
+            ("view-list-ordered-symbolic", _("Lista numerada"), "1. "),
+            ("selection-mode-symbolic", _("Lista de tareas"), "- [ ] "),
+            ("format-indent-more-symbolic", _("Cita"), "> "),
+        )
+        for icono, tooltip, prefijo in lineas:
+            if icono == "H":  # no hay icono simbólico de título fiable en todos los temas
+                boton = Gtk.Button(tooltip_text=tooltip)
+                boton.set_child(Gtk.Label(label="<b>H</b>", use_markup=True))
+            else:
+                boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
+            boton.add_css_class("flat")
+            boton.connect("clicked", lambda _b, p=prefijo: self._prefijar_lineas(p))
+            barra.append(boton)
+        return barra
+
+    def _envolver(self, antes: str, despues: str, ejemplo: str) -> None:
+        markdown_edicion.envolver(self._descripcion_buffer, antes, despues, ejemplo)
+
+    def _prefijar_lineas(self, prefijo: str) -> None:
+        markdown_edicion.prefijar_lineas(self._descripcion_buffer, prefijo)
+
+    def _on_buscar_dependencia(self, entrada: Gtk.SearchEntry) -> None:
+        texto = entrada.get_text().strip().casefold()
+        for _origen_id, check in self._dependencia_checks:
+            check.set_visible(not texto or texto in check.get_label().casefold())
+
+    def _on_porcentaje_cambio(self, escala: Gtk.Scale) -> None:
+        self._porcentaje_label.set_text(f"{round(escala.get_value())} %")
+
+    def _ajustar_visibilidad_hito(self) -> None:
+        # Un hito es puntual: final y duración no tienen sentido.
+        es_hito = self._hito_check.get_active()
+        for widget in self._filas_no_hito:
+            widget.set_visible(not es_hito)
+
+    @staticmethod
+    def _duracion_entre(inicio: str, fin: str) -> int:
+        return max((date.fromisoformat(fin) - date.fromisoformat(inicio)).days + 1, 1)
+
+    def _on_inicio_cambio(self) -> None:
+        # Conservar la duración: el final se desplaza con el inicio.
+        self._recalcular_fin_desde_duracion()
+
+    def _on_fin_cambio(self) -> None:
+        if self._actualizando_fechas or not (self._inicio.valor and self._fin.valor):
+            return
+        if self._fin.valor < self._inicio.valor:
+            return  # el error se avisa al guardar
+        self._actualizando_fechas = True
+        self._duracion_spin.set_value(self._duracion_entre(self._inicio.valor, self._fin.valor))
+        self._actualizando_fechas = False
+
+    def _on_duracion_cambio(self, _spin: Gtk.SpinButton) -> None:
+        if not self._actualizando_fechas:
+            self._recalcular_fin_desde_duracion()
+
+    def _recalcular_fin_desde_duracion(self) -> None:
+        if self._actualizando_fechas or not self._inicio.valor:
+            return
+        dias = int(self._duracion_spin.get_value())
+        fin = date.fromisoformat(self._inicio.valor) + timedelta(days=dias - 1)
+        self._actualizando_fechas = True
+        self._fin.establecer(fin.isoformat())
+        self._actualizando_fechas = False
+
+    # ------------------------------------------------------------------ cambios sin guardar
+
+    def _capturar_estado(self) -> tuple:
+        inicio, fin = self._descripcion_buffer.get_bounds()
+        return (
+            self._titulo_entry.get_text(),
+            self._descripcion_buffer.get_text(inicio, fin, False),
+            self._padre_dropdown.get_selected(),
+            self._estado_dropdown.get_selected(),
+            self._prioridad_dropdown.get_selected(),
+            tuple(sorted(n.casefold() for n, _c in self._etiquetas)),
+            self._inicio.valor,
+            self._fin.valor,
+            int(self._duracion_spin.get_value()),
+            self._limite.valor,
+            round(self._porcentaje_scale.get_value()),
+            self._hito_check.get_active(),
+            tuple(sorted((r.id, self._dedicaciones.get(r.id, 100)) for r in self._asignados)),
+            frozenset(i for i, check in self._dependencia_checks if check.get_active()),
+        )
+
+    def _on_close_request(self, _window: Gtk.Window) -> bool:
+        if self._cierre_forzado or self._capturar_estado() == self._estado_inicial:
+            return False
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(_("Hay cambios sin guardar"))
+        dialog.set_detail(_("Si cierras ahora se perderán los cambios de esta tarea."))
+        dialog.set_buttons([_("Seguir editando"), _("Descartar cambios")])
+        dialog.set_cancel_button(0)
+        dialog.set_default_button(0)
+        dialog.choose(self, None, self._on_descartar_respuesta)
+        return True
+
+    def _on_descartar_respuesta(self, dialog: Gtk.AlertDialog, result) -> None:
+        try:
+            eleccion = dialog.choose_finish(result)
+        except GLib.Error:
+            return
+        if eleccion == 1:
+            self._cierre_forzado = True
+            self.close()
+
+    # ------------------------------------------------------------------ eliminar
+
+    def _on_archivar(self, _button: Gtk.Button) -> None:
+        if self._tarea is None:
+            return
+        self._store.archivar_tarea(self._tarea.id)
+        self._on_saved()
+        self._cierre_forzado = True
+        self.close()
+
+    def _on_eliminar(self, _button: Gtk.Button) -> None:
+        if self._tarea is None:
+            return
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(_("Eliminar tarea"))
+        dialog.set_detail(
+            _(
+                "¿Seguro que quieres eliminar «{titulo}»? Sus subtareas y dependencias "
+                "también se eliminarán. Esta acción no se puede deshacer."
+            ).format(titulo=self._tarea.titulo)
+        )
+        dialog.set_buttons([_("Cancelar"), _("Eliminar")])
+        dialog.set_cancel_button(0)
+        dialog.set_default_button(0)
+        dialog.choose(self, None, self._on_eliminar_respuesta)
+
+    def _on_eliminar_respuesta(self, dialog: Gtk.AlertDialog, result) -> None:
+        try:
+            eleccion = dialog.choose_finish(result)
+        except GLib.Error:
+            return
+        if eleccion != 1 or self._tarea is None:
+            return
+        GitHubSyncManager(self._store).eliminar_tarea(self._tarea.id)
+        self._on_saved()
+        self._cierre_forzado = True
+        self.close()
+
+    # ------------------------------------------------------------------ guardado
 
     def _on_save(self, _button: Gtk.Button) -> None:
+        if self._guardar():
+            self._on_saved()
+            self._cierre_forzado = True
+            self.close()
+
+    def _on_guardar_y_crear_otra(self, _button: Gtk.Button) -> None:
+        if not self._guardar():
+            return
+        self._on_saved()
+        self._cierre_forzado = True
+        self.close()
+        TaskDialog(self._parent, self._store, self._proyecto_id, self._on_saved).present()
+
+    def _guardar(self) -> bool:
+        self._limpiar_errores()
         titulo = self._titulo_entry.get_text().strip()
         if not titulo:
-            self._mostrar_error(_("El título no puede estar vacío."))
-            return
+            self._mostrar_error(
+                _("El título no puede estar vacío."), self._titulo_entry, self._pagina_general
+            )
+            return False
 
-        fecha = self._fecha_iso
-        fecha_fin = self._fecha_fin_planificada_iso
-        fecha_limite = self._fecha_limite_iso
-        if self._hito_check.get_active() and not fecha:
-            self._mostrar_error(_("Un hito necesita una fecha: no se puede situar en el Gantt sin ella."))
-            return
+        es_hito = self._hito_check.get_active()
+        fecha = self._inicio.valor
+        fecha_limite = self._limite.valor
+        if es_hito:
+            if not fecha:
+                self._mostrar_error(
+                    _("Un hito necesita una fecha: no se puede situar en el Gantt sin ella."),
+                    self._inicio.widget,
+                    self._pagina_fechas,
+                )
+                return False
+            fecha_fin = fecha
+        else:
+            fecha_fin = self._fin.valor or fecha
+        if fecha_fin and not fecha:
+            self._mostrar_error(
+                _("El final planificado necesita una fecha de inicio."),
+                self._inicio.widget,
+                self._pagina_fechas,
+            )
+            return False
+        if fecha and fecha_fin and fecha_fin < fecha:
+            self._mostrar_error(
+                _("El final planificado no puede ser anterior al inicio."),
+                self._fin.widget,
+                self._pagina_fechas,
+            )
+            return False
+        if fecha_fin and fecha_limite and fecha_limite < fecha_fin:
+            self._mostrar_error(
+                _("La fecha límite no puede ser anterior al final planificado."),
+                self._limite.widget,
+                self._pagina_fechas,
+            )
+            return False
 
         padre_indice = self._padre_dropdown.get_selected()
         padre_id = self._candidatas_padre[padre_indice - 1].id if padre_indice > 0 else None
@@ -311,22 +993,19 @@ class TaskDialog(Gtk.Window):
         )
         inicio, fin = self._descripcion_buffer.get_bounds()
         descripcion = self._descripcion_buffer.get_text(inicio, fin, False).strip()
-        if fecha and not fecha_fin:
-            fecha_fin = (
-                date.fromisoformat(fecha) + timedelta(days=0)
-            ).isoformat()
-        if fecha and fecha_fin and fecha_fin < fecha:
-            self._mostrar_error(_("El final planificado no puede ser anterior al inicio."))
-            return
-        if fecha_fin and not fecha:
-            self._mostrar_error(_("El final planificado necesita una fecha de inicio."))
-            return
-        if fecha_fin and fecha_limite and fecha_limite < fecha_fin:
-            self._mostrar_error(_("La fecha límite no puede ser anterior al final planificado."))
-            return
-        duracion = (date.fromisoformat(fecha_fin) - date.fromisoformat(fecha)).days + 1 if fecha and fecha_fin else 1
-        porcentaje = int(self._porcentaje_spin.get_value())
-        es_hito = self._hito_check.get_active()
+        if es_hito:
+            duracion = 1
+        elif fecha and fecha_fin:
+            duracion = self._duracion_entre(fecha, fecha_fin)
+        else:
+            duracion = int(self._duracion_spin.get_value())
+        porcentaje = round(self._porcentaje_scale.get_value())
+        if (
+            self._tarea is None
+            and estado_id is not None
+            and estado_id == completado.id_columna_final(self._estados)
+        ):
+            porcentaje = 100  # una tarea nueva en la columna de completadas ya está completa
 
         if self._tarea is None:
             tarea = self._store.crear_tarea(
@@ -334,6 +1013,7 @@ class TaskDialog(Gtk.Window):
                 titulo,
                 padre_id=padre_id,
                 estado_id=estado_id,
+                prioridad=self._prioridad_dropdown.get_selected(),
                 descripcion=descripcion,
                 fecha_inicio=fecha or None,
                 fecha_fin_planificada=fecha_fin,
@@ -346,7 +1026,11 @@ class TaskDialog(Gtk.Window):
             tarea = self._tarea
             tarea.titulo = titulo
             tarea.padre_id = padre_id
+            tarea.porcentaje_completado = porcentaje
+            completado.al_cambiar_de_columna(tarea, estado_id, self._estados)
+            porcentaje = tarea.porcentaje_completado
             tarea.estado_id = estado_id
+            tarea.prioridad = self._prioridad_dropdown.get_selected()
             tarea.descripcion = descripcion
             tarea.fecha_inicio = fecha or None
             tarea.fecha_fin_planificada = fecha_fin
@@ -357,8 +1041,12 @@ class TaskDialog(Gtk.Window):
             self._store.actualizar_tarea(tarea)
 
         if not self._sincronizar_dependencias(tarea.id):
-            return
+            return False
         self._sincronizar_asignaciones(tarea.id)
+        self._store.establecer_etiquetas_de_tarea(
+            tarea.id,
+            [self._store.asegurar_etiqueta(self._proyecto_id, n, c).id for n, c in self._etiquetas],
+        )
 
         # Si el proyecto está vinculado con GitHub, enviar cambios en segundo plano
         proyecto = self._store.obtener_proyecto(self._proyecto_id)
@@ -370,20 +1058,74 @@ class TaskDialog(Gtk.Window):
                     log.debug("Error enviando tarea a GitHub: %s", e)
 
             threading.Thread(target=_push, daemon=True).start()
+        return True
 
-        self._on_saved()
-        self.close()
+    # ------------------------------------------------------------------ asignaciones
 
-    def _configurar_autocompletado_recursos(self) -> None:
-        nombres = [r.nombre for r in self._store.listar_recursos(self._proyecto_id)]
-        modelo = Gtk.ListStore(str)
-        for nombre in nombres:
-            modelo.append([nombre])
-        completion = Gtk.EntryCompletion()
-        completion.set_model(modelo)
-        completion.set_text_column(0)
-        completion.set_inline_completion(True)
-        self._asignar_entry.set_completion(completion)
+    def _sugerencias_etiquetas(self, texto: str) -> list[str]:
+        puestas = {n.casefold() for n, _c in self._etiquetas}
+        return [
+            e.nombre
+            for e in self._store.listar_etiquetas(self._proyecto_id)
+            if e.nombre.casefold() not in puestas and (not texto or texto in e.nombre.casefold())
+        ]
+
+    def _on_etiqueta_escrita(self, _entry: Gtk.Entry) -> None:
+        self._anadir_etiqueta(self._etiqueta_entry.get_text())
+
+    def _anadir_etiqueta(self, nombre: str) -> None:
+        nombre = nombre.strip()
+        self._etiqueta_entry.set_text("")
+        if not nombre or any(n.casefold() == nombre.casefold() for n, _c in self._etiquetas):
+            return
+        color = self._colores_etiquetas.get(nombre.casefold()) or color_automatico(nombre)
+        # Las etiquetas existentes conservan su nombre tal cual está en el proyecto.
+        existente = next(
+            (e for e in self._store.listar_etiquetas(self._proyecto_id)
+             if e.nombre.casefold() == nombre.casefold()),
+            None,
+        )
+        self._etiquetas.append((existente.nombre if existente else nombre, color))
+        self._refrescar_etiquetas()
+
+    def _quitar_etiqueta(self, _boton: Gtk.Button, nombre: str) -> None:
+        self._etiquetas = [(n, c) for n, c in self._etiquetas if n != nombre]
+        self._refrescar_etiquetas()
+
+    def _refrescar_etiquetas(self) -> None:
+        self._etiquetas_box.remove_all()
+        if not self._etiquetas:
+            vacio = Gtk.Label(label=_("Sin etiquetas"), xalign=0)
+            vacio.add_css_class("dim-label")
+            vacio.add_css_class("caption")
+            self._etiquetas_box.append(vacio)
+            return
+        for nombre, color in self._etiquetas:
+            chip = Gtk.Box(spacing=2)
+            texto = GLib.markup_escape_text(nombre)
+            etiqueta = Gtk.Label(use_markup=True, margin_start=2)
+            etiqueta.set_markup(
+                f'<span background="#{color}" foreground="#{color_de_texto(color)}"> {texto} </span>'
+            )
+            chip.append(etiqueta)
+            quitar = Gtk.Button(icon_name="window-close-symbolic", tooltip_text=_("Quitar etiqueta"))
+            quitar.add_css_class("flat")
+            quitar.add_css_class("circular")
+            quitar.connect("clicked", self._quitar_etiqueta, nombre)
+            chip.append(quitar)
+            self._etiquetas_box.append(chip)
+
+    def _sugerencias_recursos(self, texto: str) -> list[str]:
+        asignados = {r.id for r in self._asignados}
+        return [
+            r.nombre
+            for r in self._store.listar_recursos(self._proyecto_id)
+            if r.id not in asignados and (not texto or texto in r.nombre.casefold())
+        ]
+
+    def _on_recurso_sugerido(self, nombre: str) -> None:
+        self._asignar_entry.set_text(nombre)
+        self._on_asignar(self._asignar_entry)
 
     def _refrescar_asignados(self) -> None:
         while (hijo := self._asignados_box.get_first_child()) is not None:
@@ -395,28 +1137,40 @@ class TaskDialog(Gtk.Window):
             self._asignados_box.append(vacio)
             return
         for recurso in self._asignados:
+            tarjeta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             fila = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
             fila.append(AvatarWidget(recurso, size=28))
             fila.append(Gtk.Label(label=recurso.nombre, xalign=0, hexpand=True))
-            dedicacion = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
-            dedicacion.set_value(self._dedicaciones.get(recurso.id, 100))
-            dedicacion.set_digits(0)
-            dedicacion.set_size_request(150, -1)
-            dedicacion.set_hexpand(False)
-            dedicacion.set_tooltip_text(_("Porcentaje de dedicación"))
-            dedicacion.connect("value-changed", self._on_dedicacion_changed, recurso.id)
-            fila.append(dedicacion)
-            porcentaje = Gtk.Label(label=f"{self._dedicaciones.get(recurso.id, 100)} %")
-            porcentaje.set_width_chars(5)
-            dedicacion.connect("value-changed", self._actualizar_etiqueta_dedicacion, porcentaje)
-            fila.append(porcentaje)
             quitar = Gtk.Button(
                 icon_name="list-remove-symbolic", tooltip_text=_("Quitar asignación")
             )
             quitar.add_css_class("flat")
             quitar.connect("clicked", self._on_quitar_asignado, recurso.id)
             fila.append(quitar)
-            self._asignados_box.append(fila)
+            tarjeta.append(fila)
+
+            ajuste = Gtk.Box(spacing=8, margin_start=36)
+            dedicacion = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
+            dedicacion.set_value(self._dedicaciones.get(recurso.id, 100))
+            dedicacion.set_digits(0)
+            dedicacion.set_hexpand(True)
+            dedicacion.set_tooltip_text(_("Porcentaje de dedicación"))
+            dedicacion.connect("value-changed", self._on_dedicacion_changed, recurso.id)
+            ajuste.append(dedicacion)
+            porcentaje = Gtk.Label(label=f"{self._dedicaciones.get(recurso.id, 100)} %")
+            porcentaje.set_width_chars(5)
+            dedicacion.connect("value-changed", self._actualizar_etiqueta_dedicacion, porcentaje)
+            ajuste.append(porcentaje)
+            tarjeta.append(ajuste)
+
+            rapidos = Gtk.Box(spacing=6, margin_start=36)
+            for valor in _PORCENTAJES_RAPIDOS:
+                boton = Gtk.Button(label=f"{valor} %")
+                boton.connect("clicked", lambda _b, v=valor, e=dedicacion: e.set_value(v))
+                rapidos.append(boton)
+            tarjeta.append(rapidos)
+            tarjeta.append(Gtk.Separator(margin_top=4, margin_bottom=4))
+            self._asignados_box.append(tarjeta)
 
     def _on_asignar(self, _widget: Gtk.Widget) -> None:
         nombre = self._asignar_entry.get_text().strip()
@@ -429,7 +1183,6 @@ class TaskDialog(Gtk.Window):
         self._asignados.append(recurso)
         self._dedicaciones[recurso.id] = 100
         self._asignar_entry.set_text("")
-        self._configurar_autocompletado_recursos()
         self._refrescar_asignados()
 
     def _on_quitar_asignado(self, _button: Gtk.Button, recurso_id: int) -> None:
@@ -468,12 +1221,33 @@ class TaskDialog(Gtk.Window):
             try:
                 self._store.crear_dependencia(origen_id, tarea_id)
             except CicloDependenciaError:
-                self._mostrar_error(_("Esa dependencia crearía un ciclo entre tareas."))
+                self._mostrar_error(
+                    _("Esa dependencia crearía un ciclo entre tareas."),
+                    None,
+                    self._pagina_dependencias,
+                )
                 return False
         for origen_id in existentes.keys() - deseadas:
             self._store.eliminar_dependencia(existentes[origen_id])
         return True
 
-    def _mostrar_error(self, mensaje: str) -> None:
+    # ------------------------------------------------------------------ errores
+
+    def _limpiar_errores(self) -> None:
+        for widget in self._marcados_error:
+            widget.remove_css_class("error")
+        self._marcados_error.clear()
+        self._error_label.set_visible(False)
+
+    def _mostrar_error(
+        self, mensaje: str, campo: Gtk.Widget | None = None, pagina: Gtk.Widget | None = None
+    ) -> None:
+        """Muestra el mensaje, marca en rojo el campo que falla y lleva a su pestaña."""
         self._error_label.set_text(mensaje)
         self._error_label.set_visible(True)
+        if campo is not None:
+            campo.add_css_class("error")
+            self._marcados_error.append(campo)
+            campo.grab_focus()
+        if pagina is not None:
+            self._notebook.set_current_page(self._notebook.page_num(pagina.get_ancestor(Gtk.ScrolledWindow)))

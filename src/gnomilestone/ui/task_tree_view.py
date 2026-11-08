@@ -8,9 +8,11 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GObject, Gtk, Pango
 
+from gnomilestone.etiquetas import marcado_chip
 from gnomilestone.i18n import _, formatear_fecha_local
-from gnomilestone.models import Recurso, Tarea
+from gnomilestone.models import Etiqueta, Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
+from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
     asegurar_css_vencimientos,
@@ -48,6 +50,11 @@ def asegurar_css_fila_fija() -> None:
     _css_fila_aplicado = True
 
 
+def nombre_prioridad(nivel: int) -> str:
+    """Texto de un nivel de prioridad ("" si no tiene)."""
+    return {1: _("Baja"), 2: _("Media"), 3: _("Alta")}.get(nivel, "")
+
+
 class TareaRow(GObject.Object):
     """Fila del árbol: una Tarea real, o (en la vista global) un proyecto como nodo raíz."""
 
@@ -58,6 +65,7 @@ class TareaRow(GObject.Object):
         tarea: Tarea | None = None,
         estado_nombre: str = "",
         recursos: list[Recurso] | None = None,
+        etiquetas: list[Etiqueta] | None = None,
     ) -> None:
         super().__init__()
         self.titulo = titulo
@@ -65,6 +73,11 @@ class TareaRow(GObject.Object):
         self.tarea = tarea
         self.estado = estado_nombre
         self.recursos: list[Recurso] = recursos or []
+        self.etiquetas: list[Etiqueta] = etiquetas or []
+
+    @property
+    def prioridad(self) -> str:
+        return nombre_prioridad(self.tarea.prioridad) if self.tarea else ""
 
     @property
     def fecha_inicio(self) -> str:
@@ -90,14 +103,21 @@ class TareaRow(GObject.Object):
     def porcentaje_completado(self) -> int:
         return self.tarea.porcentaje_completado if self.tarea else 0
 
+    @property
+    def porcentaje_texto(self) -> str:
+        """El % completado con su símbolo, para las columnas (vacío en filas sin tarea)."""
+        return f"{self.tarea.porcentaje_completado} %" if self.tarea else ""
+
 
 def construir_filas(
     tareas: list[Tarea],
     estados_por_id: dict[int, str],
     recursos_por_tarea: dict[int, list[Recurso]] | None = None,
+    etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
 ) -> list[TareaRow]:
     """Árbol de TareaRow (raíces con sus hijos anidados) a partir de una lista plana."""
     recursos_por_tarea = recursos_por_tarea or {}
+    etiquetas_por_tarea = etiquetas_por_tarea or {}
     hijos_por_padre: dict[int | None, list[Tarea]] = {}
     for tarea in tareas:
         hijos_por_padre.setdefault(tarea.padre_id, []).append(tarea)
@@ -112,6 +132,7 @@ def construir_filas(
             tarea=tarea,
             estado_nombre=estados_por_id.get(tarea.estado_id, ""),
             recursos=recursos_por_tarea.get(tarea.id, []),
+            etiquetas=etiquetas_por_tarea.get(tarea.id, []),
         )
 
     return [_construir(tarea) for tarea in hijos_por_padre.get(None, [])]
@@ -177,8 +198,9 @@ def adjuntar_menu_contextual(
     vista: Gtk.Widget,
     on_editar: Callable[[Tarea], None],
     on_eliminar: Callable[[Tarea], None],
+    on_archivar: Callable[[Tarea], None] | None = None,
 ) -> None:
-    """Botón derecho sobre una fila con tarea real: Editar tarea / Eliminar tarea.
+    """Botón derecho sobre una fila con tarea real: Editar, Archivar y Eliminar tarea.
 
     `vista` debe pintar sus celdas con `_bind_fila` (deja marcado `fila_asociada` en el
     widget), para poder resolver con `vista.pick()` sobre qué fila se ha pulsado.
@@ -187,6 +209,8 @@ def adjuntar_menu_contextual(
 
     menu = Gio.Menu()
     menu.append(_("Editar tarea"), "contextual.editar")
+    if on_archivar is not None:
+        menu.append(_("Archivar tarea"), "contextual.archivar")
     menu.append(_("Eliminar tarea"), "contextual.eliminar")
     popover = Gtk.PopoverMenu.new_from_model(menu)
     popover.set_parent(vista)
@@ -195,6 +219,12 @@ def adjuntar_menu_contextual(
     accion_editar = Gio.SimpleAction.new("editar", None)
     accion_editar.connect("activate", lambda *_a: estado["tarea"] and on_editar(estado["tarea"]))
     acciones.add_action(accion_editar)
+    if on_archivar is not None:
+        accion_archivar = Gio.SimpleAction.new("archivar", None)
+        accion_archivar.connect(
+            "activate", lambda *_a: estado["tarea"] and on_archivar(estado["tarea"])
+        )
+        acciones.add_action(accion_archivar)
     accion_eliminar = Gio.SimpleAction.new("eliminar", None)
     accion_eliminar.connect(
         "activate", lambda *_a: estado["tarea"] and on_eliminar(estado["tarea"])
@@ -303,13 +333,67 @@ def _recursos_factory() -> Gtk.SignalListItemFactory:
     return factory
 
 
+def _fila_de(item: Gtk.ListItem, arbol: bool) -> TareaRow:
+    # En el árbol el elemento es un Gtk.TreeListRow que envuelve la fila; en la tabla, la fila.
+    return item.get_item().get_item() if arbol else item.get_item()
+
+
+def prioridad_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
+    """Columna «Prioridad»: icono de su nivel junto al texto."""
+    factory = Gtk.SignalListItemFactory()
+
+    def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        item.set_child(Gtk.Box(spacing=6, height_request=ALTURA_FILA, valign=Gtk.Align.CENTER))
+
+    def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        fila = _fila_de(item, arbol)
+        caja = item.get_child()
+        while (hijo := caja.get_first_child()) is not None:
+            caja.remove(hijo)
+        if fila.tarea is not None:
+            icono = crear_icono_prioridad(fila.tarea.prioridad)
+            if icono is not None:
+                caja.append(icono)
+                caja.append(Gtk.Label(label=fila.prioridad, xalign=0))
+        _bind_fila(caja, fila)
+
+    factory.connect("setup", _setup)
+    factory.connect("bind", _bind)
+    return factory
+
+
+def etiquetas_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
+    """Columna «Etiquetas»: un chip de color por etiqueta."""
+    factory = Gtk.SignalListItemFactory()
+
+    def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        item.set_child(Gtk.Box(spacing=4, height_request=ALTURA_FILA, valign=Gtk.Align.CENTER))
+
+    def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        fila = _fila_de(item, arbol)
+        caja = item.get_child()
+        while (hijo := caja.get_first_child()) is not None:
+            caja.remove(hijo)
+        for etiqueta in fila.etiquetas:
+            chip = Gtk.Label(use_markup=True)
+            chip.set_markup(marcado_chip(etiqueta.nombre, etiqueta.color))
+            caja.append(chip)
+        _bind_fila(caja, fila)
+
+    factory.connect("setup", _setup)
+    factory.connect("bind", _bind)
+    return factory
+
+
 COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
     ("titulo", _("Título"), True, True),
     ("asignado", _("Asignado"), False, True),
     ("estado", _("Columna"), False, False),
+    ("prioridad", _("Prioridad"), False, False),
+    ("etiquetas", _("Etiquetas"), False, False),
     ("fecha_inicio", _("Inicio"), False, False),
-    ("fecha_fin_planificada", _("Final planificado"), False, False),
-    ("fecha_limite", _("Fecha límite"), False, False),
+    ("fecha_fin_planificada", _("Planificado"), False, False),
+    ("fecha_limite", _("Límite"), False, False),
     ("duracion_dias", _("Duración (días)"), False, False),
     ("porcentaje_completado", _("% completado"), False, False),
 )
@@ -326,6 +410,7 @@ class TaskTreeView(Gtk.ColumnView):
         self,
         on_editar: Callable[[Tarea], None] | None = None,
         on_eliminar: Callable[[Tarea], None] | None = None,
+        on_archivar: Callable[[Tarea], None] | None = None,
     ) -> None:
         asegurar_css_fila_fija()
         asegurar_css_vencimientos()
@@ -351,14 +436,22 @@ class TaskTreeView(Gtk.ColumnView):
 
         for clave, titulo, propiedad, visible_defecto in (
             ("estado", _("Columna"), "estado", False),
+            ("prioridad", _("Prioridad"), None, False),
+            ("etiquetas", _("Etiquetas"), None, False),
             ("fecha_inicio", _("Inicio"), "fecha_inicio", False),
-            ("fecha_fin_planificada", _("Final planificado"), "fecha_fin_planificada", False),
-            ("fecha_limite", _("Fecha límite"), "fecha_limite", False),
+            ("fecha_fin_planificada", _("Planificado"), "fecha_fin_planificada", False),
+            ("fecha_limite", _("Límite"), "fecha_limite", False),
             ("duracion_dias", _("Duración (días)"), "duracion_dias", False),
-            ("porcentaje_completado", _("% completado"), "porcentaje_completado", False),
+            ("porcentaje_completado", _("% completado"), "porcentaje_texto", False),
         ):
+            fabrica = {
+                "prioridad": prioridad_factory,
+                "etiquetas": etiquetas_factory,
+            }.get(clave)
             col = Gtk.ColumnViewColumn(
-                title=titulo, factory=_texto_factory(propiedad), resizable=True
+                title=titulo,
+                factory=fabrica() if fabrica else _texto_factory(propiedad),
+                resizable=True,
             )
             col.set_visible(visible_defecto)
             self.append_column(col)
@@ -367,7 +460,7 @@ class TaskTreeView(Gtk.ColumnView):
         if on_editar is not None:
             self.connect("activate", self._on_activate, on_editar)
         if on_editar is not None and on_eliminar is not None:
-            adjuntar_menu_contextual(self, on_editar, on_eliminar)
+            adjuntar_menu_contextual(self, on_editar, on_eliminar, on_archivar)
 
     def columnas_disponibles(self) -> list[tuple[str, str, bool]]:
         """Devuelve (clave, etiqueta, es_fija) para cada columna del árbol."""

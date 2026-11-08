@@ -17,9 +17,12 @@ from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto, Tarea
 from gnomilestone.resource_usage import construir_filas_uso
 from gnomilestone.store import Store
+from gnomilestone.sync import GitHubSyncManager
+from gnomilestone.ui.archived_dialog import ArchivedTasksDialog
 from gnomilestone.ui.board_settings_dialog import BoardSettingsDialog
 from gnomilestone.ui.gantt_view import GanttView
 from gnomilestone.ui.kanban_view import KanbanView
+from gnomilestone.ui.labels_dialog import LabelsDialog
 from gnomilestone.ui.report_view import ReportView
 from gnomilestone.ui.resource_dialog import ResourceView
 from gnomilestone.ui.resource_usage_view import ResourceUsageView
@@ -49,9 +52,9 @@ def _asegurar_css_rail() -> None:
         return
     proveedor = Gtk.CssProvider()
     proveedor.load_from_string(
-        ".gnomilestone-vista-rail { padding: 8px 4px; }\n"
-        ".gnomilestone-vista-rail button { padding: 8px 6px; }\n"
-        ".gnomilestone-vista-rail label { font-size: 0.85em; }\n"
+        ".gnomilestone-vista-rail { padding: 10px 6px; }\n"
+        ".gnomilestone-vista-rail button { padding: 12px 10px; min-width: 64px; }\n"
+        ".gnomilestone-vista-rail label { font-size: 1em; }\n"
     )
     Gtk.StyleContext.add_provider_for_display(
         Gdk.Display.get_default(), proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -83,9 +86,11 @@ class ProjectDetailView(Gtk.Box):
         new_task_button.connect("clicked", self._on_new_task)
         toolbar.append(new_task_button)
 
-        self._mostrar_completadas = False
+        # Visibles por defecto en todas las vistas; para quitar de en medio las que ya no
+        # interesan está «Archivar» (con su vista de archivadas para recuperarlas).
+        self._mostrar_completadas = True
         self._mostrar_completadas_check = Gtk.CheckButton(label=_("Mostrar completadas"))
-        self._mostrar_completadas_check.set_active(False)
+        self._mostrar_completadas_check.set_active(True)
         self._mostrar_completadas_check.set_tooltip_text(
             _("Incluir en las vistas las tareas al 100 %")
         )
@@ -95,6 +100,14 @@ class ProjectDetailView(Gtk.Box):
         toolbar.append(self._mostrar_completadas_check)
 
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+
+        toolbar.append(self._construir_menu_archivo())
+
+        etiquetas_button = Gtk.Button(
+            icon_name="etiqueta-symbolic", tooltip_text=_("Etiquetas del proyecto")
+        )
+        etiquetas_button.connect("clicked", self._on_open_labels)
+        toolbar.append(etiquetas_button)
 
         self._github_link_button = Gtk.Button(
             icon_name="github-symbolic",
@@ -119,7 +132,9 @@ class ProjectDetailView(Gtk.Box):
         contenido.append(toolbar)
 
         self._tabla = TableView(
-            on_editar_tarea=self._on_editar_tarea, on_eliminar_tarea=self._on_eliminar_tarea
+            on_editar_tarea=self._on_editar_tarea,
+            on_eliminar_tarea=self._on_eliminar_tarea,
+            on_archivar_tarea=self._on_archivar_tarea,
         )
         self._vista_stack.add_named(self._tabla, "tabla")
 
@@ -130,6 +145,7 @@ class ProjectDetailView(Gtk.Box):
             on_eliminar_tarea=self._on_eliminar_tarea,
             on_cambio=self.refrescar,
             on_abrir_ajustes=self._on_open_board_settings,
+            on_archivar_tarea=self._on_archivar_tarea,
         )
         self._vista_stack.add_named(self._tablero, "tablero")
 
@@ -137,6 +153,7 @@ class ProjectDetailView(Gtk.Box):
             on_editar_tarea=self._on_editar_tarea,
             on_eliminar_tarea=self._on_eliminar_tarea,
             on_tarea_arrastrada=self._on_tarea_arrastrada,
+            on_archivar_tarea=self._on_archivar_tarea,
         )
         self._vista_stack.add_named(self._gantt, "gantt")
 
@@ -166,9 +183,11 @@ class ProjectDetailView(Gtk.Box):
             cuerpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             cuerpo.set_halign(Gtk.Align.CENTER)
             if nombre == "informes":
-                cuerpo.append(Gtk.Image.new_from_file(str(_REPORT_ICON)))
+                imagen = Gtk.Image.new_from_file(str(_REPORT_ICON))
             else:
-                cuerpo.append(Gtk.Image.new_from_icon_name(icono))
+                imagen = Gtk.Image.new_from_icon_name(icono)
+            imagen.set_pixel_size(28)
+            cuerpo.append(imagen)
             texto = Gtk.Label(label=etiqueta)
             texto.add_css_class("caption")
             cuerpo.append(texto)
@@ -203,16 +222,26 @@ class ProjectDetailView(Gtk.Box):
             return
         estados = self._store.listar_estados(self._proyecto.id)
         estados_por_id = {estado.id: estado.nombre for estado in estados}
-        tareas = self._store.listar_tareas(self._proyecto.id)
+        # El progreso de una tarea resumen cuenta también a sus subtareas archivadas.
+        tareas_con_archivadas = self._store.listar_tareas(
+            self._proyecto.id, incluir_archivadas=True
+        )
+        tareas = [t for t in tareas_con_archivadas if not t.archivada]
         tareas_visibles = tareas if self._mostrar_completadas else ocultar_completadas(tareas)
         recursos_por_tarea = self._store.listar_recursos_por_tarea(self._proyecto.id)
 
-        self._tabla.set_tareas(tareas_visibles, estados, estados_por_id, recursos_por_tarea)
+        etiquetas_por_tarea = self._store.listar_etiquetas_por_tarea(self._proyecto.id)
 
-        filas_arbol = construir_filas(tareas_visibles, estados_por_id, recursos_por_tarea)
+        self._tabla.set_tareas(
+            tareas_visibles, estados, estados_por_id, recursos_por_tarea, etiquetas_por_tarea
+        )
+
+        filas_arbol = construir_filas(
+            tareas_visibles, estados_por_id, recursos_por_tarea, etiquetas_por_tarea
+        )
         dependencias = self._store.listar_dependencias(self._proyecto.id)
         self._gantt.set_filas(
-            filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas_visibles)
+            filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas_con_archivadas)
         )
 
         self._tablero.mostrar_proyecto(self._proyecto.id, self._mostrar_completadas)
@@ -220,7 +249,7 @@ class ProjectDetailView(Gtk.Box):
 
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
-        tareas_uso = tareas if self._mostrar_completadas else ocultar_completadas(tareas)
+        tareas_uso = tareas_visibles
         self._uso.set_filas(construir_filas_uso(recursos, tareas_uso, asignaciones), tareas_uso)
         self._informes.set_data(tareas_visibles, estados, recursos, asignaciones)
 
@@ -386,6 +415,82 @@ class ProjectDetailView(Gtk.Box):
             self.get_root(), self._store, tarea.proyecto_id, on_saved=self.refrescar, tarea=tarea
         ).present()
 
+    def _construir_menu_archivo(self) -> Gtk.MenuButton:
+        """Menú «Archivo»: archivar las completadas y abrir la lista de archivadas."""
+        caja = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=4,
+            margin_top=6,
+            margin_bottom=6,
+            margin_start=6,
+            margin_end=6,
+        )
+        archivar = Gtk.Button(label=_("Archivar completadas…"))
+        archivar.add_css_class("flat")
+        archivar.connect("clicked", self._on_archivar_completadas)
+        caja.append(archivar)
+        self._ver_archivadas_button = Gtk.Button(label=_("Tareas archivadas…"))
+        self._ver_archivadas_button.add_css_class("flat")
+        self._ver_archivadas_button.connect("clicked", self._on_ver_archivadas)
+        caja.append(self._ver_archivadas_button)
+        popover = Gtk.Popover()
+        popover.set_child(caja)
+        self._menu_archivo_popover = popover
+        popover.connect("show", self._on_menu_archivo_visible)
+        return Gtk.MenuButton(
+            icon_name="archivar-symbolic",
+            tooltip_text=_("Archivo de tareas"),
+            popover=popover,
+        )
+
+    def _on_menu_archivo_visible(self, _popover: Gtk.Popover) -> None:
+        n = (
+            len(self._store.listar_tareas_archivadas(self._proyecto.id))
+            if self._proyecto is not None
+            else 0
+        )
+        self._ver_archivadas_button.set_label(
+            _("Tareas archivadas ({n})…").format(n=n) if n else _("Tareas archivadas…")
+        )
+
+    def _on_ver_archivadas(self, _button: Gtk.Button) -> None:
+        self._menu_archivo_popover.popdown()
+        if self._proyecto is None:
+            return
+        ArchivedTasksDialog(
+            self.get_root(), self._store, self._proyecto.id, on_changed=self.refrescar
+        ).present()
+
+    def _on_archivar_completadas(self, _button: Gtk.Button) -> None:
+        self._menu_archivo_popover.popdown()
+        if self._proyecto is None:
+            return
+        dialog = Gtk.AlertDialog()
+        dialog.set_message(_("Archivar tareas completadas"))
+        dialog.set_detail(
+            _(
+                "Las tareas completadas (con toda su rama al 100 %) dejarán de verse en todas "
+                "las vistas. Podrás recuperarlas desde «Tareas archivadas»."
+            )
+        )
+        dialog.set_buttons([_("Cancelar"), _("Archivar")])
+        dialog.set_cancel_button(0)
+        dialog.set_default_button(0)
+        dialog.choose(self.get_root(), None, self._on_archivar_completadas_respuesta)
+
+    def _on_archivar_completadas_respuesta(self, dialog: Gtk.AlertDialog, result) -> None:
+        try:
+            eleccion = dialog.choose_finish(result)
+        except GLib.Error:  # diálogo cancelado o cerrado
+            return
+        if eleccion == 1 and self._proyecto is not None:
+            self._store.archivar_completadas(self._proyecto.id)
+            self.refrescar()
+
+    def _on_archivar_tarea(self, tarea: Tarea) -> None:
+        self._store.archivar_tarea(tarea.id)
+        self.refrescar()
+
     def _on_eliminar_tarea(self, tarea: Tarea) -> None:
         dialog = Gtk.AlertDialog()
         dialog.set_message(_("Eliminar tarea"))
@@ -408,8 +513,15 @@ class ProjectDetailView(Gtk.Box):
             return
         if choice != 1:
             return
-        self._store.eliminar_tarea(tarea.id)
+        GitHubSyncManager(self._store).eliminar_tarea(tarea.id)
         self.refrescar()
+
+    def _on_open_labels(self, _button: Gtk.Button) -> None:
+        if self._proyecto is None:
+            return
+        LabelsDialog(
+            self.get_root(), self._store, self._proyecto.id, on_changed=self.refrescar
+        ).present()
 
     def _on_open_board_settings(self) -> None:
         if self._proyecto is None:
@@ -456,6 +568,8 @@ class ProjectDetailView(Gtk.Box):
                 self.refrescar()
                 avisos = list(res.errores) + list(res.conflictos)
                 if avisos:
+                    # También a la terminal: el diálogo no permite copiar el texto.
+                    log.warning("Avisos de la sincronización con GitHub:\n%s", "\n".join(avisos))
                     dialog = Gtk.AlertDialog()
                     dialog.set_message(_("Sincronización con GitHub"))
                     dialog.set_detail("\n".join(avisos))

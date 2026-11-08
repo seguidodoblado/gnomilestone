@@ -34,6 +34,45 @@ def fecha_a_x(fecha: date, fecha_origen: date, px_por_dia: float) -> float:
     return (fecha - fecha_origen).days * px_por_dia
 
 
+# Hasta este zoom (px por día) la regla marca meses; por encima, semanas o días. Es el que
+# usan a la vez las reglas del Gantt y de Uso, para que se lean igual en cada escala
+# (Trimestral = 8 y Anual = 4 marcan meses; Mensual = 18 y Semanal = 36, semanas; Diario = 80, días).
+UMBRAL_REGLA_MESES = 8.0
+
+
+def _mes_siguiente(fecha: date) -> date:
+    return (fecha.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def marcas_regla(
+    fecha_origen: date, px_por_dia: float, ancho: float
+) -> list[tuple[date, str]]:
+    """Marcas (fecha, "mes" | "dia") de la regla de fechas para un ancho en píxeles.
+
+    A zoom bajo (`px_por_dia <= UMBRAL_REGLA_MESES`) marca el día 1 de cada mes; si no, una
+    marca cada 7 días (cada día a partir de 40 px/día)."""
+    if px_por_dia <= UMBRAL_REGLA_MESES:
+        fecha = fecha_origen.replace(day=1)
+        if fecha < fecha_origen:
+            fecha = _mes_siguiente(fecha)
+        marcas: list[tuple[date, str]] = []
+        while fecha_a_x(fecha, fecha_origen, px_por_dia) <= ancho:
+            marcas.append((fecha, "mes"))
+            fecha = _mes_siguiente(fecha)
+        return marcas
+    paso = 7 if px_por_dia < 40 else 1
+    dias = int(ancho / px_por_dia) + 2
+    return [(fecha_origen + timedelta(days=i), "dia") for i in range(0, dias, paso)]
+
+
+def etiqueta_marca(fecha: date, tipo: str, primera: bool = False) -> str:
+    """Texto de una marca: «dd/mm» para días; el mes para meses, con el año en enero
+    y en la primera marca para no perder la referencia."""
+    if tipo == "mes":
+        return fecha.strftime("%B %Y" if primera or fecha.month == 1 else "%B")
+    return fecha.strftime("%d/%m")
+
+
 def x_a_fecha(x: float, fecha_origen: date, px_por_dia: float) -> date:
     return fecha_origen + timedelta(days=round(x / px_por_dia))
 

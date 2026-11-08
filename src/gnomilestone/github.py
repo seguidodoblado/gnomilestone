@@ -5,6 +5,7 @@ import logging
 import shutil
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,10 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
 class GitHubError(Exception):
     """Error al comunicarse con la API de GitHub."""
+
+
+class GitHubNotFoundError(GitHubError):
+    """HTTP 404: el recurso (etiqueta, issue…) no existe en GitHub."""
 
 
 class GitHubAuthError(GitHubError):
@@ -54,6 +59,8 @@ class GitHubProjectV2:
 class GitHubStatusOption:
     id: str
     name: str
+    color: str = "GRAY"  # enum de GitHub: GRAY, BLUE, GREEN, YELLOW, ORANGE, RED, PINK, PURPLE
+    description: str = ""
 
 
 @dataclass
@@ -73,6 +80,8 @@ class GitHubItem:
     milestone_title: str | None = None
     milestone_due: str | None = None
     labels: list[str] | None = None
+    label_colors: dict[str, str] | None = None
+    priority_name: str | None = None
 
 
 def obtener_token() -> str | None:
@@ -142,21 +151,43 @@ class GitHubClient:
             headers["Content-Type"] = "application/json; charset=utf-8"
 
         req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                resp_text = resp.read().decode("utf-8")
-                if not resp_text:
-                    return None
-                return json.loads(resp_text)
-        except urllib.error.HTTPError as err:
-            err_body = err.read().decode("utf-8", errors="replace")
-            log.error("HTTP %s llamando a GitHub %s: %s", err.code, url, err_body)
-            if err.code in (401, 403):
-                raise GitHubAuthError(f"Error de autenticación con GitHub (HTTP {err.code}): {err_body}") from err
-            raise GitHubError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
-        except Exception as e:
-            log.error("Fallo de red llamando a %s: %s", url, e)
-            raise GitHubError(f"Fallo de conexión con GitHub: {e}") from e
+        # Las lecturas (GET) son idempotentes: un fallo de red puntual se reintenta una vez.
+        intentos = 2 if method == "GET" else 1
+        for intento in range(1, intentos + 1):
+            try:
+                return self._abrir(req)
+            except urllib.error.HTTPError as err:
+                self._lanzar_http(err, url)
+            except Exception as e:
+                if intento < intentos:
+                    log.warning("Fallo de red llamando a %s (%s); se reintenta", url, e)
+                    continue
+                log.error("Fallo de red llamando a %s: %s", url, e)
+                raise GitHubError(f"Fallo de conexión con GitHub: {e}") from e
+        raise AssertionError("inalcanzable")  # pragma: no cover
+
+    @staticmethod
+    def _abrir(req: urllib.request.Request) -> Any:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_text = resp.read().decode("utf-8")
+            if not resp_text:
+                return None
+            return json.loads(resp_text)
+
+    @staticmethod
+    def _lanzar_http(err: urllib.error.HTTPError, url: str) -> None:
+        err_body = err.read().decode("utf-8", errors="replace")
+        # 404 y 422 los trata el llamador (p. ej. «la etiqueta no existe» o «ya existe»): no
+        # son un error por sí mismos, así que no ensucian la terminal.
+        nivel = logging.DEBUG if err.code in (404, 422) else logging.ERROR
+        log.log(nivel, "HTTP %s llamando a GitHub %s: %s", err.code, url, err_body)
+        if err.code in (401, 403):
+            raise GitHubAuthError(
+                f"Error de autenticación con GitHub (HTTP {err.code}): {err_body}"
+            ) from err
+        if err.code == 404:
+            raise GitHubNotFoundError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
+        raise GitHubError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
 
     def graphql(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {"query": query}
@@ -262,6 +293,8 @@ class GitHubClient:
                     options {
                       id
                       name
+                      color
+                      description
                     }
                   }
                   ... on ProjectV2Field {
@@ -317,9 +350,10 @@ class GitHubClient:
                         title
                         dueOn
                       }
-                      labels(first: 10) {
+                      labels(first: 20) {
                         nodes {
                           name
+                          color
                         }
                       }
                     }
@@ -358,7 +392,17 @@ class GitHubClient:
             if fname == "Status" and "options" in field:
                 meta["status_field_id"] = fid
                 for opt in field["options"]:
-                    status_options.append(GitHubStatusOption(id=opt["id"], name=opt["name"]))
+                    status_options.append(
+                        GitHubStatusOption(
+                            id=opt["id"],
+                            name=opt["name"],
+                            color=opt.get("color") or "GRAY",
+                            description=opt.get("description") or "",
+                        )
+                    )
+            elif (fname or "").casefold() in ("priority", "prioridad") and "options" in field:
+                meta["priority_field_id"] = fid
+                meta["priority_options"] = {o["name"]: o["id"] for o in field["options"]}
 
         items: list[GitHubItem] = []
         for item_node in proj.get("items", {}).get("nodes", []):
@@ -371,7 +415,9 @@ class GitHubClient:
             repo_name = content.get("repository", {}).get("nameWithOwner")
 
             assignees = [a["login"] for a in content.get("assignees", {}).get("nodes", [])]
-            labels = [l["name"] for l in content.get("labels", {}).get("nodes", [])]
+            label_nodes = content.get("labels", {}).get("nodes", [])
+            labels = [n["name"] for n in label_nodes]
+            label_colors = {n["name"]: n.get("color") for n in label_nodes if n.get("color")}
             m_title = content.get("milestone", {}).get("title") if content.get("milestone") else None
             m_due = content.get("milestone", {}).get("dueOn") if content.get("milestone") else None
 
@@ -379,6 +425,7 @@ class GitHubClient:
             status_option_id = None
             start_date = None
             target_date = None
+            priority_name = None
 
             for fval in item_node.get("fieldValues", {}).get("nodes", []):
                 field_info = fval.get("field") or {}
@@ -386,6 +433,8 @@ class GitHubClient:
                 if fname == "Status":
                     status_name = fval.get("name")
                     status_option_id = fval.get("optionId")
+                elif (fname or "").casefold() in ("priority", "prioridad"):
+                    priority_name = fval.get("name")
                 elif fname == "Start Date":
                     start_date = fval.get("date")
                 elif fname == "Target Date":
@@ -408,6 +457,8 @@ class GitHubClient:
                     milestone_title=m_title,
                     milestone_due=m_due,
                     labels=labels,
+                    label_colors=label_colors,
+                    priority_name=priority_name,
                 )
             )
 
@@ -510,6 +561,7 @@ class GitHubClient:
         body: str | None = None,
         state: str | None = None,
         assignees: list[str] | None = None,
+        labels: list[str] | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {}
         if titulo is not None:
@@ -520,4 +572,128 @@ class GitHubClient:
             data["state"] = state
         if assignees is not None:
             data["assignees"] = assignees
+        if labels is not None:
+            data["labels"] = labels
         return self._request(f"repos/{owner}/{repo}/issues/{number}", method="PATCH", data=data)
+
+    def obtener_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
+        return self._request(f"repos/{owner}/{repo}/issues/{number}")
+
+    def crear_etiqueta(self, owner: str, repo: str, nombre: str, color: str) -> None:
+        """Crea la etiqueta en el repositorio con su color; si ya existe (422) no hace nada."""
+        try:
+            self._request(
+                f"repos/{owner}/{repo}/labels",
+                method="POST",
+                data={"name": nombre, "color": color.lstrip("#")},
+            )
+        except GitHubError as e:
+            if "422" not in str(e):
+                raise
+
+    def eliminar_issue(self, owner: str, repo: str, number: int) -> str:
+        """Borra el issue en GitHub (GraphQL `deleteIssue`, exige permisos de administrador).
+
+        Si no se puede borrar, lo cierra como «no planificado». Devuelve "eliminado" o "cerrado".
+        """
+        try:
+            node_id = self._request(f"repos/{owner}/{repo}/issues/{number}")["node_id"]
+            self.graphql(
+                "mutation($id: ID!) { deleteIssue(input: {issueId: $id}) { clientMutationId } }",
+                {"id": node_id},
+            )
+            return "eliminado"
+        except GitHubError:
+            log.warning("No se pudo borrar el issue #%s; se cierra como no planificado", number)
+            self._request(
+                f"repos/{owner}/{repo}/issues/{number}",
+                method="PATCH",
+                data={"state": "closed", "state_reason": "not_planned"},
+            )
+            return "cerrado"
+
+    def eliminar_item_v2(self, project_id: str, item_id: str) -> None:
+        """Quita un item de un Project V2 (no borra el issue al que apunte)."""
+        self.graphql(
+            "mutation($p: ID!, $i: ID!) { deleteProjectV2Item(input: {projectId: $p, itemId: $i})"
+            " { deletedItemId } }",
+            {"p": project_id, "i": item_id},
+        )
+
+    def listar_comentarios_repo(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Todos los comentarios de issues del repositorio (paginado)."""
+        comentarios: list[dict[str, Any]] = []
+        pagina = 1
+        while True:
+            lote = self._request(
+                f"repos/{owner}/{repo}/issues/comments?per_page=100&page={pagina}"
+            )
+            if not lote:
+                break
+            comentarios.extend(lote)
+            if len(lote) < 100:
+                break
+            pagina += 1
+        return comentarios
+
+    def crear_comentario(self, owner: str, repo: str, number: int, cuerpo: str) -> dict[str, Any]:
+        return self._request(
+            f"repos/{owner}/{repo}/issues/{number}/comments", method="POST", data={"body": cuerpo}
+        )
+
+    def eliminar_comentario(self, owner: str, repo: str, comment_id: int) -> None:
+        self._request(f"repos/{owner}/{repo}/issues/comments/{comment_id}", method="DELETE")
+
+    def actualizar_comentario(
+        self, owner: str, repo: str, comment_id: int, cuerpo: str
+    ) -> dict[str, Any]:
+        return self._request(
+            f"repos/{owner}/{repo}/issues/comments/{comment_id}",
+            method="PATCH",
+            data={"body": cuerpo},
+        )
+
+    def actualizar_etiqueta(
+        self,
+        owner: str,
+        repo: str,
+        nombre: str,
+        nuevo_nombre: str | None = None,
+        color: str | None = None,
+    ) -> None:
+        data: dict[str, Any] = {}
+        if nuevo_nombre is not None:
+            data["new_name"] = nuevo_nombre
+        if color is not None:
+            data["color"] = color.lstrip("#")
+        self._request(
+            f"repos/{owner}/{repo}/labels/{urllib.parse.quote(nombre, safe='')}",
+            method="PATCH",
+            data=data,
+        )
+
+    def eliminar_etiqueta(self, owner: str, repo: str, nombre: str) -> None:
+        """Borra la etiqueta del repositorio (y, con ella, de todos sus issues)."""
+        self._request(
+            f"repos/{owner}/{repo}/labels/{urllib.parse.quote(nombre, safe='')}", method="DELETE"
+        )
+
+    def reemplazar_opciones_status(
+        self, field_id: str, opciones: list[GitHubStatusOption]
+    ) -> None:
+        """Deja las opciones del campo Status exactamente con esta lista y este orden.
+
+        GitHub las recrea con ids nuevos, así que los items pierden su valor de Status:
+        quien llame debe releer los ids y volver a enviar el estado de cada item."""
+        self.graphql(
+            "mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {"
+            " updateProjectV2Field(input: {fieldId: $fieldId, singleSelectOptions: $options}) {"
+            " projectV2Field { ... on ProjectV2SingleSelectField { id } } } }",
+            {
+                "fieldId": field_id,
+                "options": [
+                    {"name": o.name, "color": o.color, "description": o.description}
+                    for o in opciones
+                ],
+            },
+        )

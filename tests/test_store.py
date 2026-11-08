@@ -257,3 +257,122 @@ def test_migracion_v2_anade_avatar_url(tmp_path):
     assert store._connect().execute("PRAGMA user_version").fetchone()[0] >= 2
     cols = {fila[1] for fila in store._connect().execute("PRAGMA table_info(recurso)")}
     assert "avatar_url" in cols
+
+
+def test_eliminar_tarea_vinculada_a_github_se_recuerda_con_sus_subtareas(store):
+    proyecto = store.crear_proyecto("P")
+    padre = store.crear_tarea(proyecto.id, "Padre")
+    hija = store.crear_tarea(proyecto.id, "Hija", padre_id=padre.id)
+    for tarea, numero in ((padre, 7), (hija, 8)):
+        tarea.github_issue_number = numero
+        store.actualizar_tarea(tarea)
+    otra = store.crear_tarea(proyecto.id, "Otra")
+    otra.github_issue_number = 9
+    store.actualizar_tarea(otra)
+
+    store.eliminar_tarea(padre.id)
+
+    assert store.github_descartado(proyecto.id, 7, None)
+    assert store.github_descartado(proyecto.id, 8, None)
+    assert not store.github_descartado(proyecto.id, 9, None)
+
+
+def test_eliminar_tarea_sin_vinculo_github_no_deja_rastro(store):
+    proyecto = store.crear_proyecto("P")
+    tarea = store.crear_tarea(proyecto.id, "Local")
+    store.eliminar_tarea(tarea.id)
+    assert not store.github_descartado(proyecto.id, None, None)
+
+
+def test_etiquetas_se_reutilizan_sin_distinguir_mayusculas_y_se_asignan(store):
+    proyecto = store.crear_proyecto("P")
+    tarea = store.crear_tarea(proyecto.id, "T")
+    bug = store.asegurar_etiqueta(proyecto.id, "Bug", "d73a4a")
+    otra = store.asegurar_etiqueta(proyecto.id, "bug")
+    assert otra.id == bug.id
+    mejora = store.asegurar_etiqueta(proyecto.id, "mejora", "#a2eeef")
+    assert mejora.color == "a2eeef"
+
+    store.establecer_etiquetas_de_tarea(tarea.id, [bug.id, mejora.id])
+    assert [e.nombre for e in store.listar_etiquetas_de_tarea(tarea.id)] == ["Bug", "mejora"]
+    store.establecer_etiquetas_de_tarea(tarea.id, [mejora.id])
+    assert [e.nombre for e in store.listar_etiquetas_de_tarea(tarea.id)] == ["mejora"]
+
+    # El color de GitHub manda al volver a sincronizar.
+    assert store.asegurar_etiqueta(proyecto.id, "Bug", "ff0000").color == "ff0000"
+
+
+def test_prioridad_se_guarda_en_la_tarea(store):
+    proyecto = store.crear_proyecto("P")
+    tarea = store.crear_tarea(proyecto.id, "T", prioridad=3)
+    assert store.obtener_tarea(tarea.id).prioridad == 3
+    tarea.prioridad = 1
+    store.actualizar_tarea(tarea)
+    assert store.obtener_tarea(tarea.id).prioridad == 1
+
+
+def test_estado_final_es_unico_y_porcentaje_previo_se_guarda(store):
+    proyecto = store.crear_proyecto("P")
+    pendiente, _en_curso, hecho = store.listar_estados(proyecto.id)
+    assert not any(e.es_final for e in store.listar_estados(proyecto.id))
+
+    store.establecer_estado_final(proyecto.id, pendiente.id)
+    store.establecer_estado_final(proyecto.id, hecho.id)
+    assert [e.nombre for e in store.listar_estados(proyecto.id) if e.es_final] == ["Hecho"]
+    store.establecer_estado_final(proyecto.id, None)
+    assert not any(e.es_final for e in store.listar_estados(proyecto.id))
+
+    tarea = store.crear_tarea(proyecto.id, "T")
+    tarea.porcentaje_previo = 40
+    store.actualizar_tarea(tarea)
+    assert store.obtener_tarea(tarea.id).porcentaje_previo == 40
+
+
+def _arbol_para_archivo(store):
+    proyecto = store.crear_proyecto("P")
+    padre = store.crear_tarea(proyecto.id, "Padre")
+    hija = store.crear_tarea(proyecto.id, "Hija", padre_id=padre.id)
+    nieta = store.crear_tarea(proyecto.id, "Nieta", padre_id=hija.id)
+    otra = store.crear_tarea(proyecto.id, "Otra")
+    return proyecto, padre, hija, nieta, otra
+
+
+def test_archivar_oculta_la_tarea_y_su_rama_pero_no_las_borra(store):
+    proyecto, _padre, hija, nieta, _otra = _arbol_para_archivo(store)
+    store.archivar_tarea(hija.id)
+    assert [t.titulo for t in store.listar_tareas(proyecto.id)] == ["Padre", "Otra"]
+    assert [t.titulo for t in store.listar_tareas_archivadas(proyecto.id)] == ["Hija", "Nieta"]
+    assert len(store.listar_tareas(proyecto.id, incluir_archivadas=True)) == 4
+    assert store.obtener_tarea(nieta.id).archivada is True
+
+
+def test_desarchivar_recupera_la_rama_y_los_ancestros(store):
+    proyecto, padre, hija, _nieta, _otra = _arbol_para_archivo(store)
+    store.archivar_tarea(padre.id)  # padre, hija y nieta
+    store.desarchivar_tarea(hija.id)  # la hija vuelve con su nieta y con su padre
+    assert sorted(t.titulo for t in store.listar_tareas(proyecto.id)) == [
+        "Hija", "Nieta", "Otra", "Padre",
+    ]
+    assert store.listar_tareas_archivadas(proyecto.id) == []
+
+
+def test_archivar_completadas_solo_ramas_enteras_al_100(store):
+    proyecto, _padre, hija, nieta, otra = _arbol_para_archivo(store)
+    for t in (hija, nieta, otra):
+        t.porcentaje_completado = 100
+        store.actualizar_tarea(t)
+    # El padre no está completo: se archiva la rama de la hija (y su nieta) y «Otra».
+    assert store.archivar_completadas(proyecto.id) == 3
+    assert [t.titulo for t in store.listar_tareas(proyecto.id)] == ["Padre"]
+
+    # Una rama con una subtarea sin completar no se archiva.
+    p2 = store.crear_proyecto("Q")
+    a = store.crear_tarea(p2.id, "A", porcentaje_completado=100)
+    store.crear_tarea(p2.id, "A1", padre_id=a.id, porcentaje_completado=40)
+    assert store.archivar_completadas(p2.id) == 0
+
+
+def test_las_tareas_archivadas_no_salen_en_listar_tareas_de_proyectos(store):
+    proyecto, padre, *_resto = _arbol_para_archivo(store)
+    store.archivar_tarea(padre.id)
+    assert [t.titulo for t in store.listar_tareas_de_proyectos([proyecto.id])] == ["Otra"]

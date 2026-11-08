@@ -78,11 +78,17 @@ class ProjectListView(Gtk.Box):
             edit_button = Gtk.Button(
                 icon_name="document-edit-symbolic", tooltip_text=_("Editar proyecto")
             )
+            edit_button.add_css_class("circular")
+            edit_button.add_css_class("flat")
+            edit_button.set_valign(Gtk.Align.CENTER)
             edit_button.connect("clicked", self._on_edit_clicked, proyecto)
             box.append(edit_button)
             delete_button = Gtk.Button(
                 icon_name="user-trash-symbolic", tooltip_text=_("Eliminar proyecto")
             )
+            delete_button.add_css_class("circular")
+            delete_button.add_css_class("flat")
+            delete_button.set_valign(Gtk.Align.CENTER)
             delete_button.connect("clicked", self._on_delete_clicked, proyecto)
             box.append(delete_button)
             row.set_child(box)

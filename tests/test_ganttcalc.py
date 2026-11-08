@@ -298,3 +298,35 @@ def test_limitar_hijos_tras_redimensionar_actualiza_el_final_planificado():
     }
     assert cambiadas[3].duracion_dias == 6
     assert cambiadas[3].fecha_fin_planificada == "2026-03-10"
+
+
+def test_marcas_regla_meses_a_zoom_bajo():
+    from datetime import date
+
+    from gnomilestone.ganttcalc import etiqueta_marca, marcas_regla
+
+    origen = date(2026, 11, 8)
+    marcas = marcas_regla(origen, 4.0, 400)  # Anual: ~100 días
+    assert [(f, t) for f, t in marcas] == [
+        (date(2026, 12, 1), "mes"),
+        (date(2027, 1, 1), "mes"),
+        (date(2027, 2, 1), "mes"),
+    ]
+    # Trimestral (8 px/día) también marca meses, igual en Gantt y en Uso.
+    assert all(t == "mes" for _f, t in marcas_regla(origen, 8.0, 400))
+    assert etiqueta_marca(date(2027, 1, 1), "mes").endswith("2027")
+    assert "2026" in etiqueta_marca(date(2026, 12, 1), "mes", primera=True)
+    assert "2026" not in etiqueta_marca(date(2026, 12, 1), "mes")
+
+
+def test_marcas_regla_semanas_y_dias():
+    from datetime import date
+
+    from gnomilestone.ganttcalc import marcas_regla
+
+    origen = date(2026, 11, 8)
+    semanal = marcas_regla(origen, 18.0, 400)
+    assert [f for f, _t in semanal][:3] == [date(2026, 11, 8), date(2026, 11, 15), date(2026, 11, 22)]
+    assert all(t == "dia" for _f, t in semanal)
+    diario = marcas_regla(origen, 80.0, 400)
+    assert [f for f, _t in diario][:2] == [date(2026, 11, 8), date(2026, 11, 9)]

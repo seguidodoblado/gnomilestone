@@ -55,3 +55,37 @@ def test_ordenar_jerarquicamente_conectores_de_subtareas():
         (2, ""),
 
     ]
+
+
+def test_construir_filas_lleva_etiquetas_y_prioridad():
+    from gnomilestone.models import Etiqueta
+    from gnomilestone.ui.task_tree_view import nombre_prioridad
+
+    tareas = [_tarea(1), _tarea(2)]
+    tareas[0].prioridad = 3
+    bug = Etiqueta(id=1, proyecto_id=1, nombre="bug", color="d73a4a")
+    raices = construir_filas(tareas, {}, etiquetas_por_tarea={1: [bug]})
+    assert raices[0].etiquetas == [bug]
+    assert raices[1].etiquetas == []
+    assert raices[0].prioridad == nombre_prioridad(3) == "Alta"
+    assert raices[1].prioridad == ""
+
+
+def test_ordenar_archivadas_indenta_solo_por_ancestros_tambien_archivados():
+    from gnomilestone.ui.archived_dialog import ordenar_archivadas
+
+    padre = _tarea(1, orden=0)
+    hija = _tarea(2, padre_id=1, orden=1)
+    suelta = _tarea(3, padre_id=99, orden=2)  # su padre sigue a la vista
+    assert [(t.id, n) for t, n in ordenar_archivadas([suelta, hija, padre])] == [
+        (1, 0), (2, 1), (3, 0),
+    ]
+
+
+def test_porcentaje_texto_lleva_el_simbolo_y_las_filas_sin_tarea_van_vacias():
+    from gnomilestone.ui.task_tree_view import TareaRow
+
+    tarea = _tarea(1)
+    tarea.porcentaje_completado = 60
+    assert construir_filas([tarea], {})[0].porcentaje_texto == "60 %"
+    assert TareaRow("Proyecto", []).porcentaje_texto == ""
