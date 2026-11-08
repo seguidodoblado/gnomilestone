@@ -10,6 +10,7 @@ from gi.repository import Gtk
 from gnomilestone.i18n import _
 from gnomilestone.models import EstadoTablero
 from gnomilestone.store import ColumnaNoVaciaError, Store
+from gnomilestone.sync import GitHubSyncManager
 
 
 class BoardSettingsDialog(Gtk.Window):
@@ -26,7 +27,16 @@ class BoardSettingsDialog(Gtk.Window):
         )
         self._store = store
         self._proyecto_id = proyecto_id
-        self._on_changed = on_changed
+        self._cambiado = False
+
+        def _cambio() -> None:
+            self._cambiado = True
+            on_changed()
+
+        self._on_changed = _cambio
+        # Los cambios de columnas se envían a GitHub una sola vez, al cerrar el diálogo:
+        # GitHub regenera las opciones del campo Status en cada envío.
+        self.connect("close-request", self._on_cerrar)
 
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -41,6 +51,18 @@ class BoardSettingsDialog(Gtk.Window):
         self._list_box = Gtk.ListBox()
         box.append(self._list_box)
 
+        ayuda = Gtk.Label(
+            label=_(
+                "La columna marcada con ✓ completa (100 %) las tareas que entren en ella y "
+                "les quita el completado cuando salen."
+            ),
+            xalign=0,
+            wrap=True,
+        )
+        ayuda.add_css_class("dim-label")
+        ayuda.add_css_class("caption")
+        box.append(ayuda)
+
         add_row = Gtk.Box(spacing=6)
         self._new_entry = Gtk.Entry(placeholder_text=_("Nueva columna"), hexpand=True)
         self._new_entry.connect("activate", self._on_add)
@@ -52,6 +74,11 @@ class BoardSettingsDialog(Gtk.Window):
 
         self._refresh()
 
+    def _on_cerrar(self, _window: Gtk.Window) -> bool:
+        if self._cambiado:
+            GitHubSyncManager(self._store).push_columnas(self._proyecto_id)
+        return False
+
     def _refresh(self) -> None:
         self._list_box.remove_all()
         estados = self._store.listar_estados(self._proyecto_id)
@@ -61,6 +88,14 @@ class BoardSettingsDialog(Gtk.Window):
             entry = Gtk.Entry(text=estado.nombre, hexpand=True)
             entry.connect("activate", self._on_rename, estado)
             fila.append(entry)
+
+            final_button = Gtk.ToggleButton(
+                icon_name="object-select-symbolic",
+                tooltip_text=_("Columna de tareas completadas"),
+                active=estado.es_final,
+            )
+            final_button.connect("clicked", self._on_final, estado)
+            fila.append(final_button)
 
             up_button = Gtk.Button(icon_name="go-up-symbolic", sensitive=indice > 0)
             up_button.connect("clicked", self._on_move, estados, indice, -1)
@@ -78,6 +113,13 @@ class BoardSettingsDialog(Gtk.Window):
 
             row.set_child(fila)
             self._list_box.append(row)
+
+    def _on_final(self, boton: Gtk.ToggleButton, estado: EstadoTablero) -> None:
+        self._store.establecer_estado_final(
+            self._proyecto_id, estado.id if boton.get_active() else None
+        )
+        self._refresh()
+        self._on_changed()
 
     def _on_add(self, _widget: Gtk.Widget) -> None:
         nombre = self._new_entry.get_text().strip()

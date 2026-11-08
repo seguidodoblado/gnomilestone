@@ -29,6 +29,7 @@ class EstadoTablero:
     orden: int
     color_hex: str | None = None
     github_option_id: str | None = None
+    es_final: bool = False  # columna «de completadas»: entrar completa la tarea (ver completado.py)
 
 
 @dataclass
@@ -44,8 +45,11 @@ class Tarea:
     fecha_limite: str | None = None
     duracion_dias: int = 1
     porcentaje_completado: int = 0
+    archivada: bool = False  # fuera de todas las vistas hasta que se desarchive
+    porcentaje_previo: int | None = None  # % antes de completarse al entrar en la columna final
     orden: int = 0
     es_hito: bool = False
+    prioridad: int = 0  # 0 ninguna, 1 baja, 2 media, 3 alta (ver prioridad.py)
     github_issue_number: int | None = None
     github_issue_id: str | None = None
     github_item_id: str | None = None
@@ -88,3 +92,22 @@ class Asignacion:
     tarea_id: int
     recurso_id: int
     porcentaje_dedicacion: int = 100
+
+
+@dataclass
+class Comentario:
+    id: int
+    tarea_id: int
+    cuerpo: str
+    autor: str = ""
+    creado: str = ""
+    github_comment_id: int | None = None
+    pendiente_envio: bool = False  # editado en local y aún sin enviar a GitHub
+
+
+@dataclass
+class Etiqueta:
+    id: int
+    proyecto_id: int
+    nombre: str
+    color: str = "6e7781"  # hex sin «#», como lo da GitHub

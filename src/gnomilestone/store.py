@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Proyecto, Recurso, Tarea
+from gnomilestone.models import (
+    Asignacion,
+    Comentario,
+    Dependencia,
+    EstadoTablero,
+    Etiqueta,
+    Proyecto,
+    Recurso,
+    Tarea,
+)
 
 DATA_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "gnomilestone"
 DB_PATH = DATA_DIR / "gnomilestone.db"
@@ -101,12 +111,16 @@ def _proyecto_de_fila(fila: sqlite3.Row) -> Proyecto:
 
 
 def _estado_de_fila(fila: sqlite3.Row) -> EstadoTablero:
-    return EstadoTablero(**dict(fila))
+    datos = dict(fila)
+    datos["es_final"] = bool(datos.get("es_final"))
+    return EstadoTablero(**datos)
 
 
 def _tarea_de_fila(fila: sqlite3.Row) -> Tarea:
     datos = dict(fila)
     datos["es_hito"] = bool(datos["es_hito"])
+    datos["archivada"] = bool(datos.get("archivada"))
+    datos.pop("github_etiquetas", None)  # base de fusión de etiquetas: no es campo del modelo
     return Tarea(**datos)
 
 
@@ -120,8 +134,22 @@ def _recurso_de_fila(fila: sqlite3.Row) -> Recurso:
     return Recurso(**datos)
 
 
+def _comentario_de_fila(fila: sqlite3.Row) -> Comentario:
+    datos = dict(fila)
+    datos["pendiente_envio"] = bool(datos.get("pendiente_envio"))
+    return Comentario(**datos)
+
+
+def _etiqueta_de_fila(fila: sqlite3.Row) -> Etiqueta:
+    return Etiqueta(**dict(fila))
+
+
 def _asignacion_de_fila(fila: sqlite3.Row) -> Asignacion:
     return Asignacion(**dict(fila))
+
+
+class EtiquetaDuplicadaError(Exception):
+    """Ya existe otra etiqueta con ese nombre en el proyecto."""
 
 
 class Store:
@@ -234,6 +262,78 @@ class Store:
                 # misma persona/medio/equipo/lugar en cada proyecto en el que participa.
                 db.execute("ALTER TABLE recurso ADD COLUMN es_global INTEGER NOT NULL DEFAULT 0")
             db.execute("PRAGMA user_version = 11")
+            version = 11
+        if version < 12:
+            # Issues/items de GitHub cuya tarea local se eliminó a propósito: la
+            # sincronización no debe volver a traerlos.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS github_descartado ("
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " issue_number INTEGER,"
+                " item_id TEXT)"
+            )
+            db.execute("PRAGMA user_version = 12")
+            version = 12
+        if version < 13:
+            # Comentarios por tarea; los de un issue de GitHub llevan su id remoto.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS comentario ("
+                " id INTEGER PRIMARY KEY,"
+                " tarea_id INTEGER NOT NULL REFERENCES tarea(id) ON DELETE CASCADE,"
+                " autor TEXT NOT NULL DEFAULT '',"
+                " cuerpo TEXT NOT NULL,"
+                " creado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),"
+                " github_comment_id INTEGER UNIQUE)"
+            )
+            db.execute("PRAGMA user_version = 13")
+            version = 13
+        if version < 14:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(comentario)")}
+            if "pendiente_envio" not in columnas:
+                # Comentario editado en local que aún no se ha enviado a GitHub: el pull no
+                # debe pisarlo con la versión remota.
+                db.execute(
+                    "ALTER TABLE comentario ADD COLUMN pendiente_envio INTEGER NOT NULL DEFAULT 0"
+                )
+            db.execute("PRAGMA user_version = 14")
+            version = 14
+        if version < 15:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "prioridad" not in columnas:
+                db.execute("ALTER TABLE tarea ADD COLUMN prioridad INTEGER NOT NULL DEFAULT 0")
+            if "github_etiquetas" not in columnas:
+                # Etiquetas que tenía el issue en el último sync (JSON): base de la fusión.
+                db.execute("ALTER TABLE tarea ADD COLUMN github_etiquetas TEXT")
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS etiqueta ("
+                " id INTEGER PRIMARY KEY,"
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " nombre TEXT NOT NULL COLLATE NOCASE,"
+                " color TEXT NOT NULL DEFAULT '6e7781',"
+                " UNIQUE (proyecto_id, nombre))"
+            )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS tarea_etiqueta ("
+                " tarea_id INTEGER NOT NULL REFERENCES tarea(id) ON DELETE CASCADE,"
+                " etiqueta_id INTEGER NOT NULL REFERENCES etiqueta(id) ON DELETE CASCADE,"
+                " PRIMARY KEY (tarea_id, etiqueta_id))"
+            )
+            db.execute("PRAGMA user_version = 15")
+            version = 15
+        if version < 16:
+            cols_estado = {fila[1] for fila in db.execute("PRAGMA table_info(estado_tablero)")}
+            if "es_final" not in cols_estado:
+                db.execute("ALTER TABLE estado_tablero ADD COLUMN es_final INTEGER NOT NULL DEFAULT 0")
+            cols_tarea = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "porcentaje_previo" not in cols_tarea:
+                db.execute("ALTER TABLE tarea ADD COLUMN porcentaje_previo INTEGER")
+            db.execute("PRAGMA user_version = 16")
+            version = 16
+        if version < 17:
+            cols_tarea = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "archivada" not in cols_tarea:
+                db.execute("ALTER TABLE tarea ADD COLUMN archivada INTEGER NOT NULL DEFAULT 0")
+            db.execute("PRAGMA user_version = 17")
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -323,6 +423,17 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE estado_tablero SET nombre = ? WHERE id = ?", (nombre, estado_id))
 
+    def establecer_estado_final(self, proyecto_id: int, estado_id: int | None) -> None:
+        """Marca `estado_id` como la columna «de completadas» del proyecto (solo una; con
+        None se desmarca la que hubiera)."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE estado_tablero SET es_final = 0 WHERE proyecto_id = ?", (proyecto_id,))
+            if estado_id is not None:
+                db.execute(
+                    "UPDATE estado_tablero SET es_final = 1 WHERE id = ? AND proyecto_id = ?",
+                    (estado_id, proyecto_id),
+                )
+
     def asociar_github_option_estado(self, estado_id: int, github_option_id: str | None) -> None:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE estado_tablero SET github_option_id = ? WHERE id = ?", (github_option_id, estado_id))
@@ -375,6 +486,7 @@ class Store:
         github_issue_id: str | None = None,
         github_item_id: str | None = None,
         github_url: str | None = None,
+        prioridad: int = 0,
     ) -> Tarea:
         with closing(self._connect()) as db, db:
             siguiente_orden = db.execute(
@@ -385,22 +497,83 @@ class Store:
                 "INSERT INTO tarea (proyecto_id, padre_id, estado_id, titulo, descripcion, "
                 "fecha_inicio, fecha_fin_planificada, fecha_limite, duracion_dias, "
                 "porcentaje_completado, orden, es_hito, "
-                "github_issue_number, github_issue_id, github_item_id, github_url) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "github_issue_number, github_issue_id, github_item_id, github_url, prioridad) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (proyecto_id, padre_id, estado_id, titulo, descripcion, fecha_inicio,
                  fecha_fin_planificada, fecha_limite, duracion_dias, porcentaje_completado,
                  siguiente_orden, int(es_hito),
-                 github_issue_number, github_issue_id, github_item_id, github_url),
+                 github_issue_number, github_issue_id, github_item_id, github_url, prioridad),
             )
             fila = db.execute("SELECT * FROM tarea WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return _tarea_de_fila(fila)
 
-    def listar_tareas(self, proyecto_id: int) -> list[Tarea]:
+    def listar_tareas(self, proyecto_id: int, incluir_archivadas: bool = False) -> list[Tarea]:
+        """Tareas del proyecto. Las archivadas quedan fuera salvo que se pidan (la
+        sincronización con GitHub necesita verlas todas)."""
+        filtro = "" if incluir_archivadas else " AND archivada = 0"
         with closing(self._connect()) as db:
             filas = db.execute(
-                "SELECT * FROM tarea WHERE proyecto_id = ? ORDER BY orden", (proyecto_id,)
+                f"SELECT * FROM tarea WHERE proyecto_id = ?{filtro} ORDER BY orden",
+                (proyecto_id,),
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
+
+    def listar_tareas_archivadas(self, proyecto_id: int) -> list[Tarea]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT * FROM tarea WHERE proyecto_id = ? AND archivada = 1 ORDER BY orden",
+                (proyecto_id,),
+            ).fetchall()
+            return [_tarea_de_fila(fila) for fila in filas]
+
+    # -- Archivo -------------------------------------------------------------
+
+    def _ids_descendientes(self, db: sqlite3.Connection, tarea_id: int) -> list[int]:
+        filas = db.execute(
+            self._ARBOL_SQL + "SELECT id FROM arbol", (tarea_id,)
+        ).fetchall()
+        return [f[0] for f in filas]
+
+    def archivar_tarea(self, tarea_id: int) -> None:
+        """Archiva la tarea y sus subtareas (si no, quedarían huérfanas en las vistas)."""
+        with closing(self._connect()) as db, db:
+            ids = self._ids_descendientes(db, tarea_id)
+            db.executemany("UPDATE tarea SET archivada = 1 WHERE id = ?", [(i,) for i in ids])
+
+    def desarchivar_tarea(self, tarea_id: int) -> None:
+        """Recupera la tarea con sus subtareas y con sus ancestros (una tarea cuyo padre
+        sigue archivado no se vería en ninguna vista)."""
+        with closing(self._connect()) as db, db:
+            ids = set(self._ids_descendientes(db, tarea_id))
+            actual = db.execute("SELECT padre_id FROM tarea WHERE id = ?", (tarea_id,)).fetchone()
+            while actual is not None and actual[0] is not None and actual[0] not in ids:
+                ids.add(actual[0])
+                actual = db.execute(
+                    "SELECT padre_id FROM tarea WHERE id = ?", (actual[0],)
+                ).fetchone()
+            db.executemany("UPDATE tarea SET archivada = 0 WHERE id = ?", [(i,) for i in ids])
+
+    def archivar_completadas(self, proyecto_id: int) -> int:
+        """Archiva las tareas completadas junto con su rama, solo si toda la rama está al
+        100 %. Devuelve cuántas tareas se han archivado (contando subtareas)."""
+        tareas = self.listar_tareas(proyecto_id)
+        por_id = {t.id: t for t in tareas}
+        hijos: dict[int | None, list[Tarea]] = {}
+        for t in tareas:
+            hijos.setdefault(t.padre_id, []).append(t)
+
+        def rama_completa(t: Tarea) -> bool:
+            return t.porcentaje_completado >= 100 and all(
+                rama_completa(h) for h in hijos.get(t.id, [])
+            )
+
+        antes = len(self.listar_tareas_archivadas(proyecto_id))
+        for t in tareas:
+            padre = por_id.get(t.padre_id) if t.padre_id is not None else None
+            # Solo la rama más alta: archivarla ya archiva a sus descendientes.
+            if rama_completa(t) and (padre is None or not rama_completa(padre)):
+                self.archivar_tarea(t.id)
+        return len(self.listar_tareas_archivadas(proyecto_id)) - antes
 
     def listar_tareas_de_proyectos(self, proyecto_ids: list[int]) -> list[Tarea]:
         if not proyecto_ids:
@@ -408,7 +581,8 @@ class Store:
         marcadores = ",".join("?" * len(proyecto_ids))
         with closing(self._connect()) as db:
             filas = db.execute(
-                f"SELECT * FROM tarea WHERE proyecto_id IN ({marcadores}) ORDER BY proyecto_id, orden",
+                f"SELECT * FROM tarea WHERE proyecto_id IN ({marcadores}) AND archivada = 0 "
+                "ORDER BY proyecto_id, orden",
                 proyecto_ids,
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
@@ -441,17 +615,302 @@ class Store:
                 "fecha_inicio = ?, fecha_fin_planificada = ?, fecha_limite = ?, "
                 "duracion_dias = ?, porcentaje_completado = ?, orden = ?, "
                 "es_hito = ?, github_issue_number = ?, github_issue_id = ?, github_item_id = ?, "
-                "github_url = ?, actualizado = datetime('now') WHERE id = ?",
+                "github_url = ?, prioridad = ?, porcentaje_previo = ?, "
+                "actualizado = datetime('now') WHERE id = ?",
                 (tarea.padre_id, tarea.estado_id, tarea.titulo, tarea.descripcion,
                  tarea.fecha_inicio, tarea.fecha_fin_planificada, tarea.fecha_limite,
                  tarea.duracion_dias, tarea.porcentaje_completado,
                  tarea.orden, int(tarea.es_hito), tarea.github_issue_number,
-                 tarea.github_issue_id, tarea.github_item_id, tarea.github_url, tarea.id),
+                 tarea.github_issue_id, tarea.github_item_id, tarea.github_url,
+                 tarea.prioridad, tarea.porcentaje_previo, tarea.id),
             )
+
+    # -- Etiquetas ---------------------------------------------------------
+
+    def listar_etiquetas(self, proyecto_id: int) -> list[Etiqueta]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT * FROM etiqueta WHERE proyecto_id = ? ORDER BY nombre", (proyecto_id,)
+            ).fetchall()
+            return [_etiqueta_de_fila(f) for f in filas]
+
+    def asegurar_etiqueta(
+        self, proyecto_id: int, nombre: str, color: str | None = None
+    ) -> Etiqueta:
+        """La etiqueta con ese nombre (sin distinguir mayúsculas), creándola si no existe.
+        Si ya existe y llega un color distinto (el de GitHub manda), lo actualiza."""
+        nombre = nombre.strip()
+        with closing(self._connect()) as db, db:
+            fila = db.execute(
+                "SELECT * FROM etiqueta WHERE proyecto_id = ? AND nombre = ?",
+                (proyecto_id, nombre),
+            ).fetchone()
+            if fila is None:
+                cursor = db.execute(
+                    "INSERT INTO etiqueta (proyecto_id, nombre, color) VALUES (?, ?, ?)",
+                    (proyecto_id, nombre, (color or "6e7781").lstrip("#")),
+                )
+                fila = db.execute(
+                    "SELECT * FROM etiqueta WHERE id = ?", (cursor.lastrowid,)
+                ).fetchone()
+            elif color and fila["color"] != color.lstrip("#"):
+                db.execute(
+                    "UPDATE etiqueta SET color = ? WHERE id = ?", (color.lstrip("#"), fila["id"])
+                )
+                fila = db.execute("SELECT * FROM etiqueta WHERE id = ?", (fila["id"],)).fetchone()
+            return _etiqueta_de_fila(fila)
+
+    def contar_tareas_por_etiqueta(self, proyecto_id: int) -> dict[int, int]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT te.etiqueta_id, COUNT(*) FROM tarea_etiqueta te "
+                "JOIN etiqueta e ON e.id = te.etiqueta_id WHERE e.proyecto_id = ? "
+                "GROUP BY te.etiqueta_id",
+                (proyecto_id,),
+            ).fetchall()
+            return {f[0]: f[1] for f in filas}
+
+    def obtener_etiqueta(self, etiqueta_id: int) -> Etiqueta | None:
+        with closing(self._connect()) as db:
+            fila = db.execute("SELECT * FROM etiqueta WHERE id = ?", (etiqueta_id,)).fetchone()
+            return _etiqueta_de_fila(fila) if fila else None
+
+    def renombrar_etiqueta(self, etiqueta_id: int, nombre: str) -> None:
+        """Cambia el nombre. Lanza `EtiquetaDuplicadaError` si ya hay otra con ese nombre."""
+        nombre = nombre.strip()
+        with closing(self._connect()) as db:
+            try:
+                with db:
+                    db.execute(
+                        "UPDATE etiqueta SET nombre = ? WHERE id = ?", (nombre, etiqueta_id)
+                    )
+            except sqlite3.IntegrityError as e:
+                raise EtiquetaDuplicadaError(nombre) from e
+
+    def actualizar_color_etiqueta(self, etiqueta_id: int, color: str) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE etiqueta SET color = ? WHERE id = ?", (color.lstrip("#"), etiqueta_id)
+            )
+
+    def eliminar_etiqueta(self, etiqueta_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM etiqueta WHERE id = ?", (etiqueta_id,))
+
+    def sustituir_en_bases_github(
+        self, proyecto_id: int, viejo: str, nuevo: str | None
+    ) -> None:
+        """Renombra (o, con `nuevo=None`, quita) una etiqueta en las bases de fusión de las
+        tareas del proyecto, para que un renombrado o borrado no se tome por edición local."""
+        with closing(self._connect()) as db, db:
+            filas = db.execute(
+                "SELECT id, github_etiquetas FROM tarea "
+                "WHERE proyecto_id = ? AND github_etiquetas IS NOT NULL",
+                (proyecto_id,),
+            ).fetchall()
+            for fila in filas:
+                nombres = json.loads(fila[1])
+                if not any(n.casefold() == viejo.casefold() for n in nombres):
+                    continue
+                nombres = [n for n in nombres if n.casefold() != viejo.casefold()]
+                if nuevo is not None:
+                    nombres.append(nuevo)
+                db.execute(
+                    "UPDATE tarea SET github_etiquetas = ? WHERE id = ?",
+                    (json.dumps(nombres), fila[0]),
+                )
+
+    def listar_etiquetas_de_tarea(self, tarea_id: int) -> list[Etiqueta]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT e.* FROM etiqueta e JOIN tarea_etiqueta te ON te.etiqueta_id = e.id "
+                "WHERE te.tarea_id = ? ORDER BY e.nombre",
+                (tarea_id,),
+            ).fetchall()
+            return [_etiqueta_de_fila(f) for f in filas]
+
+    def listar_etiquetas_por_tarea(self, proyecto_id: int) -> dict[int, list[Etiqueta]]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT te.tarea_id AS tarea_id, e.* FROM etiqueta e "
+                "JOIN tarea_etiqueta te ON te.etiqueta_id = e.id "
+                "WHERE e.proyecto_id = ? ORDER BY e.nombre",
+                (proyecto_id,),
+            ).fetchall()
+            resultado: dict[int, list[Etiqueta]] = {}
+            for f in filas:
+                datos = dict(f)
+                tarea_id = datos.pop("tarea_id")
+                resultado.setdefault(tarea_id, []).append(Etiqueta(**datos))
+            return resultado
+
+    def establecer_etiquetas_de_tarea(self, tarea_id: int, etiqueta_ids: list[int]) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM tarea_etiqueta WHERE tarea_id = ?", (tarea_id,))
+            db.executemany(
+                "INSERT OR IGNORE INTO tarea_etiqueta (tarea_id, etiqueta_id) VALUES (?, ?)",
+                [(tarea_id, e) for e in etiqueta_ids],
+            )
+
+    def etiquetas_base_github(self, tarea_id: int) -> list[str] | None:
+        """Nombres de etiqueta que tenía el issue en el último sync, o None si nunca se sincronizó."""
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT github_etiquetas FROM tarea WHERE id = ?", (tarea_id,)
+            ).fetchone()
+            return json.loads(fila[0]) if fila and fila[0] is not None else None
+
+    def guardar_etiquetas_base_github(self, tarea_id: int, nombres: list[str]) -> None:
+        """Sin tocar `actualizado`: no es una edición del usuario (no debe causar conflicto)."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE tarea SET github_etiquetas = ? WHERE id = ?",
+                (json.dumps(nombres), tarea_id),
+            )
+
+    # -- Comentarios -------------------------------------------------------
+
+    def crear_comentario(
+        self,
+        tarea_id: int,
+        cuerpo: str,
+        autor: str = "",
+        creado: str | None = None,
+        github_comment_id: int | None = None,
+    ) -> Comentario:
+        with closing(self._connect()) as db, db:
+            if creado is None:
+                cursor = db.execute(
+                    "INSERT INTO comentario (tarea_id, autor, cuerpo, github_comment_id) "
+                    "VALUES (?, ?, ?, ?)",
+                    (tarea_id, autor, cuerpo, github_comment_id),
+                )
+            else:
+                cursor = db.execute(
+                    "INSERT INTO comentario (tarea_id, autor, cuerpo, creado, github_comment_id) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (tarea_id, autor, cuerpo, creado, github_comment_id),
+                )
+            fila = db.execute(
+                "SELECT * FROM comentario WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return _comentario_de_fila(fila)
+
+    def listar_comentarios(self, tarea_id: int) -> list[Comentario]:
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT * FROM comentario WHERE tarea_id = ? ORDER BY creado, id", (tarea_id,)
+            ).fetchall()
+            return [_comentario_de_fila(f) for f in filas]
+
+    def obtener_comentario(self, comentario_id: int) -> Comentario | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM comentario WHERE id = ?", (comentario_id,)
+            ).fetchone()
+            return _comentario_de_fila(fila) if fila else None
+
+    def obtener_comentario_por_github(self, github_comment_id: int) -> Comentario | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM comentario WHERE github_comment_id = ?", (github_comment_id,)
+            ).fetchone()
+            return _comentario_de_fila(fila) if fila else None
+
+    def listar_comentarios_sin_enviar(self, proyecto_id: int) -> list[Comentario]:
+        """Comentarios locales de tareas con issue que aún no se han publicado en GitHub."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT c.* FROM comentario c JOIN tarea t ON t.id = c.tarea_id "
+                "WHERE t.proyecto_id = ? AND t.github_issue_number IS NOT NULL "
+                "AND c.github_comment_id IS NULL ORDER BY c.id",
+                (proyecto_id,),
+            ).fetchall()
+            return [_comentario_de_fila(f) for f in filas]
+
+    def listar_ediciones_sin_enviar(self, proyecto_id: int) -> list[Comentario]:
+        """Comentarios ya publicados en GitHub que se editaron en local."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT c.* FROM comentario c JOIN tarea t ON t.id = c.tarea_id "
+                "WHERE t.proyecto_id = ? AND c.pendiente_envio = 1 "
+                "AND c.github_comment_id IS NOT NULL ORDER BY c.id",
+                (proyecto_id,),
+            ).fetchall()
+            return [_comentario_de_fila(f) for f in filas]
+
+    def actualizar_comentario(
+        self,
+        comentario_id: int,
+        cuerpo: str | None = None,
+        autor: str | None = None,
+        github_comment_id: int | None = None,
+        pendiente_envio: bool | None = None,
+    ) -> None:
+        with closing(self._connect()) as db, db:
+            if pendiente_envio is not None:
+                db.execute(
+                    "UPDATE comentario SET pendiente_envio = ? WHERE id = ?",
+                    (int(pendiente_envio), comentario_id),
+                )
+            if cuerpo is not None:
+                db.execute("UPDATE comentario SET cuerpo = ? WHERE id = ?", (cuerpo, comentario_id))
+            if autor is not None:
+                db.execute("UPDATE comentario SET autor = ? WHERE id = ?", (autor, comentario_id))
+            if github_comment_id is not None:
+                db.execute(
+                    "UPDATE comentario SET github_comment_id = ? WHERE id = ?",
+                    (github_comment_id, comentario_id),
+                )
+
+    def eliminar_comentario(self, comentario_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM comentario WHERE id = ?", (comentario_id,))
+
+    _ARBOL_SQL = (
+        "WITH RECURSIVE arbol(id) AS ("
+        " SELECT id FROM tarea WHERE id = ?"
+        " UNION ALL SELECT t.id FROM tarea t JOIN arbol a ON t.padre_id = a.id) "
+    )
+
+    def vinculos_github_de_arbol(self, tarea_id: int) -> list[tuple[int | None, str | None]]:
+        """(número de issue, id de item) de la tarea y sus subtareas que están vinculadas."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                self._ARBOL_SQL
+                + "SELECT github_issue_number, github_item_id FROM tarea "
+                "WHERE id IN (SELECT id FROM arbol) "
+                "AND (github_issue_number IS NOT NULL OR github_item_id IS NOT NULL)",
+                (tarea_id,),
+            ).fetchall()
+            return [(f[0], f[1]) for f in filas]
 
     def eliminar_tarea(self, tarea_id: int) -> None:
         with closing(self._connect()) as db, db:
+            # La tarea y sus subtareas (se borran en cascada): se recuerda su vínculo con
+            # GitHub para que el siguiente pull no las resucite.
+            db.execute(
+                self._ARBOL_SQL
+                + "INSERT INTO github_descartado (proyecto_id, issue_number, item_id) "
+                "SELECT proyecto_id, github_issue_number, github_item_id FROM tarea "
+                "WHERE id IN (SELECT id FROM arbol) "
+                "AND (github_issue_number IS NOT NULL OR github_item_id IS NOT NULL)",
+                (tarea_id,),
+            )
             db.execute("DELETE FROM tarea WHERE id = ?", (tarea_id,))
+
+    def github_descartado(
+        self, proyecto_id: int, issue_number: int | None, item_id: str | None
+    ) -> bool:
+        """True si la tarea de ese issue/item se eliminó localmente y no debe reimportarse."""
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT 1 FROM github_descartado WHERE proyecto_id = ? "
+                "AND ((issue_number IS NOT NULL AND issue_number = ?) "
+                "OR (item_id IS NOT NULL AND item_id = ?)) LIMIT 1",
+                (proyecto_id, issue_number, item_id),
+            ).fetchone()
+            return fila is not None
 
     def marcar_sincronizada_github(self, tarea_id: int) -> None:
         """Registra que `tarea_id` quedó igual en local y en GitHub ahora mismo, sin

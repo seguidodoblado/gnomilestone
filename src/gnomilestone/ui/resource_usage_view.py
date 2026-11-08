@@ -19,6 +19,7 @@ from gnomilestone.resource_usage import (
     carga_por_dia,
     rango_fechas,
 )
+from gnomilestone.ui import limite_dibujo
 from gnomilestone.ui.avatar_widget import AvatarWidget
 
 _PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
@@ -102,12 +103,10 @@ class _ReglaFechas(Gtk.DrawingArea):
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, _height: int) -> None:
         color_marca = _color_texto(self)
         color_texto = _color_texto_fecha(self)
-        dias = int(width / self.px_por_dia) + 2
-        paso = 7 if self.px_por_dia < 40 else 1
         cr.select_font_face("sans-serif", 0, 1)
         cr.set_font_size(12)
-        for indice in range(0, dias, paso):
-            fecha = self.fecha_origen + timedelta(days=indice)
+        marcas = ganttcalc.marcas_regla(self.fecha_origen, self.px_por_dia, width)
+        for indice, (fecha, tipo) in enumerate(marcas):
             x = ganttcalc.fecha_a_x(fecha, self.fecha_origen, self.px_por_dia)
             cr.set_source_rgba(*color_marca, 0.4)
             cr.set_line_width(1)
@@ -116,7 +115,7 @@ class _ReglaFechas(Gtk.DrawingArea):
             cr.stroke()
             cr.set_source_rgba(*color_texto, 0.95)
             cr.move_to(x + 2, _ALTURA_REGLA - 9)
-            cr.show_text(fecha.strftime("%d/%m"))
+            cr.show_text(ganttcalc.etiqueta_marca(fecha, tipo, primera=indice == 0))
 
         x_hoy = ganttcalc.fecha_a_x(date.today(), self.fecha_origen, self.px_por_dia)
         if 0 <= x_hoy <= width:
@@ -187,6 +186,7 @@ class _LienzoUso(Gtk.DrawingArea):
         self._filas: list[FilaUso] = []
         self._click_pendiente: int | None = None
         self._filas_dibujo: list[tuple[FilaUso, SegmentoUso | None]] = []
+        self._tareas: dict[int, Tarea] = {}
         self.px_por_dia = 24.0
         self.fecha_origen = date.today()
         self._on_editar_tarea = on_editar_tarea
@@ -200,7 +200,7 @@ class _LienzoUso(Gtk.DrawingArea):
 
         motion = Gtk.EventControllerMotion()
         motion.connect("motion", self._on_motion)
-        motion.connect("leave", lambda *_: self.set_cursor_from_name(None))
+        motion.connect("leave", self._on_motion_leave)
         self.add_controller(motion)
 
     def set_zoom(self, px_por_dia: float) -> None:
@@ -210,8 +210,9 @@ class _LienzoUso(Gtk.DrawingArea):
         self.queue_draw()
         self.ruler.queue_draw()
 
-    def actualizar(self, filas: list[FilaUso]) -> None:
+    def actualizar(self, filas: list[FilaUso], tareas_por_id: dict[int, Tarea] | None = None) -> None:
         self._filas = filas
+        self._tareas = tareas_por_id or {}
         self._filas_dibujo = [
             (fila, segmento)
             for fila in filas
@@ -231,7 +232,14 @@ class _LienzoUso(Gtk.DrawingArea):
         rango = rango_fechas(self._filas)
         if rango is None:
             return self.fecha_origen + timedelta(days=30)
-        return rango[1] + timedelta(days=_MARGEN_DIAS)
+        fin = rango[1]
+        # Una fecha límite posterior a la última barra debe seguir cabiendo en el lienzo.
+        for fila in self._filas:
+            for segmento in fila.segmentos:
+                tarea = self._tareas.get(segmento.tarea_id)
+                if tarea is not None and tarea.fecha_limite:
+                    fin = max(fin, ganttcalc.parse_fecha(tarea.fecha_limite) + timedelta(days=1))
+        return fin + timedelta(days=_MARGEN_DIAS)
 
     def ancho_total(self) -> int:
         dias = max((self._fecha_fin() - self.fecha_origen).days, 1)
@@ -255,6 +263,7 @@ class _LienzoUso(Gtk.DrawingArea):
             cr.line_to(x, height)
             cr.stroke()
 
+        limites: list[tuple[float, float, float, limite_dibujo.Color]] = []
         for indice, (fila, segmento) in enumerate(self._filas_dibujo):
             y = indice * _ALTURA_FILA
             # Separador de fila.
@@ -275,6 +284,11 @@ class _LienzoUso(Gtk.DrawingArea):
 
             if segmento is not None:
                 self._dibujar_barra(cr, segmento, y)
+                self._anotar_limite(limites, segmento, y)
+
+        # Las fechas límite al final, para que la bandera quede por encima de las barras.
+        for x_barra_fin, x_limite, y_linea, color in limites:
+            limite_dibujo.dibujar_limite(cr, x_barra_fin, x_limite, y_linea, color)
 
         x_hoy = ganttcalc.fecha_a_x(date.today(), self.fecha_origen, self.px_por_dia)
         if 0 <= x_hoy <= width:
@@ -283,6 +297,35 @@ class _LienzoUso(Gtk.DrawingArea):
             cr.move_to(x_hoy, 0)
             cr.line_to(x_hoy, height)
             cr.stroke()
+
+    def _anotar_limite(self, limites: list, segmento: SegmentoUso, y_fila: int) -> None:
+        tarea = self._tareas.get(segmento.tarea_id)
+        if tarea is None or not tarea.fecha_limite:
+            return
+        x_limite = limite_dibujo.x_limite(tarea.fecha_limite, self.fecha_origen, self.px_por_dia)
+        if x_limite < 0:
+            return
+        x_barra_fin = ganttcalc.fecha_a_x(
+            segmento.fecha_inicio, self.fecha_origen, self.px_por_dia
+        ) + ganttcalc.ancho_duracion(segmento.duracion_dias, self.px_por_dia)
+        limites.append(
+            (x_barra_fin, x_limite, y_fila + _ALTURA_FILA / 2, limite_dibujo.color_limite(tarea))
+        )
+
+    def _tarea_limite_en(self, x: float, y: float) -> Tarea | None:
+        """Tarea cuya bandera de fecha límite está bajo el puntero, si hay alguna."""
+        for indice, (_fila, segmento) in enumerate(self._filas_dibujo):
+            if segmento is None or not indice * _ALTURA_FILA <= y < (indice + 1) * _ALTURA_FILA:
+                continue
+            tarea = self._tareas.get(segmento.tarea_id)
+            if tarea is None or not tarea.fecha_limite:
+                continue
+            x_limite = limite_dibujo.x_limite(
+                tarea.fecha_limite, self.fecha_origen, self.px_por_dia
+            )
+            if abs(x - x_limite) <= limite_dibujo.TOLERANCIA_PX:
+                return tarea
+        return None
 
     def _dibujar_barra(self, cr, segmento: SegmentoUso, y_fila: int) -> None:
         x = ganttcalc.fecha_a_x(segmento.fecha_inicio, self.fecha_origen, self.px_por_dia)
@@ -340,8 +383,14 @@ class _LienzoUso(Gtk.DrawingArea):
             return encontrados[-1]
         return None
 
+    def _on_motion_leave(self, _controller: Gtk.EventControllerMotion) -> None:
+        self.set_cursor_from_name(None)
+        self.set_tooltip_text(None)
+
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
         self.set_cursor_from_name("pointer" if self._segmento_en(x, y) else None)
+        tarea = self._tarea_limite_en(x, y)
+        self.set_tooltip_text(limite_dibujo.texto_limite(tarea) if tarea is not None else None)
 
     def _on_clic(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
         segmento = self._segmento_en(x, y)
@@ -552,7 +601,7 @@ class ResourceUsageView(Gtk.Box):
             return
         self._mostrar_contenido(True)
         self._reconstruir_lista()
-        self._lienzo.actualizar(filas)
+        self._lienzo.actualizar(filas, self._tareas_por_id)
         self._actualizar_barra_equipo()
 
     def _actualizar_barra_equipo(self) -> None:

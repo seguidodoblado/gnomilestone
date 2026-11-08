@@ -8,14 +8,17 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GObject, Gtk
+from gi.repository import Gdk, GLib, GObject, Gtk
 
+from gnomilestone import completado
+from gnomilestone.etiquetas import color_de_texto
 from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.ganttcalc import VENCIDA
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Tarea
 from gnomilestone.store import Store
 from gnomilestone.ui.avatar_widget import fila_avatares
+from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
     asegurar_css_vencimientos,
@@ -99,6 +102,7 @@ class KanbanView(Gtk.Box):
         on_eliminar_tarea: Callable[[Tarea], None] | None = None,
         on_cambio: Callable[[], None] | None = None,
         on_abrir_ajustes: Callable[[], None] | None = None,
+        on_archivar_tarea: Callable[[Tarea], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         _asegurar_css_columnas()
@@ -108,6 +112,7 @@ class KanbanView(Gtk.Box):
         self._mostrar_completadas = True
         self._on_editar_tarea = on_editar_tarea
         self._on_eliminar_tarea = on_eliminar_tarea
+        self._on_archivar_tarea = on_archivar_tarea
         # Arrastrar una tarjeta cambia tarea.estado_id directamente en el store (este
         # widget ya tiene acceso a él): on_cambio avisa al contenedor para que la Tabla y
         # el Gantt, que no se enteran solos, también se refresquen.
@@ -212,6 +217,11 @@ class KanbanView(Gtk.Box):
         recursos = self._store.listar_recursos_de_tarea(tarea.id)
 
         fila_titulo = Gtk.Box(spacing=4)
+        icono_prioridad = crear_icono_prioridad(tarea.prioridad)
+        if icono_prioridad is not None:
+            icono_prioridad.set_valign(Gtk.Align.START)
+            icono_prioridad.set_margin_top(2)
+            fila_titulo.append(icono_prioridad)
         etiqueta = Gtk.Label(label=tarea.titulo, xalign=0, wrap=True, hexpand=True)
         estado = aplicar_estilo_vencimiento(etiqueta, tarea)
         aviso = texto_vencimiento(estado)
@@ -220,6 +230,14 @@ class KanbanView(Gtk.Box):
         fila_titulo.append(etiqueta)
         if recursos:
             fila_titulo.append(fila_avatares(recursos, size=22, maximo=3))
+        if self._on_archivar_tarea is not None:
+            archivar = Gtk.Button(
+                icon_name="archivar-symbolic",
+                tooltip_text=_("Archivar tarea"),
+                has_frame=False,
+            )
+            archivar.connect("clicked", lambda _b, t=tarea: self._on_archivar_tarea(t))
+            fila_titulo.append(archivar)
         if self._on_eliminar_tarea is not None:
             borrar = Gtk.Button(
                 icon_name="user-trash-symbolic",
@@ -242,6 +260,24 @@ class KanbanView(Gtk.Box):
             info.add_css_class("caption")
             info.add_css_class("error" if estado == VENCIDA else "dim-label")
             tarjeta.append(info)
+
+        etiquetas = self._store.listar_etiquetas_de_tarea(tarea.id)
+        if etiquetas:
+            fila_marcas = Gtk.FlowBox(
+                selection_mode=Gtk.SelectionMode.NONE,
+                column_spacing=4,
+                row_spacing=2,
+                max_children_per_line=6,
+            )
+            for e in etiquetas:
+                chip = Gtk.Label(use_markup=True)
+                chip.set_markup(
+                    f'<span size="small" background="#{e.color}" '
+                    f'foreground="#{color_de_texto(e.color)}"> '
+                    f"{GLib.markup_escape_text(e.nombre)} </span>"
+                )
+                fila_marcas.append(chip)
+            tarjeta.append(fila_marcas)
 
         if self._on_editar_tarea is not None:
             doble_clic = Gtk.GestureClick(button=1)
@@ -270,6 +306,7 @@ class KanbanView(Gtk.Box):
         tarea = self._store.obtener_tarea(tarea_id)
         if tarea is None or tarea.estado_id == estado_id:
             return False
+        completado.al_cambiar_de_columna(tarea, estado_id, self._store.listar_estados(tarea.proyecto_id))
         tarea.estado_id = estado_id
         self._store.actualizar_tarea(tarea)
         self._push_a_github(tarea_id)

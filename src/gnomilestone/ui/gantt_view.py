@@ -27,6 +27,7 @@ class GanttView(Gtk.Box):
         on_editar_tarea: Callable[[Tarea], None] | None = None,
         on_eliminar_tarea: Callable[[Tarea], None] | None = None,
         on_tarea_arrastrada: Callable[[int, str, int], None] | None = None,
+        on_archivar_tarea: Callable[[Tarea], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._indice_zoom = _PASOS_ZOOM.index(80.0)
@@ -34,7 +35,9 @@ class GanttView(Gtk.Box):
         self._timeout_guardar_ancho: int | None = None
         self._ultimo_ancho_guardado: int | None = None
 
-        self._tree = TaskTreeView(on_editar=on_editar_tarea, on_eliminar=on_eliminar_tarea)
+        self._tree = TaskTreeView(
+            on_editar=on_editar_tarea, on_eliminar=on_eliminar_tarea, on_archivar=on_archivar_tarea
+        )
         self._tree.tree_model.connect("items-changed", self._on_filas_cambiadas)
         self._aplicar_columnas_visibles()
 

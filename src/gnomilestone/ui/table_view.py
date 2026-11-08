@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gio, Gtk
 
 from gnomilestone.i18n import _
-from gnomilestone.models import Recurso, Tarea
+from gnomilestone.models import Etiqueta, Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.task_tree_view import (
     ALTURA_FILA,
@@ -16,7 +16,9 @@ from gnomilestone.ui.task_tree_view import (
     TareaRow,
     adjuntar_menu_contextual,
     asegurar_css_fila_fija,
+    etiquetas_factory,
     ordenar_jerarquicamente,
+    prioridad_factory,
 )
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
@@ -101,6 +103,7 @@ class TableView(Gtk.Box):
         self,
         on_editar_tarea: Callable[[Tarea], None] | None = None,
         on_eliminar_tarea: Callable[[Tarea], None] | None = None,
+        on_archivar_tarea: Callable[[Tarea], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         asegurar_css_fila_fija()
@@ -129,7 +132,7 @@ class TableView(Gtk.Box):
         self._view.add_css_class(CLASE_FILA_FIJA)
         self._view.connect("activate", self._on_activate)
         if on_editar_tarea is not None and on_eliminar_tarea is not None:
-            adjuntar_menu_contextual(self._view, on_editar_tarea, on_eliminar_tarea)
+            adjuntar_menu_contextual(self._view, on_editar_tarea, on_eliminar_tarea, on_archivar_tarea)
 
         self._view.append_column(
             Gtk.ColumnViewColumn(
@@ -141,13 +144,25 @@ class TableView(Gtk.Box):
                 title=_("Asignado"), factory=_recursos_factory(), resizable=True
             )
         )
+        self._view.append_column(
+            Gtk.ColumnViewColumn(title=_("Columna"), factory=_texto_factory("estado"), resizable=True)
+        )
+        self._view.append_column(
+            Gtk.ColumnViewColumn(
+                title=_("Prioridad"), factory=prioridad_factory(arbol=False), resizable=True
+            )
+        )
+        self._view.append_column(
+            Gtk.ColumnViewColumn(
+                title=_("Etiquetas"), factory=etiquetas_factory(arbol=False), resizable=True
+            )
+        )
         for titulo, propiedad in (
-            (_("Columna"), "estado"),
             (_("Inicio"), "fecha_inicio"),
-            (_("Final planificado"), "fecha_fin_planificada"),
-            (_("Fecha límite"), "fecha_limite"),
+            (_("Planificado"), "fecha_fin_planificada"),
+            (_("Límite"), "fecha_limite"),
             (_("Duración (días)"), "duracion_dias"),
-            (_("% completado"), "porcentaje_completado"),
+            (_("% completado"), "porcentaje_texto"),
         ):
             self._view.append_column(
                 Gtk.ColumnViewColumn(title=titulo, factory=_texto_factory(propiedad), resizable=True)
@@ -163,8 +178,10 @@ class TableView(Gtk.Box):
         estados: list,
         estados_por_id: dict[int, str],
         recursos_por_tarea: dict[int, list[Recurso]] | None = None,
+        etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
     ) -> None:
         recursos_por_tarea = recursos_por_tarea or {}
+        etiquetas_por_tarea = etiquetas_por_tarea or {}
         etiquetas = [_("Todas las columnas")] + [estado.nombre for estado in estados]
         self._ids_estado = [None] + [estado.id for estado in estados]
         self._estado_dropdown.set_model(Gtk.StringList.new(etiquetas))
@@ -184,6 +201,7 @@ class TableView(Gtk.Box):
                     tarea=tarea,
                     estado_nombre=nombre_estado,
                     recursos=recursos_por_tarea.get(tarea.id, []),
+                    etiquetas=etiquetas_por_tarea.get(tarea.id, []),
                 )
             )
 
