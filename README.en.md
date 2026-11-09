@@ -33,22 +33,25 @@ diagrams and timelines).
   detection), people assignment with their dedication, priority, colored labels and
   comments.
 - **Task dialog**: a tabbed window (General, Dates and progress, Assignments,
-  Dependencies and Comments), a Markdown description with a formatting bar and preview,
-  searchable pickers for the parent task and dependencies, a calendar with shortcuts
-  (Today, Tomorrow, Next week), field-by-field validation and a warning about unsaved
-  changes.
+  Dependencies, Comments and History), a Markdown description with a formatting bar, list
+  continuation on Enter and preview, searchable pickers for the parent task and
+  dependencies, a calendar with shortcuts (Today, Tomorrow, Next week), field-by-field
+  validation, a warning about unsaved changes and a warning when completing a task with
+  unfinished dependencies.
 - **Views within a project** (Planner-style icon rail): List (flat listing with
   hierarchy indentation, text search and board-column filter, with priority and label
-  columns), Kanban board (configurable columns, draggable cards), Gantt (bars with
+  columns, selectable columns and a link to the GitHub issue), Kanban board (configurable
+  columns, draggable and sortable cards, with their parent-child relation), Gantt (bars with
   progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
   propagation to children and dependents), Resources (create/edit, avatar, workload per
   person) and Resource usage (occupancy over time, with overload marked in red).
 - **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
   between them.
-- **Reports**: a visual panel with overall progress, tasks per status, progress
-  breakdown (not started/in progress/completed), date alerts (overdue, past planned
-  end, due within 7 days, active resources), distribution by person and critical path
-  (the tasks with a red alert on a 7-day timeline).
+- **Reports**: a visual panel with overall progress, tasks per status, progress rate
+  (burndown/burnup), progress breakdown (not started/in progress/completed), time risk
+  (red alerts, past planned end, due within 7 days, active resources), distribution by
+  person, critical path (the tasks with a red alert on a 7-day timeline) and work
+  rhythm (a heat map of daily activity).
 - **Project documentation**: each project's own documentation, with content stored in
   the app (no external files read), organized in Architecture, Specifications,
   Blueprint and Technical decisions. Notes are Markdown cards (templates, status,

@@ -33,13 +33,15 @@ proyecto (notas, diagramas y líneas de tiempo).
   detección de ciclos), asignación de personas con su dedicación, prioridad, etiquetas
   de colores y comentarios.
 - **Diálogo de tarea**: ventana con pestañas (General, Fechas y progreso, Asignaciones,
-  Dependencias y Comentarios), descripción en Markdown con barra de formato y vista
-  previa, selectores con búsqueda para la tarea padre y las dependencias, calendario con
-  atajos (Hoy, Mañana, Próxima semana), validación campo a campo y aviso de cambios sin
-  guardar.
+  Dependencias, Comentarios e Historial), descripción en Markdown con barra de formato,
+  continuación de listas con Enter y vista previa, selectores con búsqueda para la tarea
+  padre y las dependencias, calendario con atajos (Hoy, Mañana, Próxima semana),
+  validación campo a campo, aviso de cambios sin guardar y aviso al completar una tarea
+  con dependencias sin terminar.
 - **Vistas de un proyecto** (rail de iconos al estilo Planner): Lista (listado plano
   con indentación, búsqueda y filtro por columna, con columnas de prioridad y
-  etiquetas), Tablero Kanban (columnas configurables, tarjetas arrastrables), Gantt
+  etiquetas, columnas a elegir y enlace al issue de GitHub), Tablero Kanban (columnas
+  configurables, tarjetas arrastrables y ordenables, con su relación padre-hijo), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
   zoom y propagación en cascada a hijas y dependientes), Recursos (alta/edición, avatar,
   carga por persona) y Uso de recursos (ocupación en el tiempo, con sobrecarga marcada
@@ -47,9 +49,10 @@ proyecto (notas, diagramas y líneas de tiempo).
 - **Gantt global**: superpone los proyectos elegidos en un único diagrama para
   detectar solapes entre ellos.
 - **Informes**: panel visual por proyecto con progreso global, tareas por estado,
-  avance (sin empezar/en curso/completadas), alertas de fechas (vencidas,
-  planificadas pasadas, próximas 7 días, recursos activos), reparto por persona y
-  ruta crítica (las tareas con alerta roja sobre una línea de tiempo de 7 días).
+  ritmo de avance (burndown/burnup), avance (sin empezar/en curso/completadas), riesgo
+  temporal (alertas rojas, planificación pasada, próximas 7 días, recursos activos),
+  reparto por persona, ruta crítica (las tareas con alerta roja sobre una línea de
+  tiempo de 7 días) y ritmo de trabajo (un mapa de calor de la actividad diaria).
 - **Documentación del proyecto**: ficha propia de cada proyecto, con contenido de la
   app (sin leer ficheros externos), organizada en Arquitectura, Especificaciones,
   Blueprint y Decisiones técnicas. Las notas son tarjetas con Markdown (plantillas,
