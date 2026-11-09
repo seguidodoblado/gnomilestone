@@ -87,3 +87,26 @@ def test_enter_normal_fuera_de_lista_o_a_mitad_de_linea():
 
     buf = _buffer("1. uno", cursor=4)
     assert continuar_lista(buf) is False
+
+
+def test_lista_numerada_alterna_en_una_linea():
+    buf = _buffer("hola", cursor=2)
+    prefijar_lineas(buf, "1. ")
+    assert _texto(buf) == "1. hola"
+    prefijar_lineas(buf, "1. ")
+    assert _texto(buf) == "hola"
+
+
+def test_lista_numerada_alterna_en_varias_lineas():
+    buf = _buffer("uno\ndos\ntres", seleccion=(0, 12))
+    prefijar_lineas(buf, "1. ")
+    assert _texto(buf) == "1. uno\n2. dos\n3. tres"
+    buf.select_range(*buf.get_bounds())
+    prefijar_lineas(buf, "1. ")
+    assert _texto(buf) == "uno\ndos\ntres"
+
+
+def test_lista_numerada_renumera_si_solo_algunas_lineas_llevan_numero():
+    buf = _buffer("1. uno\ndos", seleccion=(0, 10))
+    prefijar_lineas(buf, "1. ")
+    assert _texto(buf) == "1. uno\n2. dos"

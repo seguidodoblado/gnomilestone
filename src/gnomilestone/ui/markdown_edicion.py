@@ -9,6 +9,8 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+_RE_NUMERO = re.compile(r"^\d+\. ")
+
 
 def _iter_de_linea(buf: Gtk.TextBuffer, linea: int) -> Gtk.TextIter:
     # En PyGObject, get_iter_at_line() devuelve (éxito, iter), no solo el iter.
@@ -45,7 +47,7 @@ def envolver(buf: Gtk.TextBuffer, antes: str, despues: str, ejemplo: str) -> Non
 
 def prefijar_lineas(buf: Gtk.TextBuffer, prefijo: str) -> None:
     """Añade `prefijo` a cada línea de la selección (o a la actual); si todas lo llevan, lo
-    quita. Con «1. » numera las líneas."""
+    quita. Con «1. » numera las líneas (y las desnumera si todas ya estaban numeradas)."""
     if buf.get_has_selection():
         inicio, fin = buf.get_selection_bounds()
     else:
@@ -59,13 +61,17 @@ def prefijar_lineas(buf: Gtk.TextBuffer, prefijo: str) -> None:
         for n in range(primera, ultima + 1)
     ]
     numeradas = prefijo == "1. "
-    quitar = not numeradas and all(linea.startswith(prefijo) for linea in lineas)
+    if numeradas:
+        quitar = all(_RE_NUMERO.match(linea) for linea in lineas)
+    else:
+        quitar = all(linea.startswith(prefijo) for linea in lineas)
     nuevas = []
     for i, linea in enumerate(lineas, start=1):
         if quitar:
-            nuevas.append(linea[len(prefijo) :])
+            nuevas.append(_RE_NUMERO.sub("", linea, count=1) if numeradas else linea[len(prefijo) :])
         elif numeradas:
-            nuevas.append(f"{i}. {linea}")
+            # Una línea que ya llevaba número se renumera en vez de duplicarlo.
+            nuevas.append(f"{i}. {_RE_NUMERO.sub('', linea, count=1)}")
         else:
             nuevas.append(prefijo + linea)
     buf.begin_user_action()

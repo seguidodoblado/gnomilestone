@@ -54,3 +54,47 @@ def test_salir_de_la_final_con_menos_de_100_conserva_lo_que_tenga():
     tarea = _tarea(HECHO, 80)
     al_cambiar_de_columna(tarea, EN_CURSO, _estados())
     assert tarea.porcentaje_completado == 80
+
+
+def test_fecha_fin_real_segun_el_porcentaje():
+    from datetime import date
+
+    from gnomilestone.completado import fecha_fin_real_para
+
+    hoy = date(2026, 11, 9)
+    assert fecha_fin_real_para(100, None, hoy) == "2026-11-09"
+    assert fecha_fin_real_para(100, "2026-11-01", hoy) == "2026-11-01"  # respeta la manual
+    assert fecha_fin_real_para(60, "2026-11-01", hoy) is None
+    assert fecha_fin_real_para(0, None, hoy) is None
+
+
+def test_entrar_en_la_columna_final_pone_la_fecha_fin_real():
+    tarea = _tarea(EN_CURSO, 60)
+    al_cambiar_de_columna(tarea, HECHO, _estados())
+    assert tarea.fecha_fin_real is not None
+
+
+def test_entrar_con_fecha_fin_real_manual_la_conserva():
+    tarea = _tarea(EN_CURSO, 60)
+    tarea.fecha_fin_real = "2026-01-02"
+    al_cambiar_de_columna(tarea, HECHO, _estados())
+    assert tarea.fecha_fin_real == "2026-01-02"
+
+
+def test_salir_de_la_columna_final_borra_la_fecha_fin_real():
+    tarea = _tarea(HECHO, 100)
+    tarea.porcentaje_previo = 60
+    tarea.fecha_fin_real = "2026-01-02"
+    al_cambiar_de_columna(tarea, EN_CURSO, _estados())
+    assert (tarea.porcentaje_completado, tarea.fecha_fin_real) == (60, None)
+
+
+def test_dependencias_sin_terminar_solo_cuenta_las_marcadas_incompletas_y_no_archivadas():
+    from gnomilestone.completado import dependencias_sin_terminar
+
+    def t(id_, pct, archivada=False):
+        return Tarea(id=id_, proyecto_id=1, titulo=f"T{id_}", porcentaje_completado=pct, archivada=archivada)
+
+    tareas = [t(1, 20), t(2, 100), t(3, 50, archivada=True), t(4, 0)]
+    assert [x.id for x in dependencias_sin_terminar([1, 2, 3], tareas)] == [1]
+    assert dependencias_sin_terminar([], tareas) == []

@@ -22,7 +22,7 @@ from gnomilestone.ui.archived_dialog import ArchivedTasksDialog
 from gnomilestone.ui.board_settings_dialog import BoardSettingsDialog
 from gnomilestone.ui.documentation_view import DocumentationView
 from gnomilestone.ui.gantt_view import GanttView
-from gnomilestone.ui.kanban_view import KanbanView
+from gnomilestone.ui.kanban_view import KanbanView, colores_de_estados
 from gnomilestone.ui.labels_dialog import LabelsDialog
 from gnomilestone.ui.report_view import ReportView
 from gnomilestone.ui.resource_dialog import ResourceView
@@ -244,7 +244,11 @@ class ProjectDetailView(Gtk.Box):
         )
 
         filas_arbol = construir_filas(
-            tareas_visibles, estados_por_id, recursos_por_tarea, etiquetas_por_tarea
+            tareas_visibles,
+            estados_por_id,
+            recursos_por_tarea,
+            etiquetas_por_tarea,
+            colores_de_estados(estados),
         )
         dependencias = self._store.listar_dependencias(self._proyecto.id)
         self._gantt.set_filas(

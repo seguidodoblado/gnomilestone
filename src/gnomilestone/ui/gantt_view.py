@@ -12,6 +12,7 @@ from gi.repository import Gdk, GLib, Gtk
 from gnomilestone import settings
 from gnomilestone.i18n import _
 from gnomilestone.models import Dependencia, Tarea
+from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
 from gnomilestone.ui.gantt_drawing_area import GanttDrawingArea
 from gnomilestone.ui.task_tree_view import TareaRow, TaskTreeView
 
@@ -39,7 +40,7 @@ class GanttView(Gtk.Box):
             on_editar=on_editar_tarea, on_eliminar=on_eliminar_tarea, on_archivar=on_archivar_tarea
         )
         self._tree.tree_model.connect("items-changed", self._on_filas_cambiadas)
-        self._aplicar_columnas_visibles()
+        aplicar_columnas_guardadas(self._tree, "gantt_columnas_visibles")
 
         toolbar = Gtk.Box(spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
 
@@ -51,7 +52,7 @@ class GanttView(Gtk.Box):
         self._btn_sidebar.connect("toggled", self._on_toggle_sidebar)
         toolbar.append(self._btn_sidebar)
 
-        self._btn_columnas = self._crear_menu_columnas()
+        self._btn_columnas = crear_menu_columnas(self._tree, "gantt_columnas_visibles")
         toolbar.append(self._btn_columnas)
 
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
@@ -191,53 +192,6 @@ class GanttView(Gtk.Box):
         elif dy > 0:
             self._on_zoom_out()
         return True  # con Ctrl, el scroll no desplaza: solo hace zoom
-
-    def _crear_menu_columnas(self) -> Gtk.MenuButton:
-        popover = Gtk.Popover()
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=4,
-            margin_top=8,
-            margin_bottom=8,
-            margin_start=8,
-            margin_end=8,
-        )
-        titulo = Gtk.Label(label=_("Columnas visibles"), xalign=0)
-        titulo.add_css_class("heading")
-        box.append(titulo)
-
-        for clave, etiqueta, fija in self._tree.columnas_disponibles():
-            check = Gtk.CheckButton(label=etiqueta)
-            check.set_active(self._tree.is_columna_visible(clave))
-            if fija:
-                check.set_sensitive(False)
-            else:
-                check.connect("toggled", self._on_columna_toggled, clave)
-            box.append(check)
-
-        popover.set_child(box)
-        return Gtk.MenuButton(
-            icon_name="view-more-symbolic",
-            tooltip_text=_("Columnas visibles"),
-            popover=popover,
-        )
-
-    def _aplicar_columnas_visibles(self) -> None:
-        config = settings.read_settings().get("gantt_columnas_visibles")
-        if config is not None:
-            for clave, visible in config.items():
-                if clave != "titulo":
-                    self._tree.set_columna_visible(clave, bool(visible))
-
-    def _on_columna_toggled(self, check: Gtk.CheckButton, clave: str) -> None:
-        self._tree.set_columna_visible(clave, check.get_active())
-        visibles = {
-            c_clave: self._tree.is_columna_visible(c_clave)
-            for c_clave, _etiqueta, _fija in self._tree.columnas_disponibles()
-        }
-        config = settings.read_settings()
-        config["gantt_columnas_visibles"] = visibles
-        settings.write_settings(config)
 
     def _on_toggle_sidebar(self, btn: Gtk.ToggleButton) -> None:
         activo = btn.get_active()
