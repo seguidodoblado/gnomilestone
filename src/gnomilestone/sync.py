@@ -878,9 +878,9 @@ class GitHubSyncManager:
                     **({"labels": etiquetas} if etiquetas else {}),
                 )
                 self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)
-                tarea.github_issue_number = res.get("number")
-                tarea.github_url = res.get("html_url")
-                self._store.actualizar_tarea(tarea)
+                # Solo el vínculo: reescribir toda la fila con la copia leída al empezar el envío
+                # pisaría lo que el usuario haya editado mientras tanto.
+                self._store.vincular_issue_github(tarea.id, res.get("number"), res.get("html_url"))
 
             # 2. Si hay Project V2 y la tarea tiene item_id asociado, sincronizar estado y
             # fechas (campos "Start Date"/"Target Date", si el proyecto los tiene)

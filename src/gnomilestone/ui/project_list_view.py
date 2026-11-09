@@ -17,6 +17,20 @@ from gnomilestone.ui.project_dialog import ProjectDialog
 log = logging.getLogger(__name__)
 
 
+def coincide_proyecto(nombre: str, texto: str) -> bool:
+    """¿Se muestra el proyecto con ese nombre al filtrar por `texto`? (sin distinguir
+    mayúsculas, en cualquier parte del nombre; sin texto se muestran todos)."""
+    texto = texto.strip().casefold()
+    return not texto or texto in nombre.casefold()
+
+
+def buscar_por_nombre(proyectos: list[Proyecto], nombre: str) -> Proyecto | None:
+    """El proyecto cuyo nombre coincide exactamente con `nombre` (sin distinguir mayúsculas
+    ni espacios sobrantes), o None."""
+    objetivo = nombre.strip().casefold()
+    return next((p for p in proyectos if p.nombre.strip().casefold() == objetivo), None)
+
+
 class ProjectListView(Gtk.Box):
     def __init__(self, store: Store, on_select: Callable[[Proyecto | None], None]) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6, width_request=300)
@@ -29,8 +43,12 @@ class ProjectListView(Gtk.Box):
         header.append(Gtk.Label(label=_("Proyectos"), xalign=0, hexpand=True))
         self.append(header)
 
-        self._entry = Gtk.Entry(placeholder_text=_("Nombre del nuevo proyecto"))
-        self._entry.connect("activate", self._on_create)
+        self._entry = Gtk.Entry(
+            placeholder_text=_("Nombre"),
+            tooltip_text=_("Escribe para filtrar la lista; Intro o «+» crea un proyecto con ese nombre"),
+        )
+        self._entry.connect("activate", self._on_intro)
+        self._entry.connect("changed", lambda _e: self._list_box.invalidate_filter())
         add_row = Gtk.Box(spacing=6, margin_start=6, margin_end=6)
         add_row.append(self._entry)
         add_button = Gtk.Button(icon_name="list-add-symbolic", tooltip_text=_("Crear proyecto"))
@@ -41,6 +59,7 @@ class ProjectListView(Gtk.Box):
         scroller = Gtk.ScrolledWindow(vexpand=True)
         self._list_box = Gtk.ListBox()
         self._list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self._list_box.set_filter_func(self._filtrar)
         self._list_box.connect("row-selected", self._on_row_selected)
         scroller.set_child(self._list_box)
         self.append(scroller)
@@ -52,6 +71,7 @@ class ProjectListView(Gtk.Box):
         for proyecto in self._store.listar_proyectos():
             row = Gtk.ListBoxRow()
             row.proyecto_id = proyecto.id  # type: ignore[attr-defined]
+            row.proyecto_nombre = proyecto.nombre  # type: ignore[attr-defined]
             box = Gtk.Box(spacing=6, margin_start=6, margin_end=6, margin_top=4, margin_bottom=4)
             if proyecto.icon_path and Path(proyecto.icon_path).is_file():
                 icon = Gtk.Image.new_from_file(proyecto.icon_path)
@@ -96,6 +116,9 @@ class ProjectListView(Gtk.Box):
             if proyecto.id == self._selected_id:
                 self._list_box.select_row(row)
 
+    def _filtrar(self, row: Gtk.ListBoxRow) -> bool:
+        return coincide_proyecto(row.proyecto_nombre, self._entry.get_text())  # type: ignore[attr-defined]
+
     def _on_edit_clicked(self, _button: Gtk.Button, proyecto: Proyecto) -> None:
         self._project_dialog = ProjectDialog(
             self.get_root(), self._store, proyecto, self._on_project_saved
@@ -124,6 +147,22 @@ class ProjectListView(Gtk.Box):
         if self._selected_id is not None:
             self._selected_id = None
             self._on_select(None)
+
+    def _on_intro(self, _widget: Gtk.Widget) -> None:
+        """Intro: abre el proyecto si ya existe uno con ese nombre; si no, lo crea. El botón
+        «+» crea siempre (por si de verdad se quieren dos con el mismo nombre)."""
+        nombre = self._entry.get_text().strip()
+        existente = buscar_por_nombre(self._store.listar_proyectos(), nombre) if nombre else None
+        if existente is None:
+            self._on_create(_widget)
+            return
+        self._entry.set_text("")  # quita el filtro: la fila ya está visible
+        fila = self._list_box.get_first_child()
+        while fila is not None:
+            if getattr(fila, "proyecto_id", None) == existente.id:
+                self._list_box.select_row(fila)
+                break
+            fila = fila.get_next_sibling()
 
     def _on_create(self, _widget: Gtk.Widget) -> None:
         nombre = self._entry.get_text().strip()

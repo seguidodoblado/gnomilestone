@@ -6,7 +6,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, Gio, GObject, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from gnomilestone.etiquetas import marcado_chip
 from gnomilestone.i18n import _, formatear_fecha_local
@@ -64,6 +64,7 @@ class TareaRow(GObject.Object):
         hijos: list[TareaRow],
         tarea: Tarea | None = None,
         estado_nombre: str = "",
+        estado_color: str = "",
         recursos: list[Recurso] | None = None,
         etiquetas: list[Etiqueta] | None = None,
     ) -> None:
@@ -72,12 +73,23 @@ class TareaRow(GObject.Object):
         self.hijos = hijos
         self.tarea = tarea
         self.estado = estado_nombre
+        self.estado_color = estado_color  # «#rrggbb» de su columna del tablero
         self.recursos: list[Recurso] = recursos or []
         self.etiquetas: list[Etiqueta] = etiquetas or []
 
     @property
     def prioridad(self) -> str:
         return nombre_prioridad(self.tarea.prioridad) if self.tarea else ""
+
+    @property
+    def issue(self) -> str:
+        """«#N» del issue de GitHub vinculado (vacío si la tarea no tiene)."""
+        n = self.tarea.github_issue_number if self.tarea else None
+        return f"#{n}" if n else ""
+
+    @property
+    def issue_url(self) -> str:
+        return (self.tarea.github_url or "") if self.tarea else ""
 
     @property
     def fecha_inicio(self) -> str:
@@ -114,10 +126,12 @@ def construir_filas(
     estados_por_id: dict[int, str],
     recursos_por_tarea: dict[int, list[Recurso]] | None = None,
     etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
+    colores_estado: dict[int, str] | None = None,
 ) -> list[TareaRow]:
     """Árbol de TareaRow (raíces con sus hijos anidados) a partir de una lista plana."""
     recursos_por_tarea = recursos_por_tarea or {}
     etiquetas_por_tarea = etiquetas_por_tarea or {}
+    colores_estado = colores_estado or {}
     hijos_por_padre: dict[int | None, list[Tarea]] = {}
     for tarea in tareas:
         hijos_por_padre.setdefault(tarea.padre_id, []).append(tarea)
@@ -131,6 +145,7 @@ def construir_filas(
             hijos,
             tarea=tarea,
             estado_nombre=estados_por_id.get(tarea.estado_id, ""),
+            estado_color=colores_estado.get(tarea.estado_id, ""),
             recursos=recursos_por_tarea.get(tarea.id, []),
             etiquetas=etiquetas_por_tarea.get(tarea.id, []),
         )
@@ -362,6 +377,50 @@ def prioridad_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
     return factory
 
 
+def issue_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
+    """Columna «Issue»: «#N» como enlace al issue en GitHub (texto plano si no hay URL)."""
+    factory = Gtk.SignalListItemFactory()
+
+    def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        item.set_child(Gtk.Label(xalign=0, use_markup=True, height_request=ALTURA_FILA))
+
+    def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        fila = _fila_de(item, arbol)
+        etiqueta = item.get_child()
+        if fila.issue and fila.issue_url:
+            url = GLib.markup_escape_text(fila.issue_url)
+            etiqueta.set_markup(f'<a href="{url}">{fila.issue}</a>')
+            etiqueta.set_tooltip_text(_("Abrir el issue en GitHub"))
+        else:
+            etiqueta.set_label(fila.issue)
+            etiqueta.set_tooltip_text(None)
+        _bind_fila(etiqueta, fila)
+
+    factory.connect("setup", _setup)
+    factory.connect("bind", _bind)
+    return factory
+
+
+def estado_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
+    """Columna «Columna»: punto del color de la columna del tablero junto a su nombre."""
+    factory = Gtk.SignalListItemFactory()
+
+    def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        item.set_child(Gtk.Label(xalign=0, use_markup=True, height_request=ALTURA_FILA))
+
+    def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        fila = _fila_de(item, arbol)
+        etiqueta = item.get_child()
+        nombre = GLib.markup_escape_text(fila.estado)
+        punto = f'<span foreground="{fila.estado_color}">●</span> ' if fila.estado_color else ""
+        etiqueta.set_markup(f"{punto}{nombre}")
+        _bind_fila(etiqueta, fila)
+
+    factory.connect("setup", _setup)
+    factory.connect("bind", _bind)
+    return factory
+
+
 def etiquetas_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
     """Columna «Etiquetas»: un chip de color por etiqueta."""
     factory = Gtk.SignalListItemFactory()
@@ -391,6 +450,7 @@ COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
     ("estado", _("Columna"), False, False),
     ("prioridad", _("Prioridad"), False, False),
     ("etiquetas", _("Etiquetas"), False, False),
+    ("issue", _("Issue"), False, False),
     ("fecha_inicio", _("Inicio"), False, False),
     ("fecha_fin_planificada", _("Planificado"), False, False),
     ("fecha_limite", _("Límite"), False, False),
@@ -438,6 +498,7 @@ class TaskTreeView(Gtk.ColumnView):
             ("estado", _("Columna"), "estado", False),
             ("prioridad", _("Prioridad"), None, False),
             ("etiquetas", _("Etiquetas"), None, False),
+            ("issue", _("Issue"), None, False),
             ("fecha_inicio", _("Inicio"), "fecha_inicio", False),
             ("fecha_fin_planificada", _("Planificado"), "fecha_fin_planificada", False),
             ("fecha_limite", _("Límite"), "fecha_limite", False),
@@ -445,8 +506,10 @@ class TaskTreeView(Gtk.ColumnView):
             ("porcentaje_completado", _("% completado"), "porcentaje_texto", False),
         ):
             fabrica = {
+                "estado": estado_factory,
                 "prioridad": prioridad_factory,
                 "etiquetas": etiquetas_factory,
+                "issue": issue_factory,
             }.get(clave)
             col = Gtk.ColumnViewColumn(
                 title=titulo,

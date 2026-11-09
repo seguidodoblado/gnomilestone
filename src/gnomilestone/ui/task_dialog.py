@@ -19,6 +19,9 @@ from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
 from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.avatar_widget import AvatarWidget
+from gnomilestone.ui.aviso_dependencias import confirmar_completar
+from gnomilestone.ui.envoltura import crear_envoltura
+from gnomilestone.ui.envoltura import vaciar as vaciar_envoltura
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 from gnomilestone.ui.markdown_editor import MarkdownEditor
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
@@ -386,13 +389,9 @@ class TaskDialog(Gtk.Window):
             if tarea
             else []
         )
-        self._etiquetas_box = Gtk.FlowBox(
-            selection_mode=Gtk.SelectionMode.NONE,
-            max_children_per_line=6,
-            column_spacing=4,
-            row_spacing=4,
-            homogeneous=False,
-        )
+        # Chips en fila, cada uno con su ancho (un FlowBox los reparte en columnas iguales y los
+        # separa cientos de píxeles); saltan de línea solo si no caben.
+        self._etiquetas_box = crear_envoltura(espacio=4, espacio_vertical=4)
         box.append(self._etiquetas_box)
         self._etiqueta_entry = Gtk.Entry(placeholder_text=_("Añadir etiqueta (Enter para crear)"))
         self._etiqueta_entry.connect("activate", self._on_etiqueta_escrita)
@@ -404,6 +403,9 @@ class TaskDialog(Gtk.Window):
         titulos = [_("Ninguna")] + [t.titulo for t in self._candidatas_padre]
         dropdown = Gtk.DropDown.new_from_strings(titulos)
         dropdown.set_enable_search(True)
+        # Por defecto GTK busca por prefijo; aquí, como en Dependencias, se busca en
+        # cualquier parte del título («informes» encuentra «Mejorar informes»).
+        dropdown.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
         dropdown.set_expression(Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"))
         prefijos = [""] + [self._prefijos_jerarquia[t.id] for t in self._candidatas_padre]
 
@@ -517,6 +519,10 @@ class TaskDialog(Gtk.Window):
         self._duracion_spin.connect("value-changed", self._on_duracion_cambio)
         box.append(duracion_label)
         box.append(self._duracion_spin)
+        # El día final cuenta: del 11 al 15 son 5 días (inicio + duración − 1).
+        ayuda_dias = _("Se cuentan el día de inicio y el final: del 11 al 15 son 5 días.")
+        for widget in (fin_label, self._fin.widget, duracion_label, self._duracion_spin):
+            widget.set_tooltip_text(ayuda_dias)
         self._filas_no_hito = [fin_label, self._fin.widget, duracion_label, self._duracion_spin]
 
         box.append(Gtk.Label(label=_("Límite"), xalign=0))
@@ -532,6 +538,8 @@ class TaskDialog(Gtk.Window):
         self._porcentaje_label = Gtk.Label(width_chars=5)
         self._porcentaje_scale.connect("value-changed", self._on_porcentaje_cambio)
         self._on_porcentaje_cambio(self._porcentaje_scale)
+        # Solo ante cambios del usuario (no al abrir): al completar se ve la fecha de hoy.
+        self._porcentaje_scale.connect("value-changed", self._on_porcentaje_fin_real)
         fila_porcentaje.append(self._porcentaje_scale)
         fila_porcentaje.append(self._porcentaje_label)
         box.append(fila_porcentaje)
@@ -772,6 +780,11 @@ class TaskDialog(Gtk.Window):
         for _origen_id, check in self._dependencia_checks:
             check.set_visible(not texto or texto in check.get_label().casefold())
 
+    def _on_porcentaje_fin_real(self, escala: Gtk.Scale) -> None:
+        self._fin_real.establecer(
+            completado.fecha_fin_real_para(round(escala.get_value()), self._fin_real.valor)
+        )
+
     def _on_porcentaje_cambio(self, escala: Gtk.Scale) -> None:
         self._porcentaje_label.set_text(f"{round(escala.get_value())} %")
 
@@ -892,13 +905,41 @@ class TaskDialog(Gtk.Window):
 
     # ------------------------------------------------------------------ guardado
 
+    def _dependencias_pendientes_al_completar(self) -> list:
+        """Dependencias marcadas que no están al 100 %, si este guardado completa la tarea."""
+        final = completado.id_columna_final(self._estados)
+        estado_id = self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
+        completa_ahora = round(self._porcentaje_scale.get_value()) >= 100 or (
+            final is not None and estado_id == final
+        )
+        ya_completa = self._tarea is not None and self._tarea.porcentaje_completado >= 100
+        if not completa_ahora or ya_completa:
+            return []
+        marcadas = [i for i, check in self._dependencia_checks if check.get_active()]
+        return completado.dependencias_sin_terminar(
+            marcadas, self._store.listar_tareas(self._proyecto_id)
+        )
+
+    def _con_aviso_de_dependencias(self, continuar: Callable[[], None]) -> None:
+        pendientes = self._dependencias_pendientes_al_completar()
+        if pendientes:
+            confirmar_completar(self, pendientes, continuar)
+        else:
+            continuar()
+
     def _on_save(self, _button: Gtk.Button) -> None:
+        self._con_aviso_de_dependencias(self._guardar_y_cerrar)
+
+    def _guardar_y_cerrar(self) -> None:
         if self._guardar():
             self._on_saved()
             self._cierre_forzado = True
             self.close()
 
     def _on_guardar_y_crear_otra(self, _button: Gtk.Button) -> None:
+        self._con_aviso_de_dependencias(self._guardar_y_crear_otra)
+
+    def _guardar_y_crear_otra(self) -> None:
         if not self._guardar():
             return
         self._on_saved()
@@ -965,11 +1006,7 @@ class TaskDialog(Gtk.Window):
             duracion = int(self._duracion_spin.get_value())
         porcentaje = round(self._porcentaje_scale.get_value())
         fecha_fin_inicial = self._fin_inicial.valor or fecha_fin
-        fecha_fin_real = self._fin_real.valor
-        if porcentaje >= 100 and not fecha_fin_real:
-            fecha_fin_real = datetime.now().astimezone().date().isoformat()
-        elif porcentaje < 100:
-            fecha_fin_real = None
+        fecha_fin_real = completado.fecha_fin_real_para(porcentaje, self._fin_real.valor)
         if (
             self._tarea is None
             and estado_id is not None
@@ -1068,7 +1105,7 @@ class TaskDialog(Gtk.Window):
         self._refrescar_etiquetas()
 
     def _refrescar_etiquetas(self) -> None:
-        self._etiquetas_box.remove_all()
+        vaciar_envoltura(self._etiquetas_box)
         if not self._etiquetas:
             vacio = Gtk.Label(label=_("Sin etiquetas"), xalign=0)
             vacio.add_css_class("dim-label")
