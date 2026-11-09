@@ -1,9 +1,7 @@
 """Métricas de informes calculadas a partir del modelo actual.
 
 Las funciones son deliberadamente independientes de GTK para que los informes puedan
-probarse y reutilizarse en una futura vista global. Las métricas que requieren histórico
-(burndown, CFD y tiempo por columna) no se estiman: el modelo actual no conserva esos
-eventos.
+probarse y reutilizarse en una futura vista global.
 """
 
 from __future__ import annotations
@@ -13,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
-from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Proyecto, Recurso, Tarea
+from gnomilestone.models import Asignacion, Dependencia, Proyecto, Recurso, Tarea
 
 
 @dataclass(frozen=True)
@@ -61,50 +59,6 @@ def ruta_critica(tareas: list[Tarea], dependencias: list[Dependencia]) -> list[T
     para que las vistas puedan compartir la misma API de informe.
     """
     return [t for t in tareas if estado_vencimiento(t) == VENCIDA]
-    # El cálculo de camino por dependencias se conserva abajo como referencia para
-    # una futura métrica distinta (holgura/ruta de dependencias), pero no debe usarse
-    # para pintar la ruta crítica del informe.
-    por_id = {t.id: t for t in tareas}
-    prev: dict[int, int | None] = {}
-    distancia: dict[int, int] = {}
-    sucesores: dict[int, list[int]] = defaultdict(list)
-    entrantes: dict[int, int] = {t.id: 0 for t in tareas}
-    for dep in dependencias:
-        if dep.tarea_origen_id in por_id and dep.tarea_destino_id in por_id:
-            sucesores[dep.tarea_origen_id].append(dep.tarea_destino_id)
-            entrantes[dep.tarea_destino_id] += 1
-    def duracion(t: Tarea) -> int:
-        return 1 if t.es_hito else max(t.duracion_dias, 1)
-    pendientes = [t.id for t in tareas if entrantes[t.id] == 0]
-    for t in pendientes:
-        distancia[t] = duracion(por_id[t])
-        prev[t] = None
-    indice = 0
-    while indice < len(pendientes):
-        origen = pendientes[indice]
-        indice += 1
-        for destino in sucesores.get(origen, []):
-            candidato = distancia[origen] + duracion(por_id[destino])
-            if candidato > distancia.get(destino, 0):
-                distancia[destino] = candidato
-                prev[destino] = origen
-            entrantes[destino] -= 1
-            if entrantes[destino] == 0:
-                pendientes.append(destino)
-    if not distancia:
-        return []
-    actual = max(distancia, key=distancia.get)
-    ids = []
-    while actual is not None:
-        ids.append(actual)
-        actual = prev.get(actual)
-    return [por_id[i] for i in reversed(ids)]
-
-
-def proximos_hitos(tareas: list[Tarea], estados: list[EstadoTablero]) -> list[Tarea]:
-    return sorted((t for t in tareas if t.es_hito and t.fecha_limite), key=lambda t: t.fecha_limite or "")
-
-
 def reparto_por_recurso(
     recursos: list[Recurso], tareas: list[Tarea], asignaciones: list[Asignacion]
 ) -> list[RepartoRecurso]:

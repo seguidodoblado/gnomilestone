@@ -273,6 +273,7 @@ class TaskDialog(Gtk.Window):
         self._pagina_dependencias = self._nueva_pagina(_("Dependencias"))
         # Los comentarios cuelgan de una tarea ya guardada: solo al editar.
         self._pagina_comentarios = self._nueva_pagina(_("Comentarios")) if tarea else None
+        self._pagina_historial = self._nueva_pagina(_("Historial")) if tarea else None
 
         self._construir_general(tarea)
         self._construir_fechas(tarea)
@@ -280,6 +281,7 @@ class TaskDialog(Gtk.Window):
         self._construir_dependencias(dependencias_actuales)
         if tarea:
             self._construir_comentarios()
+            self._construir_historial()
 
         self._error_label = Gtk.Label(
             xalign=0, wrap=True, margin_start=16, margin_end=16, margin_top=4
@@ -490,6 +492,23 @@ class TaskDialog(Gtk.Window):
         box.append(fin_label)
         box.append(self._fin.widget)
 
+        box.append(Gtk.Label(label=_("Planificado inicial"), xalign=0))
+        self._fin_inicial = _SelectorFecha(
+            tarea.fecha_fin_planificada_inicial if tarea else fecha_fin,
+            lambda: None,
+        )
+        self._fin_inicial.widget.set_sensitive(False)
+        box.append(self._fin_inicial.widget)
+        self._editar_planificacion_base = Gtk.CheckButton(label=_("Desbloquear edición"))
+        self._editar_planificacion_base.connect(
+            "toggled", lambda check: self._fin_inicial.widget.set_sensitive(check.get_active())
+        )
+        box.append(self._editar_planificacion_base)
+
+        box.append(Gtk.Label(label=_("Final real"), xalign=0))
+        self._fin_real = _SelectorFecha(tarea.fecha_fin_real if tarea else None, lambda: None)
+        box.append(self._fin_real.widget)
+
         duracion_label = Gtk.Label(label=_("Duración (días)"), xalign=0)
         self._duracion_spin = Gtk.SpinButton.new_with_range(1, 3650, 1)
         self._duracion_spin.set_value(max(tarea.duracion_dias, 1) if tarea else 1)
@@ -608,6 +627,38 @@ class TaskDialog(Gtk.Window):
         botones.append(self._comentario_enviar)
         box.append(botones)
         self._refrescar_comentarios()
+
+    def _construir_historial(self) -> None:
+        box = self._pagina_historial
+        eventos = self._store.listar_historial_tarea(self._tarea.id)
+        if not eventos:
+            vacio = Gtk.Label(label=_("Sin actividad registrada"), xalign=0)
+            vacio.add_css_class("dim-label")
+            box.append(vacio)
+            return
+        for evento in eventos:
+            tarjeta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            tarjeta.add_css_class("card")
+            fecha = Gtk.Label(label=evento.creado, xalign=0)
+            fecha.add_css_class("dim-label")
+            tarjeta.append(fecha)
+            titulo = {
+                "creacion": _("Tarea creada"),
+                "estado": _("Estado cambiado"),
+                "progreso": _("Progreso cambiado"),
+                "planificacion": _("Final planificado cambiado"),
+                "planificacion_base": _("Planificado inicial cambiado"),
+                "fin_real": _("Final real cambiado"),
+                "fecha_inicio": _("Inicio cambiado"),
+                "limite": _("Límite cambiado"),
+            }.get(evento.tipo, evento.tipo)
+            tarjeta.append(Gtk.Label(label=titulo, xalign=0))
+            detalle = evento.detalle
+            if evento.valor_anterior is not None or evento.valor_nuevo is not None:
+                detalle = f"{evento.valor_anterior or '—'} → {evento.valor_nuevo or '—'}"
+            if detalle:
+                tarjeta.append(Gtk.Label(label=detalle, xalign=0, wrap=True))
+            box.append(tarjeta)
 
     @staticmethod
     def _fecha_comentario(creado: str) -> str:
@@ -913,6 +964,12 @@ class TaskDialog(Gtk.Window):
         else:
             duracion = int(self._duracion_spin.get_value())
         porcentaje = round(self._porcentaje_scale.get_value())
+        fecha_fin_inicial = self._fin_inicial.valor or fecha_fin
+        fecha_fin_real = self._fin_real.valor
+        if porcentaje >= 100 and not fecha_fin_real:
+            fecha_fin_real = datetime.now().astimezone().date().isoformat()
+        elif porcentaje < 100:
+            fecha_fin_real = None
         if (
             self._tarea is None
             and estado_id is not None
@@ -930,7 +987,9 @@ class TaskDialog(Gtk.Window):
                 descripcion=descripcion,
                 fecha_inicio=fecha or None,
                 fecha_fin_planificada=fecha_fin,
+                fecha_fin_planificada_inicial=fecha_fin_inicial,
                 fecha_limite=fecha_limite,
+                fecha_fin_real=fecha_fin_real,
                 duracion_dias=duracion,
                 porcentaje_completado=porcentaje,
                 es_hito=es_hito,
@@ -946,8 +1005,11 @@ class TaskDialog(Gtk.Window):
             tarea.prioridad = self._prioridad_dropdown.get_selected()
             tarea.descripcion = descripcion
             tarea.fecha_inicio = fecha or None
+            if tarea.fecha_fin_planificada_inicial is None or self._editar_planificacion_base.get_active():
+                tarea.fecha_fin_planificada_inicial = fecha_fin_inicial
             tarea.fecha_fin_planificada = fecha_fin
             tarea.fecha_limite = fecha_limite
+            tarea.fecha_fin_real = fecha_fin_real
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
             tarea.es_hito = es_hito
