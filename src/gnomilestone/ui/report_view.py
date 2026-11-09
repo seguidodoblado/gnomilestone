@@ -20,7 +20,6 @@ from gnomilestone.i18n import _
 from gnomilestone.models import Asignacion, Dependencia, EstadoTablero, Recurso, Tarea
 from gnomilestone.report_metrics import (
     estado_github,
-    proximos_hitos,
     reparto_por_recurso,
     ruta_critica,
 )
@@ -63,11 +62,9 @@ class ReportView(Gtk.Box):
         self._alertas = (0, 0, 0)
         self._reparto = []
         self._critica = []
-        self._hitos = []
         self._tareas_semana = []
         self._tarea_expandida = None
         self._criticos_colapsados = set()
-        self._hitos_expandidos = set()
         self._timeline_hitboxes = []
         self._dependencias = []
         gesto = Gtk.GestureClick()
@@ -93,8 +90,7 @@ class ReportView(Gtk.Box):
         )
         sin_tareas = sum(fila.tareas == 0 for fila in reparto)
         critica = ruta_critica(tareas, dependencias or [])
-        hitos = proximos_hitos(tareas, estados)
-        self._reparto, self._critica, self._hitos = reparto, critica, hitos
+        self._reparto, self._critica = reparto, critica
         self._dependencias = dependencias or []
         self._tareas_semana = [
             tarea for tarea in tareas
@@ -102,10 +98,10 @@ class ReportView(Gtk.Box):
         ]
         github = estado_github(tareas)
         self._details.set_text(
-            _("Ruta crítica: {critica} · Próximos hitos: {hitos} · "
+            _("Ruta crítica: {critica} · "
               "Recursos sin tareas: {sin_tareas} · GitHub vinculadas: {vinculadas}, locales: {locales}").format(
                 critica=" → ".join(t.titulo for t in critica) or _("sin dependencias"),
-                hitos=len(hitos), sin_tareas=sin_tareas,
+                sin_tareas=sin_tareas,
                 vinculadas=github.vinculadas, locales=github.locales,
             )
         )
@@ -136,20 +132,17 @@ class ReportView(Gtk.Box):
         self._insights.queue_draw()
 
     def _draw_insights(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
-        """Gráficos adicionales: reparto, ruta crítica y próximos hitos."""
+        """Gráficos adicionales: reparto por persona y ruta crítica."""
         cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
         cr.select_font_face(self._font_family, 0, 0)
         cr.set_font_size(max(11, self._font_size))
         gap = 22
         left_w = max(250, int(width * 0.29))
-        mid_w = max(420, int(width * 0.45))
-        right_x = left_w + mid_w + gap * 2
+        mid_w = max(420, width - left_w - gap)
         self._draw_insight_panel(cr, 0, 0, left_w, height, _("Reparto por persona"))
         self._draw_insight_panel(cr, left_w + gap, 0, mid_w, height, _("Ruta crítica"))
-        self._draw_insight_panel(cr, right_x, 0, max(220, width - right_x), height, _("Próximos hitos"))
         self._draw_resource_bars(cr, 18, 48, left_w - 36)
         self._draw_critical_path(cr, left_w + gap + 18, 48, mid_w - 36)
-        self._draw_milestones(cr, right_x + 18, 70, max(190, width - right_x - 36))
 
     def _draw_insight_panel(self, cr, x, y, width, height, title):
         cr.set_source_rgba(0.12, 0.13, 0.15, 0.24)
@@ -345,14 +338,6 @@ class ReportView(Gtk.Box):
         cr.show_text(leyenda)
 
     def _on_insights_pressed(self, _gesture, _n_press, x, y):
-        for x0, y0, x1, y1, hito_id in getattr(self, "_milestone_hitboxes", []):
-            if x0 <= x <= x1 and y0 <= y <= y1:
-                if hito_id in self._hitos_expandidos:
-                    self._hitos_expandidos.remove(hito_id)
-                else:
-                    self._hitos_expandidos.add(hito_id)
-                self._insights.queue_draw()
-                return
         if not self._timeline_hitboxes:
             return
         for x0, y0, x1, y1, tarea_id in self._timeline_hitboxes:
@@ -377,67 +362,6 @@ class ReportView(Gtk.Box):
         cr.arc(x + radius, y + height - radius, radius, math.pi / 2, math.pi)
         cr.arc(x + radius, y + radius, radius, math.pi, 3 * math.pi / 2)
         cr.close_path()
-
-    def _draw_milestones(self, cr, x, y, width):
-        self._milestone_hitboxes = []
-        hitos = self._hitos[:6]
-        if not hitos:
-            cr.set_source_rgb(*getattr(self, "_text_color", (0.2, 0.2, 0.2)))
-            cr.set_font_size(max(12, self._font_size))
-            mensaje = _("No hay próximos hitos")
-            ext = cr.text_extents(mensaje)
-            cr.move_to(x + (width - ext.width) / 2, y + 112)
-            cr.show_text(mensaje)
-            return
-        tareas_por_id = {t.id: t for t in self._tareas}
-        for i, tarea in enumerate(hitos):
-            yy = y + i * 104
-            card_w, card_h = width - 16, 38
-            card_x = x + 8
-            gradiente = cairo.LinearGradient(card_x, yy, card_x, yy + card_h)
-            gradiente.add_color_stop_rgb(0, 1.0, 0.72, 0.22)
-            gradiente.add_color_stop_rgb(1, 0.78, 0.34, 0.06)
-            self._rounded_rectangle(cr, card_x, yy, card_w, card_h, 10)
-            cr.set_source(gradiente)
-            cr.fill()
-            cr.set_source_rgb(0.16, 0.12, 0.06)
-            cr.set_font_size(max(12, self._font_size))
-            titulo = f"{tarea.titulo}  ·  {tarea.fecha_limite or ''}"
-            ext = cr.text_extents(titulo)
-            cr.move_to(card_x + (card_w - ext.width) / 2, yy + 24)
-            cr.show_text(titulo)
-            self._milestone_hitboxes.append((card_x, yy, card_x + card_w, yy + card_h, tarea.id))
-            if tarea.id not in self._hitos_expandidos:
-                continue
-            predecesoras = [
-                tareas_por_id[d.tarea_origen_id]
-                for d in self._dependencias
-                if d.tarea_destino_id == tarea.id and d.tarea_origen_id in tareas_por_id
-            ]
-            filas = []
-            hijos_por_padre = {}
-            for hijo in self._tareas:
-                hijos_por_padre.setdefault(hijo.padre_id, []).append(hijo)
-            for previa in predecesoras:
-                filas.append((previa, 0))
-                filas.extend((hijo, 1) for hijo in hijos_por_padre.get(previa.id, [])[:2])
-            for j, (previa, nivel) in enumerate(filas[:6]):
-                    px = card_x + 12 + nivel * 18
-                    py = yy + 50 + j * 31
-                    fila_w = card_w - 24 - nivel * 18
-                    fila_h = 28 if nivel == 0 else 24
-                    gradiente = cairo.LinearGradient(px, py, px, py + fila_h)
-                    gradiente.add_color_stop_rgb(0, 0.28, 0.62, 0.95)
-                    gradiente.add_color_stop_rgb(1, 0.12, 0.34, 0.68)
-                    self._rounded_rectangle(cr, px, py, fila_w, fila_h, fila_h / 2)
-                    cr.set_source(gradiente)
-                    cr.fill()
-                    cr.set_source_rgb(0.96, 0.98, 1.0)
-                    cr.set_font_size(max(10, self._font_size - (2 if nivel else 1)))
-                    texto = previa.titulo[:22]
-                    ext = cr.text_extents(texto)
-                    cr.move_to(px + (fila_w - ext.width) / 2, py + fila_h / 2 + 4)
-                    cr.show_text(texto)
 
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
         settings = Gtk.Settings.get_default()

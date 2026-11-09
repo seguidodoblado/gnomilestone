@@ -6,20 +6,30 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from gnomilestone.i18n import _
 from gnomilestone.models import (
+    ESTADOS_NOTA,
+    SECCIONES_DOCUMENTACION,
+    SUBSECCIONES_FIJAS,
+    TIPOS_SUBSECCION,
     Asignacion,
     Comentario,
     Dependencia,
+    DiagramaDocumentacion,
     EstadoTablero,
     Etiqueta,
+    NotaDocumentacion,
     Proyecto,
     Recurso,
+    SubseccionDocumentacion,
     Tarea,
+    VersionDocumentacion,
 )
 
 DATA_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "gnomilestone"
 DB_PATH = DATA_DIR / "gnomilestone.db"
 
+MAX_VERSIONES = 50  # versiones anteriores que se conservan por nota o diagrama
 ESTADOS_POR_DEFECTO = ("Pendiente", "En curso", "Hecho")
 PALETA_RECURSOS = (
     "#3584e4",
@@ -146,6 +156,36 @@ def _etiqueta_de_fila(fila: sqlite3.Row) -> Etiqueta:
 
 def _asignacion_de_fila(fila: sqlite3.Row) -> Asignacion:
     return Asignacion(**dict(fila))
+
+
+def _subsecciones_por_defecto() -> dict[str, tuple[tuple[str, str], ...]]:
+    """Subsecciones (nombre, tipo) con las que nace cada proyecto; editables después.
+    Función y no constante para traducirlas con el idioma ya instalado."""
+    return {
+        "arquitectura": (
+            (_("Visión general"), "notas"),
+            (_("Componentes"), "notas"),
+            (_("Flujos"), "diagramas"),
+        ),
+        "especificaciones": (
+            (_("Modelo de datos"), "notas"),
+            (_("Datos de usuario"), "notas"),
+            (_("Interfaz"), "notas"),
+            (_("Integraciones"), "notas"),
+            (_("Funcionalidades"), "notas"),
+        ),
+        "decisiones_tecnicas": ((_("General"), "notas"),),
+    }
+
+
+def _sembrar_subsecciones(db: sqlite3.Connection, proyecto_id: int) -> None:
+    for seccion, subsecciones in _subsecciones_por_defecto().items():
+        for orden, (nombre, tipo) in enumerate(subsecciones):
+            db.execute(
+                "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (proyecto_id, seccion, nombre, orden, tipo),
+            )
 
 
 class EtiquetaDuplicadaError(Exception):
@@ -334,6 +374,106 @@ class Store:
             if "archivada" not in cols_tarea:
                 db.execute("ALTER TABLE tarea ADD COLUMN archivada INTEGER NOT NULL DEFAULT 0")
             db.execute("PRAGMA user_version = 17")
+            version = 17
+        if version < 18:
+            # Notas de documentación del proyecto (Markdown propio de la app).
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS nota_documentacion ("
+                " id INTEGER PRIMARY KEY,"
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " seccion TEXT NOT NULL,"
+                " titulo TEXT NOT NULL,"
+                " contenido TEXT NOT NULL DEFAULT '',"
+                " orden INTEGER NOT NULL DEFAULT 0,"
+                " creado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),"
+                " actualizado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))"
+            )
+            db.execute("PRAGMA user_version = 18")
+            version = 18
+        if version < 19:
+            # Subsecciones editables de la documentación; las notas cuelgan de una.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS subseccion_documentacion ("
+                " id INTEGER PRIMARY KEY,"
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " seccion TEXT NOT NULL,"
+                " nombre TEXT NOT NULL,"
+                " orden INTEGER NOT NULL DEFAULT 0,"
+                " tipo TEXT NOT NULL DEFAULT 'notas')"
+            )
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(nota_documentacion)")}
+            if "subseccion_id" not in columnas:
+                db.execute(
+                    "ALTER TABLE nota_documentacion ADD COLUMN subseccion_id INTEGER "
+                    "REFERENCES subseccion_documentacion(id) ON DELETE CASCADE"
+                )
+            for fila in db.execute("SELECT id FROM proyecto").fetchall():
+                _sembrar_subsecciones(db, fila[0])
+            # Las notas que ya existían pasan a la primera subsección de su sección.
+            db.execute(
+                "UPDATE nota_documentacion SET subseccion_id = ("
+                " SELECT s.id FROM subseccion_documentacion s"
+                " WHERE s.proyecto_id = nota_documentacion.proyecto_id"
+                " AND s.seccion = nota_documentacion.seccion ORDER BY s.orden LIMIT 1)"
+            )
+            db.execute("PRAGMA user_version = 19")
+            version = 19
+        if version < 20:
+            # Subsecciones de tipo «diagramas» (flujos dibujados) y su tabla.
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(subseccion_documentacion)")}
+            if "tipo" not in columnas:
+                db.execute(
+                    "ALTER TABLE subseccion_documentacion ADD COLUMN tipo TEXT NOT NULL "
+                    "DEFAULT 'notas'"
+                )
+                # «Flujos» (de Arquitectura) pasa a ser de diagramas en los proyectos que ya
+                # tenían las subsecciones por defecto.
+                db.execute(
+                    "UPDATE subseccion_documentacion SET tipo = 'diagramas' "
+                    "WHERE seccion = 'arquitectura' AND nombre IN ('Flujos', 'Flows')"
+                )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS diagrama_documentacion ("
+                " id INTEGER PRIMARY KEY,"
+                " proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE,"
+                " subseccion_id INTEGER NOT NULL"
+                "  REFERENCES subseccion_documentacion(id) ON DELETE CASCADE,"
+                " titulo TEXT NOT NULL,"
+                " datos TEXT NOT NULL DEFAULT '',"
+                " orden INTEGER NOT NULL DEFAULT 0,"
+                " creado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),"
+                " actualizado TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')))"
+            )
+            db.execute("PRAGMA user_version = 20")
+            version = 20
+        if version < 21:
+            # Versiones anteriores de notas y diagramas (se guardan al sobrescribir).
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS version_documentacion ("
+                " id INTEGER PRIMARY KEY,"
+                " nota_id INTEGER REFERENCES nota_documentacion(id) ON DELETE CASCADE,"
+                " diagrama_id INTEGER REFERENCES diagrama_documentacion(id) ON DELETE CASCADE,"
+                " titulo TEXT NOT NULL,"
+                " contenido TEXT NOT NULL,"
+                " creado TEXT NOT NULL)"
+            )
+            db.execute("PRAGMA user_version = 21")
+            version = 21
+        if version < 22:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(nota_documentacion)")}
+            if "estado" not in columnas:
+                db.execute("ALTER TABLE nota_documentacion ADD COLUMN estado TEXT NOT NULL DEFAULT ''")
+            db.execute("PRAGMA user_version = 22")
+            version = 22
+        if version < 23:
+            # Jerarquía de páginas: una nota puede colgar de otra de la misma subsección.
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(nota_documentacion)")}
+            if "padre_id" not in columnas:
+                db.execute(
+                    "ALTER TABLE nota_documentacion ADD COLUMN padre_id INTEGER "
+                    "REFERENCES nota_documentacion(id) ON DELETE SET NULL"
+                )
+            db.execute("PRAGMA user_version = 23")
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -361,6 +501,7 @@ class Store:
                     "INSERT INTO estado_tablero (proyecto_id, nombre, orden) VALUES (?, ?, ?)",
                     (proyecto_id, nombre_estado, indice),
                 )
+            _sembrar_subsecciones(db, proyecto_id)
             fila = db.execute("SELECT * FROM proyecto WHERE id = ?", (proyecto_id,)).fetchone()
             return _proyecto_de_fila(fila)
 
@@ -767,6 +908,279 @@ class Store:
                 "UPDATE tarea SET github_etiquetas = ? WHERE id = ?",
                 (json.dumps(nombres), tarea_id),
             )
+
+    # -- Documentación -----------------------------------------------------
+
+    @staticmethod
+    def _guardar_version(
+        db: sqlite3.Connection,
+        tabla: str,
+        columna: str,
+        objeto_id: int,
+        titulo_nuevo: str,
+        contenido_nuevo: str,
+        campo: str,
+    ) -> None:
+        """Antes de sobrescribir una nota o un diagrama, guarda su estado actual como versión
+        (si va a cambiar) y conserva solo las `MAX_VERSIONES` más recientes."""
+        actual = db.execute(
+            f"SELECT titulo, {campo} AS contenido, actualizado FROM {tabla} WHERE id = ?",
+            (objeto_id,),
+        ).fetchone()
+        if actual is None or (actual["titulo"], actual["contenido"]) == (titulo_nuevo, contenido_nuevo):
+            return
+        db.execute(
+            f"INSERT INTO version_documentacion ({columna}, titulo, contenido, creado) "
+            "VALUES (?, ?, ?, ?)",
+            (objeto_id, actual["titulo"], actual["contenido"], actual["actualizado"]),
+        )
+        db.execute(
+            f"DELETE FROM version_documentacion WHERE {columna} = ? AND id NOT IN ("
+            f" SELECT id FROM version_documentacion WHERE {columna} = ? ORDER BY id DESC LIMIT ?)",
+            (objeto_id, objeto_id, MAX_VERSIONES),
+        )
+
+    def contar_versiones_notas(self, proyecto_id: int) -> dict[int, int]:
+        """Versiones anteriores disponibles de cada nota del proyecto: {nota_id: cantidad}."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT v.nota_id, COUNT(*) FROM version_documentacion v "
+                "JOIN nota_documentacion n ON n.id = v.nota_id "
+                "WHERE n.proyecto_id = ? GROUP BY v.nota_id",
+                (proyecto_id,),
+            ).fetchall()
+            return {fila[0]: fila[1] for fila in filas}
+
+    def contar_versiones_diagramas(self, proyecto_id: int) -> dict[int, int]:
+        """Igual que `contar_versiones_notas`, para diagramas."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT v.diagrama_id, COUNT(*) FROM version_documentacion v "
+                "JOIN diagrama_documentacion d ON d.id = v.diagrama_id "
+                "WHERE d.proyecto_id = ? GROUP BY v.diagrama_id",
+                (proyecto_id,),
+            ).fetchall()
+            return {fila[0]: fila[1] for fila in filas}
+
+    def listar_versiones_nota(self, nota_id: int) -> list[VersionDocumentacion]:
+        return self._listar_versiones("nota_id", nota_id)
+
+    def listar_versiones_diagrama(self, diagrama_id: int) -> list[VersionDocumentacion]:
+        return self._listar_versiones("diagrama_id", diagrama_id)
+
+    def _listar_versiones(self, columna: str, objeto_id: int) -> list[VersionDocumentacion]:
+        """Versiones anteriores, de la más reciente a la más antigua."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT id, titulo, contenido, creado FROM version_documentacion "
+                f"WHERE {columna} = ? ORDER BY id DESC",
+                (objeto_id,),
+            ).fetchall()
+            return [VersionDocumentacion(**dict(f)) for f in filas]
+
+    def listar_subsecciones_documentacion(
+        self, proyecto_id: int, seccion: str | None = None
+    ) -> list[SubseccionDocumentacion]:
+        consulta = "SELECT * FROM subseccion_documentacion WHERE proyecto_id = ?"
+        parametros: list = [proyecto_id]
+        if seccion is not None:
+            consulta += " AND seccion = ?"
+            parametros.append(seccion)
+        with closing(self._connect()) as db:
+            filas = db.execute(consulta + " ORDER BY seccion, orden, id", parametros).fetchall()
+            return [SubseccionDocumentacion(**dict(f)) for f in filas]
+
+    def crear_subseccion_documentacion(
+        self, proyecto_id: int, seccion: str, nombre: str, tipo: str = "notas"
+    ) -> SubseccionDocumentacion:
+        if seccion not in SECCIONES_DOCUMENTACION or seccion in SUBSECCIONES_FIJAS:
+            raise ValueError(f"Sección sin subsecciones editables: {seccion}")
+        if tipo not in TIPOS_SUBSECCION:
+            raise ValueError(f"Tipo de subsección desconocido: {tipo}")
+        with closing(self._connect()) as db, db:
+            orden = db.execute(
+                "SELECT COALESCE(MAX(orden), -1) + 1 FROM subseccion_documentacion "
+                "WHERE proyecto_id = ? AND seccion = ?",
+                (proyecto_id, seccion),
+            ).fetchone()[0]
+            cursor = db.execute(
+                "INSERT INTO subseccion_documentacion "
+                "(proyecto_id, seccion, nombre, orden, tipo) VALUES (?, ?, ?, ?, ?)",
+                (proyecto_id, seccion, nombre, orden, tipo),
+            )
+            fila = db.execute(
+                "SELECT * FROM subseccion_documentacion WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return SubseccionDocumentacion(**dict(fila))
+
+    def renombrar_subseccion_documentacion(self, subseccion_id: int, nombre: str) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE subseccion_documentacion SET nombre = ? WHERE id = ?",
+                (nombre, subseccion_id),
+            )
+
+    def eliminar_subseccion_documentacion(self, subseccion_id: int) -> None:
+        """Elimina la subsección y, en cascada, sus notas."""
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM subseccion_documentacion WHERE id = ?", (subseccion_id,))
+
+    def crear_nota_documentacion(
+        self,
+        proyecto_id: int,
+        seccion: str,
+        titulo: str,
+        contenido: str = "",
+        subseccion_id: int | None = None,
+        estado: str = "",
+        padre_id: int | None = None,
+    ) -> NotaDocumentacion:
+        if seccion not in SECCIONES_DOCUMENTACION:
+            raise ValueError(f"Sección de documentación desconocida: {seccion}")
+        if estado not in ESTADOS_NOTA:
+            raise ValueError(f"Estado de nota desconocido: {estado}")
+        with closing(self._connect()) as db, db:
+            self._validar_padre(db, None, padre_id, subseccion_id)
+            orden = db.execute(
+                "SELECT COALESCE(MAX(orden), -1) + 1 FROM nota_documentacion "
+                "WHERE proyecto_id = ? AND seccion = ? AND subseccion_id IS ?",
+                (proyecto_id, seccion, subseccion_id),
+            ).fetchone()[0]
+            cursor = db.execute(
+                "INSERT INTO nota_documentacion "
+                "(proyecto_id, seccion, subseccion_id, titulo, contenido, orden, estado, padre_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (proyecto_id, seccion, subseccion_id, titulo, contenido, orden, estado, padre_id),
+            )
+            fila = db.execute(
+                "SELECT * FROM nota_documentacion WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return NotaDocumentacion(**dict(fila))
+
+    def listar_notas_documentacion(
+        self, proyecto_id: int, seccion: str | None = None, subseccion_id: int | None = None
+    ) -> list[NotaDocumentacion]:
+        consulta = "SELECT * FROM nota_documentacion WHERE proyecto_id = ?"
+        parametros: list = [proyecto_id]
+        if seccion is not None:
+            consulta += " AND seccion = ?"
+            parametros.append(seccion)
+        if subseccion_id is not None:
+            consulta += " AND subseccion_id = ?"
+            parametros.append(subseccion_id)
+        with closing(self._connect()) as db:
+            filas = db.execute(consulta + " ORDER BY seccion, orden, id", parametros).fetchall()
+            return [NotaDocumentacion(**dict(f)) for f in filas]
+
+    def obtener_nota_documentacion(self, nota_id: int) -> NotaDocumentacion | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM nota_documentacion WHERE id = ?", (nota_id,)
+            ).fetchone()
+            return NotaDocumentacion(**dict(fila)) if fila else None
+
+    def actualizar_nota_documentacion(self, nota: NotaDocumentacion) -> None:
+        with closing(self._connect()) as db, db:
+            self._validar_padre(db, nota.id, nota.padre_id, nota.subseccion_id)
+            self._guardar_version(
+                db, "nota_documentacion", "nota_id", nota.id, nota.titulo, nota.contenido, "contenido"
+            )
+            db.execute(
+                "UPDATE nota_documentacion SET titulo = ?, contenido = ?, orden = ?, estado = ?, "
+                "padre_id = ?, actualizado = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+                (nota.titulo, nota.contenido, nota.orden, nota.estado, nota.padre_id, nota.id),
+            )
+
+    def eliminar_nota_documentacion(self, nota_id: int) -> None:
+        """Elimina la nota; sus subpáginas no se pierden: pasan a colgar de su abuela."""
+        with closing(self._connect()) as db, db:
+            fila = db.execute(
+                "SELECT padre_id FROM nota_documentacion WHERE id = ?", (nota_id,)
+            ).fetchone()
+            if fila is not None:
+                db.execute(
+                    "UPDATE nota_documentacion SET padre_id = ? WHERE padre_id = ?",
+                    (fila["padre_id"], nota_id),
+                )
+            db.execute("DELETE FROM nota_documentacion WHERE id = ?", (nota_id,))
+
+    @staticmethod
+    def _validar_padre(
+        db: sqlite3.Connection, nota_id: int | None, padre_id: int | None, subseccion_id: int | None
+    ) -> None:
+        """El padre debe existir, ser de la misma subsección y no ser la propia nota ni una
+        de sus descendientes (no puede haber ciclos)."""
+        if padre_id is None:
+            return
+        if nota_id is not None and padre_id == nota_id:
+            raise ValueError("Una nota no puede ser su propia página padre")
+        padre = db.execute(
+            "SELECT subseccion_id FROM nota_documentacion WHERE id = ?", (padre_id,)
+        ).fetchone()
+        if padre is None or padre["subseccion_id"] != subseccion_id:
+            raise ValueError("La página padre debe existir y ser de la misma subsección")
+        actual = padre_id
+        while actual is not None:  # se sube por los ancestros del padre buscando la nota
+            if actual == nota_id:
+                raise ValueError("La página padre no puede ser una subpágina de la propia nota")
+            fila = db.execute(
+                "SELECT padre_id FROM nota_documentacion WHERE id = ?", (actual,)
+            ).fetchone()
+            actual = fila["padre_id"] if fila else None
+
+    def crear_diagrama_documentacion(
+        self, proyecto_id: int, subseccion_id: int, titulo: str, datos: str = ""
+    ) -> DiagramaDocumentacion:
+        with closing(self._connect()) as db, db:
+            orden = db.execute(
+                "SELECT COALESCE(MAX(orden), -1) + 1 FROM diagrama_documentacion "
+                "WHERE subseccion_id = ?",
+                (subseccion_id,),
+            ).fetchone()[0]
+            cursor = db.execute(
+                "INSERT INTO diagrama_documentacion "
+                "(proyecto_id, subseccion_id, titulo, datos, orden) VALUES (?, ?, ?, ?, ?)",
+                (proyecto_id, subseccion_id, titulo, datos, orden),
+            )
+            fila = db.execute(
+                "SELECT * FROM diagrama_documentacion WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+            return DiagramaDocumentacion(**dict(fila))
+
+    def listar_diagramas_documentacion(
+        self, proyecto_id: int, subseccion_id: int | None = None
+    ) -> list[DiagramaDocumentacion]:
+        consulta = "SELECT * FROM diagrama_documentacion WHERE proyecto_id = ?"
+        parametros: list = [proyecto_id]
+        if subseccion_id is not None:
+            consulta += " AND subseccion_id = ?"
+            parametros.append(subseccion_id)
+        with closing(self._connect()) as db:
+            filas = db.execute(consulta + " ORDER BY orden, id", parametros).fetchall()
+            return [DiagramaDocumentacion(**dict(f)) for f in filas]
+
+    def obtener_diagrama_documentacion(self, diagrama_id: int) -> DiagramaDocumentacion | None:
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM diagrama_documentacion WHERE id = ?", (diagrama_id,)
+            ).fetchone()
+            return DiagramaDocumentacion(**dict(fila)) if fila else None
+
+    def actualizar_diagrama_documentacion(self, diagrama: DiagramaDocumentacion) -> None:
+        with closing(self._connect()) as db, db:
+            self._guardar_version(
+                db, "diagrama_documentacion", "diagrama_id", diagrama.id, diagrama.titulo,
+                diagrama.datos, "datos",
+            )
+            db.execute(
+                "UPDATE diagrama_documentacion SET titulo = ?, datos = ?, orden = ?, "
+                "actualizado = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+                (diagrama.titulo, diagrama.datos, diagrama.orden, diagrama.id),
+            )
+
+    def eliminar_diagrama_documentacion(self, diagrama_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM diagrama_documentacion WHERE id = ?", (diagrama_id,))
 
     # -- Comentarios -------------------------------------------------------
 

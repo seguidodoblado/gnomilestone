@@ -1,4 +1,13 @@
+import pytest
+
+from gnomilestone import markdown_pango
 from gnomilestone.markdown_pango import markdown_a_pango
+
+
+@pytest.fixture(autouse=True)
+def _sin_fuente_del_sistema(monkeypatch):
+    """Los tests no dependen de la fuente monoespaciada del equipo donde se ejecutan."""
+    monkeypatch.setattr(markdown_pango, "_familia_mono", lambda: None)
 
 
 def test_inline_basico():
@@ -30,3 +39,9 @@ def test_bloque_de_codigo():
 
 def test_snake_case_no_es_cursiva():
     assert markdown_a_pango("mi_variable_larga") == "mi_variable_larga"
+
+
+def test_codigo_con_la_fuente_monoespaciada_del_sistema(monkeypatch):
+    monkeypatch.setattr(markdown_pango, "_familia_mono", lambda: "Ubuntu Mono")
+    assert markdown_a_pango("`a<b`") == '<span font_family="Ubuntu Mono">a&lt;b</span>'
+    assert markdown_a_pango("```\nx\n```") == '<span font_family="Ubuntu Mono">x</span>'

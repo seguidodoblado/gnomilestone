@@ -6,8 +6,44 @@ cursiva, código en línea y en bloque, enlaces, listas, citas y separadores.
 
 from __future__ import annotations
 
+import functools
 import html
 import re
+
+
+@functools.cache
+def _familia_mono() -> str | None:
+    """Familia de la fuente monoespaciada del sistema (ajuste del escritorio); None si no se
+    puede saber. `<tt>` de Pango usa el alias «monospace» de fontconfig, que puede ser otra
+    distinta de la que el usuario tiene elegida en su escritorio."""
+    try:
+        import gi
+
+        gi.require_version("Pango", "1.0")
+        from gi.repository import Gio, Pango
+
+        origen = Gio.SettingsSchemaSource.get_default()
+        if origen is None:
+            return None
+        for esquema in ("org.gnome.desktop.interface", "org.cinnamon.desktop.interface"):
+            definicion = origen.lookup(esquema, True)
+            if definicion is not None and definicion.has_key("monospace-font-name"):
+                nombre = Gio.Settings.new(esquema).get_string("monospace-font-name")
+                familia = Pango.FontDescription.from_string(nombre).get_family()
+                if familia:
+                    return familia.split(",")[0].strip()
+    except (ImportError, ValueError):
+        return None
+    return None
+
+
+def _codigo(texto_escapado: str) -> str:
+    """Envuelve texto ya escapado en la fuente monoespaciada del sistema."""
+    familia = _familia_mono()
+    if familia is None:
+        return f"<tt>{texto_escapado}</tt>"
+    return f'<span font_family="{html.escape(familia)}">{texto_escapado}</span>'
+
 
 _CODIGO_EN_LINEA = re.compile(r"`([^`\n]+)`")
 _ENLACE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
@@ -25,7 +61,7 @@ def _en_linea(texto: str) -> str:
     codigos: list[str] = []
 
     def _guardar_codigo(m: re.Match[str]) -> str:
-        codigos.append(f"<tt>{html.escape(m.group(1), quote=False)}</tt>")
+        codigos.append(_codigo(html.escape(m.group(1), quote=False)))
         return f"\x00{len(codigos) - 1}\x00"
 
     texto = _CODIGO_EN_LINEA.sub(_guardar_codigo, texto)
@@ -45,7 +81,7 @@ def markdown_a_pango(texto: str) -> str:
     for linea in texto.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         if linea.lstrip().startswith("```"):
             if en_bloque:
-                salida.append(f"<tt>{html.escape(chr(10).join(bloque), quote=False)}</tt>")
+                salida.append(_codigo(html.escape(chr(10).join(bloque), quote=False)))
                 bloque = []
             en_bloque = not en_bloque
             continue
@@ -70,5 +106,10 @@ def markdown_a_pango(texto: str) -> str:
         else:
             salida.append(_en_linea(linea))
     if en_bloque:  # bloque sin cerrar: se muestra lo recogido hasta el final
-        salida.append(f"<tt>{html.escape(chr(10).join(bloque), quote=False)}</tt>")
+        salida.append(_codigo(html.escape(chr(10).join(bloque), quote=False)))
     return "\n".join(salida)
+
+
+def familia_monoespaciada() -> str | None:
+    """Familia monoespaciada elegida en el escritorio (None si no se puede saber)."""
+    return _familia_mono()

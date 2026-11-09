@@ -376,3 +376,147 @@ def test_las_tareas_archivadas_no_salen_en_listar_tareas_de_proyectos(store):
     proyecto, padre, *_resto = _arbol_para_archivo(store)
     store.archivar_tarea(padre.id)
     assert [t.titulo for t in store.listar_tareas_de_proyectos([proyecto.id])] == ["Otra"]
+
+
+def test_notas_de_documentacion_crud_y_orden(store):
+    proyecto = store.crear_proyecto("Docs")
+    a = store.crear_nota_documentacion(proyecto.id, "arquitectura", "Capas", "# Capas")
+    b = store.crear_nota_documentacion(proyecto.id, "arquitectura", "Datos")
+    c = store.crear_nota_documentacion(proyecto.id, "blueprint", "Roadmap")
+    assert (a.orden, b.orden, c.orden) == (0, 1, 0)
+    assert [n.titulo for n in store.listar_notas_documentacion(proyecto.id, "arquitectura")] == [
+        "Capas", "Datos",
+    ]
+    assert len(store.listar_notas_documentacion(proyecto.id)) == 3
+
+    b.titulo = "Modelo de datos"
+    b.contenido = "Tablas"
+    store.actualizar_nota_documentacion(b)
+    guardada = store.obtener_nota_documentacion(b.id)
+    assert (guardada.titulo, guardada.contenido) == ("Modelo de datos", "Tablas")
+
+    store.eliminar_nota_documentacion(a.id)
+    assert store.obtener_nota_documentacion(a.id) is None
+
+
+def test_nota_de_documentacion_rechaza_seccion_desconocida(store):
+    proyecto = store.crear_proyecto("Docs")
+    with pytest.raises(ValueError):
+        store.crear_nota_documentacion(proyecto.id, "otra", "X")
+
+
+def test_eliminar_proyecto_borra_sus_notas_de_documentacion(store):
+    proyecto = store.crear_proyecto("Docs")
+    store.crear_nota_documentacion(proyecto.id, "blueprint", "Roadmap")
+    store.eliminar_proyecto(proyecto.id)
+    assert store.listar_notas_documentacion(proyecto.id) == []
+
+
+def test_proyecto_nuevo_nace_con_subsecciones_por_defecto(store):
+    proyecto = store.crear_proyecto("Docs")
+    por_seccion = {}
+    for sub in store.listar_subsecciones_documentacion(proyecto.id):
+        por_seccion.setdefault(sub.seccion, []).append(sub.nombre)
+    assert set(por_seccion) == {"arquitectura", "especificaciones", "decisiones_tecnicas"}
+    assert "Modelo de datos" in por_seccion["especificaciones"]
+
+
+def test_subsecciones_crud_y_notas_en_cascada(store):
+    proyecto = store.crear_proyecto("Docs")
+    sub = store.crear_subseccion_documentacion(proyecto.id, "arquitectura", "Despliegue")
+    store.renombrar_subseccion_documentacion(sub.id, "Infraestructura")
+    nombres = [s.nombre for s in store.listar_subsecciones_documentacion(proyecto.id, "arquitectura")]
+    assert nombres[-1] == "Infraestructura"
+    nota = store.crear_nota_documentacion(
+        proyecto.id, "arquitectura", "Nube", subseccion_id=sub.id
+    )
+    assert [n.id for n in store.listar_notas_documentacion(proyecto.id, subseccion_id=sub.id)] == [
+        nota.id
+    ]
+    store.eliminar_subseccion_documentacion(sub.id)
+    assert store.obtener_nota_documentacion(nota.id) is None
+
+
+def test_blueprint_no_admite_subsecciones_editables(store):
+    proyecto = store.crear_proyecto("Docs")
+    with pytest.raises(ValueError):
+        store.crear_subseccion_documentacion(proyecto.id, "blueprint", "X")
+
+
+def test_flujos_nace_como_subseccion_de_diagramas(store):
+    proyecto = store.crear_proyecto("Docs")
+    tipos = {s.nombre: s.tipo for s in store.listar_subsecciones_documentacion(proyecto.id)}
+    assert tipos["Flujos"] == "diagramas"
+    assert tipos["Componentes"] == "notas"
+
+
+def test_diagramas_crud_y_cascada(store):
+    proyecto = store.crear_proyecto("Docs")
+    sub = store.crear_subseccion_documentacion(proyecto.id, "arquitectura", "Despliegue", "diagramas")
+    assert sub.tipo == "diagramas"
+    d = store.crear_diagrama_documentacion(proyecto.id, sub.id, "Login", '{"nodos": []}')
+    d2 = store.crear_diagrama_documentacion(proyecto.id, sub.id, "Alta")
+    assert (d.orden, d2.orden) == (0, 1)
+    d.titulo, d.datos = "Inicio de sesión", '{"nodos": [1]}'
+    store.actualizar_diagrama_documentacion(d)
+    assert store.obtener_diagrama_documentacion(d.id).titulo == "Inicio de sesión"
+    assert [x.id for x in store.listar_diagramas_documentacion(proyecto.id, sub.id)] == [d.id, d2.id]
+    store.eliminar_diagrama_documentacion(d2.id)
+    assert store.obtener_diagrama_documentacion(d2.id) is None
+    store.eliminar_subseccion_documentacion(sub.id)
+    assert store.listar_diagramas_documentacion(proyecto.id) == []
+
+
+def test_tipo_de_subseccion_desconocido_se_rechaza(store):
+    proyecto = store.crear_proyecto("Docs")
+    with pytest.raises(ValueError):
+        store.crear_subseccion_documentacion(proyecto.id, "arquitectura", "X", "otra")
+
+
+def test_estado_de_nota_se_guarda_y_valida(store):
+    proyecto = store.crear_proyecto("Docs")
+    nota = store.crear_nota_documentacion(proyecto.id, "arquitectura", "T", estado="borrador")
+    assert store.obtener_nota_documentacion(nota.id).estado == "borrador"
+    nota.estado = "vigente"
+    store.actualizar_nota_documentacion(nota)
+    assert store.obtener_nota_documentacion(nota.id).estado == "vigente"
+    assert store.crear_nota_documentacion(proyecto.id, "arquitectura", "U").estado == ""
+    with pytest.raises(ValueError):
+        store.crear_nota_documentacion(proyecto.id, "arquitectura", "X", estado="otro")
+
+
+def test_jerarquia_de_notas_y_validaciones(store):
+    p = store.crear_proyecto("Docs")
+    sub = store.crear_subseccion_documentacion(p.id, "arquitectura", "Capas")
+    otra = store.crear_subseccion_documentacion(p.id, "arquitectura", "Otra")
+    a = store.crear_nota_documentacion(p.id, "arquitectura", "A", subseccion_id=sub.id)
+    b = store.crear_nota_documentacion(p.id, "arquitectura", "B", subseccion_id=sub.id, padre_id=a.id)
+    c = store.crear_nota_documentacion(p.id, "arquitectura", "C", subseccion_id=sub.id, padre_id=b.id)
+    assert store.obtener_nota_documentacion(c.id).padre_id == b.id
+    # No puede ser su propio padre ni colgar de un descendiente (ciclo).
+    a.padre_id = a.id
+    with pytest.raises(ValueError):
+        store.actualizar_nota_documentacion(a)
+    a.padre_id = c.id
+    with pytest.raises(ValueError):
+        store.actualizar_nota_documentacion(a)
+    # El padre debe ser de la misma subsección.
+    fuera = store.crear_nota_documentacion(p.id, "arquitectura", "F", subseccion_id=otra.id)
+    with pytest.raises(ValueError):
+        store.crear_nota_documentacion(p.id, "arquitectura", "X", subseccion_id=sub.id, padre_id=fuera.id)
+    # Mover una nota a otro padre válido funciona.
+    c.padre_id = a.id
+    store.actualizar_nota_documentacion(c)
+    assert store.obtener_nota_documentacion(c.id).padre_id == a.id
+
+
+def test_borrar_una_nota_sube_sus_subpaginas_a_su_abuela(store):
+    p = store.crear_proyecto("Docs")
+    sub = store.crear_subseccion_documentacion(p.id, "arquitectura", "Capas")
+    a = store.crear_nota_documentacion(p.id, "arquitectura", "A", subseccion_id=sub.id)
+    b = store.crear_nota_documentacion(p.id, "arquitectura", "B", subseccion_id=sub.id, padre_id=a.id)
+    c = store.crear_nota_documentacion(p.id, "arquitectura", "C", subseccion_id=sub.id, padre_id=b.id)
+    store.eliminar_nota_documentacion(b.id)
+    assert store.obtener_nota_documentacion(c.id).padre_id == a.id
+    store.eliminar_nota_documentacion(a.id)
+    assert store.obtener_nota_documentacion(c.id).padre_id is None
