@@ -117,6 +117,48 @@ class Etiqueta:
 SECCIONES_DOCUMENTACION = ("arquitectura", "especificaciones", "blueprint", "decisiones_tecnicas")
 
 
+# Secciones cuyas subsecciones son fijas (no se guardan en la base de datos): Blueprint se
+# alimenta de las tareas del proyecto, no de notas escritas a mano.
+SUBSECCIONES_FIJAS = {"blueprint": ("historial", "hitos", "roadmap")}
+
+TIPOS_SUBSECCION = ("notas", "diagramas")
+
+# Estado de una nota: «» = sin estado.
+ESTADOS_NOTA = ("", "borrador", "vigente", "obsoleta")
+
+
+@dataclass
+class SubseccionDocumentacion:
+    id: int
+    proyecto_id: int
+    seccion: str  # una de SECCIONES_DOCUMENTACION con subsecciones editables
+    nombre: str
+    orden: int = 0
+    tipo: str = "notas"  # "notas" (tarjetas Markdown) o "diagramas" (flujos dibujados)
+
+
+@dataclass
+class DiagramaDocumentacion:
+    id: int
+    proyecto_id: int
+    subseccion_id: int
+    titulo: str
+    datos: str = ""  # JSON del diagrama (ver diagrama.py)
+    orden: int = 0
+    creado: str = ""
+    actualizado: str = ""
+
+
+@dataclass
+class VersionDocumentacion:
+    """Estado anterior de una nota o de un diagrama (`contenido` = Markdown o JSON)."""
+
+    id: int
+    titulo: str
+    contenido: str
+    creado: str  # cuándo se guardó esa versión
+
+
 @dataclass
 class NotaDocumentacion:
     id: int
@@ -127,3 +169,6 @@ class NotaDocumentacion:
     orden: int = 0
     creado: str = ""
     actualizado: str = ""
+    subseccion_id: int | None = None
+    estado: str = ""  # una de ESTADOS_NOTA
+    padre_id: int | None = None  # nota padre (misma subsección); None = nivel raíz

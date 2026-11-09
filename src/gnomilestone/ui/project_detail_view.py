@@ -174,7 +174,7 @@ class ProjectDetailView(Gtk.Box):
         self._vista_stack.add_named(self._uso, "uso")
         self._informes = ReportView()
         self._vista_stack.add_named(self._informes, "informes")
-        self._documentacion = DocumentationView(store)
+        self._documentacion = DocumentationView(store, self._on_abrir_tarea_por_id)
         self._vista_stack.add_named(self._documentacion, "documentacion")
 
         contenido.append(self._vista_stack)
@@ -255,7 +255,7 @@ class ProjectDetailView(Gtk.Box):
 
         self._tablero.mostrar_proyecto(self._proyecto.id, self._mostrar_completadas)
         self._recursos.mostrar_proyecto(self._proyecto.id)
-        self._documentacion.mostrar_proyecto(self._proyecto.id)
+        self._documentacion.mostrar_proyecto(self._proyecto, tareas_con_archivadas, dependencias)
 
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
@@ -422,6 +422,11 @@ class ProjectDetailView(Gtk.Box):
         TaskDialog(
             self.get_root(), self._store, self._proyecto.id, on_saved=self.refrescar
         ).present()
+
+    def _on_abrir_tarea_por_id(self, tarea_id: int) -> None:
+        tarea = self._store.obtener_tarea(tarea_id)
+        if tarea is not None:
+            self._on_editar_tarea(tarea)
 
     def _on_editar_tarea(self, tarea: Tarea) -> None:
         TaskDialog(

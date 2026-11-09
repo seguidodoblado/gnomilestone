@@ -10,11 +10,11 @@ from collections.abc import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gtk
 
 from gnomilestone.i18n import _
-from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.ui import markdown_edicion
+from gnomilestone.ui.markdown_view import VistaMarkdown
 
 
 class MarkdownEditor(Gtk.Box):
@@ -24,9 +24,15 @@ class MarkdownEditor(Gtk.Box):
         texto: str = "",
         texto_vacio: str = "",
         alto_minimo: int = 130,
+        preprocesar: Callable[[str], str] | None = None,
+        al_enlace: Callable[[str], bool] | None = None,
     ) -> None:
+        """`preprocesar` transforma el Markdown antes de pintar la vista previa (p. ej. para
+        resolver enlaces internos) y `al_enlace(uri)` atiende los clics en enlaces: devuelve
+        True si lo gestiona (si no, GTK abre el enlace como siempre)."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self._texto_vacio = texto_vacio
+        self._preprocesar = preprocesar
 
         cabecera = Gtk.Box(spacing=6)
         cabecera.append(Gtk.Label(label=titulo, xalign=0, hexpand=True))
@@ -53,12 +59,11 @@ class MarkdownEditor(Gtk.Box):
         )
         edicion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         edicion_scroller.set_child(vista_edicion)
-        self._vista_label = Gtk.Label(
-            xalign=0, yalign=0, wrap=True, selectable=True, use_markup=True, margin_top=6,
-            margin_bottom=6, margin_start=6, margin_end=6,
-        )
+        self._vista = VistaMarkdown(texto_vacio=texto_vacio, al_enlace=al_enlace, preprocesar=preprocesar)
+        for margen in ("top", "bottom", "start", "end"):
+            getattr(self._vista, f"set_margin_{margen}")(6)
         vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        vista_scroller.set_child(self._vista_label)
+        vista_scroller.set_child(self._vista)
         self._stack = Gtk.Stack()
         self._stack.add_named(edicion_scroller, "editar")
         self._stack.add_named(vista_scroller, "vista")
@@ -85,13 +90,7 @@ class MarkdownEditor(Gtk.Box):
 
     def _on_modo(self, boton: Gtk.ToggleButton) -> None:
         if boton.get_active():
-            texto = self.obtener_texto()
-            if texto.strip():
-                self._vista_label.set_markup(markdown_a_pango(texto))
-            else:
-                self._vista_label.set_markup(
-                    f"<i>{GLib.markup_escape_text(self._texto_vacio)}</i>"
-                )
+            self._vista.fijar(self.obtener_texto())
             self._stack.set_visible_child_name("vista")
             self._barra.set_visible(False)
         else:
