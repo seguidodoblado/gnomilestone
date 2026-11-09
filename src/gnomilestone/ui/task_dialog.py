@@ -18,9 +18,9 @@ from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
 from gnomilestone.sync import GitHubSyncManager
-from gnomilestone.ui import markdown_edicion
 from gnomilestone.ui.avatar_widget import AvatarWidget
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
+from gnomilestone.ui.markdown_editor import MarkdownEditor
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.task_tree_view import ordenar_jerarquicamente
 
@@ -273,6 +273,7 @@ class TaskDialog(Gtk.Window):
         self._pagina_dependencias = self._nueva_pagina(_("Dependencias"))
         # Los comentarios cuelgan de una tarea ya guardada: solo al editar.
         self._pagina_comentarios = self._nueva_pagina(_("Comentarios")) if tarea else None
+        self._pagina_historial = self._nueva_pagina(_("Historial")) if tarea else None
 
         self._construir_general(tarea)
         self._construir_fechas(tarea)
@@ -280,6 +281,7 @@ class TaskDialog(Gtk.Window):
         self._construir_dependencias(dependencias_actuales)
         if tarea:
             self._construir_comentarios()
+            self._construir_historial()
 
         self._error_label = Gtk.Label(
             xalign=0, wrap=True, margin_start=16, margin_end=16, margin_top=4
@@ -356,54 +358,12 @@ class TaskDialog(Gtk.Window):
         self._titulo_entry = Gtk.Entry(text=tarea.titulo if tarea else "")
         box.append(self._titulo_entry)
 
-        cabecera = Gtk.Box(spacing=6)
-        cabecera.append(Gtk.Label(label=_("Descripción"), xalign=0, hexpand=True))
-        modo_box = Gtk.Box()
-        modo_box.add_css_class("linked")
-        self._editar_toggle = Gtk.ToggleButton(label=_("Editar"), active=True)
-        self._vista_toggle = Gtk.ToggleButton(label=_("Vista previa"), group=self._editar_toggle)
-        self._vista_toggle.connect("toggled", self._on_modo_descripcion)
-        modo_box.append(self._editar_toggle)
-        modo_box.append(self._vista_toggle)
-        cabecera.append(modo_box)
-        box.append(cabecera)
-
-        self._descripcion_buffer = Gtk.TextBuffer(text=tarea.descripcion if tarea else "")
-        self._formato_barra = self._crear_barra_formato()
-        box.append(self._formato_barra)
-        descripcion_view = Gtk.TextView(
-            buffer=self._descripcion_buffer,
-            wrap_mode=Gtk.WrapMode.WORD_CHAR,
-            top_margin=6,
-            bottom_margin=6,
-            left_margin=6,
-            right_margin=6,
+        self._descripcion_editor = MarkdownEditor(
+            _("Descripción"),
+            texto=tarea.descripcion if tarea else "",
+            texto_vacio=_("Sin descripción"),
         )
-        teclas_desc = Gtk.EventControllerKey()
-        teclas_desc.connect(
-            "key-pressed",
-            lambda _c, kv, _kc, estado: (
-                kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter)
-                and not estado & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK)
-                and markdown_edicion.continuar_lista(self._descripcion_buffer)
-            ),
-        )
-        descripcion_view.add_controller(teclas_desc)
-        descripcion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        descripcion_scroller.set_child(descripcion_view)
-        self._vista_label = Gtk.Label(
-            xalign=0, yalign=0, wrap=True, selectable=True, use_markup=True, margin_top=6,
-            margin_bottom=6, margin_start=6, margin_end=6,
-        )
-        vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        vista_scroller.set_child(self._vista_label)
-        self._descripcion_stack = Gtk.Stack()
-        self._descripcion_stack.add_named(descripcion_scroller, "editar")
-        self._descripcion_stack.add_named(vista_scroller, "vista")
-        self._descripcion_stack.set_size_request(-1, 130)
-        self._descripcion_stack.set_vexpand(True)  # crece al maximizar la ventana
-        self._descripcion_stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
-        box.append(self._descripcion_stack)
+        box.append(self._descripcion_editor)
 
         box.append(Gtk.Label(label=_("Tarea padre"), xalign=0))
         self._padre_dropdown = self._crear_selector_tareas(tarea)
@@ -532,6 +492,23 @@ class TaskDialog(Gtk.Window):
         box.append(fin_label)
         box.append(self._fin.widget)
 
+        box.append(Gtk.Label(label=_("Planificado inicial"), xalign=0))
+        self._fin_inicial = _SelectorFecha(
+            tarea.fecha_fin_planificada_inicial if tarea else fecha_fin,
+            lambda: None,
+        )
+        self._fin_inicial.widget.set_sensitive(False)
+        box.append(self._fin_inicial.widget)
+        self._editar_planificacion_base = Gtk.CheckButton(label=_("Desbloquear edición"))
+        self._editar_planificacion_base.connect(
+            "toggled", lambda check: self._fin_inicial.widget.set_sensitive(check.get_active())
+        )
+        box.append(self._editar_planificacion_base)
+
+        box.append(Gtk.Label(label=_("Final real"), xalign=0))
+        self._fin_real = _SelectorFecha(tarea.fecha_fin_real if tarea else None, lambda: None)
+        box.append(self._fin_real.widget)
+
         duracion_label = Gtk.Label(label=_("Duración (días)"), xalign=0)
         self._duracion_spin = Gtk.SpinButton.new_with_range(1, 3650, 1)
         self._duracion_spin.set_value(max(tarea.duracion_dias, 1) if tarea else 1)
@@ -651,6 +628,38 @@ class TaskDialog(Gtk.Window):
         box.append(botones)
         self._refrescar_comentarios()
 
+    def _construir_historial(self) -> None:
+        box = self._pagina_historial
+        eventos = self._store.listar_historial_tarea(self._tarea.id)
+        if not eventos:
+            vacio = Gtk.Label(label=_("Sin actividad registrada"), xalign=0)
+            vacio.add_css_class("dim-label")
+            box.append(vacio)
+            return
+        for evento in eventos:
+            tarjeta = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            tarjeta.add_css_class("card")
+            fecha = Gtk.Label(label=evento.creado, xalign=0)
+            fecha.add_css_class("dim-label")
+            tarjeta.append(fecha)
+            titulo = {
+                "creacion": _("Tarea creada"),
+                "estado": _("Estado cambiado"),
+                "progreso": _("Progreso cambiado"),
+                "planificacion": _("Final planificado cambiado"),
+                "planificacion_base": _("Planificado inicial cambiado"),
+                "fin_real": _("Final real cambiado"),
+                "fecha_inicio": _("Inicio cambiado"),
+                "limite": _("Límite cambiado"),
+            }.get(evento.tipo, evento.tipo)
+            tarjeta.append(Gtk.Label(label=titulo, xalign=0))
+            detalle = evento.detalle
+            if evento.valor_anterior is not None or evento.valor_nuevo is not None:
+                detalle = f"{evento.valor_anterior or '—'} → {evento.valor_nuevo or '—'}"
+            if detalle:
+                tarjeta.append(Gtk.Label(label=detalle, xalign=0, wrap=True))
+            box.append(tarjeta)
+
     @staticmethod
     def _fecha_comentario(creado: str) -> str:
         try:
@@ -758,59 +767,6 @@ class TaskDialog(Gtk.Window):
 
     # ------------------------------------------------------------------ interacción
 
-    def _on_modo_descripcion(self, boton: Gtk.ToggleButton) -> None:
-        if boton.get_active():
-            inicio, fin = self._descripcion_buffer.get_bounds()
-            texto = self._descripcion_buffer.get_text(inicio, fin, False)
-            if texto.strip():
-                self._vista_label.set_markup(markdown_a_pango(texto))
-            else:
-                self._vista_label.set_markup(f"<i>{GLib.markup_escape_text(_('Sin descripción'))}</i>")
-            self._descripcion_stack.set_visible_child_name("vista")
-            self._formato_barra.set_visible(False)
-        else:
-            self._descripcion_stack.set_visible_child_name("editar")
-            self._formato_barra.set_visible(True)
-
-    def _crear_barra_formato(self) -> Gtk.Box:
-        barra = Gtk.Box(spacing=4)
-        botones = (
-            ("format-text-bold-symbolic", _("Negrita"), "**", "**", _("texto")),
-            ("format-text-italic-symbolic", _("Cursiva"), "*", "*", _("texto")),
-            ("format-text-strikethrough-symbolic", _("Tachado"), "~~", "~~", _("texto")),
-            ("utilities-terminal-symbolic", _("Código"), "`", "`", _("código")),
-            ("insert-link-symbolic", _("Enlace"), "[", "](https://)", _("texto")),
-        )
-        for icono, tooltip, antes, despues, ejemplo in botones:
-            boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
-            boton.add_css_class("flat")
-            boton.connect("clicked", lambda _b, a=antes, d=despues, e=ejemplo: self._envolver(a, d, e))
-            barra.append(boton)
-        barra.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
-        lineas = (
-            ("H", _("Título"), "## "),
-            ("view-list-bullet-symbolic", _("Lista"), "- "),
-            ("view-list-ordered-symbolic", _("Lista numerada"), "1. "),
-            ("selection-mode-symbolic", _("Lista de tareas"), "- [ ] "),
-            ("format-indent-more-symbolic", _("Cita"), "> "),
-        )
-        for icono, tooltip, prefijo in lineas:
-            if icono == "H":  # no hay icono simbólico de título fiable en todos los temas
-                boton = Gtk.Button(tooltip_text=tooltip)
-                boton.set_child(Gtk.Label(label="<b>H</b>", use_markup=True))
-            else:
-                boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
-            boton.add_css_class("flat")
-            boton.connect("clicked", lambda _b, p=prefijo: self._prefijar_lineas(p))
-            barra.append(boton)
-        return barra
-
-    def _envolver(self, antes: str, despues: str, ejemplo: str) -> None:
-        markdown_edicion.envolver(self._descripcion_buffer, antes, despues, ejemplo)
-
-    def _prefijar_lineas(self, prefijo: str) -> None:
-        markdown_edicion.prefijar_lineas(self._descripcion_buffer, prefijo)
-
     def _on_buscar_dependencia(self, entrada: Gtk.SearchEntry) -> None:
         texto = entrada.get_text().strip().casefold()
         for _origen_id, check in self._dependencia_checks:
@@ -858,10 +814,9 @@ class TaskDialog(Gtk.Window):
     # ------------------------------------------------------------------ cambios sin guardar
 
     def _capturar_estado(self) -> tuple:
-        inicio, fin = self._descripcion_buffer.get_bounds()
         return (
             self._titulo_entry.get_text(),
-            self._descripcion_buffer.get_text(inicio, fin, False),
+            self._descripcion_editor.obtener_texto(),
             self._padre_dropdown.get_selected(),
             self._estado_dropdown.get_selected(),
             self._prioridad_dropdown.get_selected(),
@@ -1001,8 +956,7 @@ class TaskDialog(Gtk.Window):
         estado_id = (
             self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
         )
-        inicio, fin = self._descripcion_buffer.get_bounds()
-        descripcion = self._descripcion_buffer.get_text(inicio, fin, False).strip()
+        descripcion = self._descripcion_editor.obtener_texto().strip()
         if es_hito:
             duracion = 1
         elif fecha and fecha_fin:
@@ -1010,6 +964,12 @@ class TaskDialog(Gtk.Window):
         else:
             duracion = int(self._duracion_spin.get_value())
         porcentaje = round(self._porcentaje_scale.get_value())
+        fecha_fin_inicial = self._fin_inicial.valor or fecha_fin
+        fecha_fin_real = self._fin_real.valor
+        if porcentaje >= 100 and not fecha_fin_real:
+            fecha_fin_real = datetime.now().astimezone().date().isoformat()
+        elif porcentaje < 100:
+            fecha_fin_real = None
         if (
             self._tarea is None
             and estado_id is not None
@@ -1027,7 +987,9 @@ class TaskDialog(Gtk.Window):
                 descripcion=descripcion,
                 fecha_inicio=fecha or None,
                 fecha_fin_planificada=fecha_fin,
+                fecha_fin_planificada_inicial=fecha_fin_inicial,
                 fecha_limite=fecha_limite,
+                fecha_fin_real=fecha_fin_real,
                 duracion_dias=duracion,
                 porcentaje_completado=porcentaje,
                 es_hito=es_hito,
@@ -1043,8 +1005,11 @@ class TaskDialog(Gtk.Window):
             tarea.prioridad = self._prioridad_dropdown.get_selected()
             tarea.descripcion = descripcion
             tarea.fecha_inicio = fecha or None
+            if tarea.fecha_fin_planificada_inicial is None or self._editar_planificacion_base.get_active():
+                tarea.fecha_fin_planificada_inicial = fecha_fin_inicial
             tarea.fecha_fin_planificada = fecha_fin
             tarea.fecha_limite = fecha_limite
+            tarea.fecha_fin_real = fecha_fin_real
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
             tarea.es_hito = es_hito

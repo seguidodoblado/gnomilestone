@@ -23,7 +23,8 @@
 Desktop project manager for GNOME (GTK4/Adwaita), the spiritual successor to GNOME
 Planner: projects, tasks and subtasks with a Gantt chart, task list, Kanban board,
 resource and usage management, progress reports, and optional two-way synchronization
-with GitHub Issues and GitHub Projects.
+with GitHub Issues and GitHub Projects, and each project's own documentation (notes,
+diagrams and timelines).
 
 ## Features
 
@@ -45,8 +46,17 @@ with GitHub Issues and GitHub Projects.
 - **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
   between them.
 - **Reports**: a visual panel with overall progress, tasks per status, progress
-  breakdown (not started/in progress/completed) and date alerts (overdue, past
-  planned end, due within 7 days, active resources).
+  breakdown (not started/in progress/completed), date alerts (overdue, past planned
+  end, due within 7 days, active resources), distribution by person and critical path
+  (the tasks with a red alert on a 7-day timeline).
+- **Project documentation**: each project's own documentation, with content stored in
+  the app (no external files read), organized in Architecture, Specifications,
+  Blueprint and Technical decisions. Notes are Markdown cards (templates, status,
+  subpages, internal links `[[Title]]` and `#27`, highlighted code blocks and Mermaid
+  flowcharts), edited in a separate window, and they keep their earlier versions;
+  diagram subsections have a node-and-arrow editor; and Blueprint draws History,
+  Milestones and Roadmap from the tasks, with zoom. There is a collapsible navigation
+  tree and a search.
 - **Due dates**: a task's name is shown in orange once it is past its planned end,
   and in red once it is past its deadline, and the deadline is marked with a flag in the
   Gantt and in Usage; completed tasks are shown by default, with a filter to hide them.
@@ -78,7 +88,8 @@ gnomilestone
 
 ## Development
 
-Requires Python 3.11+, PyGObject and the system's GTK4.
+Requires Python 3.11+, PyGObject and the system's GTK4, plus Pygments (`python3-pygments`,
+optional: without it, code blocks are not highlighted).
 
 ```sh
 python3 -m venv --system-site-packages .venv

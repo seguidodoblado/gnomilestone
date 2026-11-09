@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import math
 from pathlib import Path
 
@@ -40,16 +41,26 @@ def _inicial(nombre: str) -> str:
     return (partes[0][:1] + partes[-1][:1]).upper()
 
 
+@functools.lru_cache(maxsize=128)
+def _cargar_escalado(ruta: str, size: int, _modificado: int) -> GdkPixbuf.Pixbuf | None:
+    """Imagen escalada, con caché: cada refresco de un proyecto recrea todos los avatares y
+    decodificar la misma imagen costaba ~15 ms por avatar. `_modificado` (la fecha del
+    fichero) solo sirve para invalidar la caché cuando la imagen cambia."""
+    try:
+        return GdkPixbuf.Pixbuf.new_from_file_at_scale(ruta, size, size, True)
+    except GLib.Error:
+        return None
+
+
 def _pixbuf_local(avatar_url: str | None, size: int) -> GdkPixbuf.Pixbuf | None:
     if not avatar_url or avatar_url.startswith(("http://", "https://")):
         return None
     ruta = Path(avatar_url)
-    if not ruta.is_file():
-        return None
     try:
-        return GdkPixbuf.Pixbuf.new_from_file_at_scale(str(ruta), size, size, True)
-    except GLib.Error:
+        modificado = ruta.stat().st_mtime_ns
+    except OSError:
         return None
+    return _cargar_escalado(str(ruta), size, modificado) if ruta.is_file() else None
 
 
 class AvatarWidget(Gtk.DrawingArea):

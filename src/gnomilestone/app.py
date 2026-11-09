@@ -50,6 +50,32 @@ class GnoMilestoneApplication(Gtk.Application):
         window.present()
 
 
+def _activar_diagnostico_gtk() -> None:
+    """Con `GNOMILESTONE_DEBUG=1`, cada aviso o error de GTK/GLib se acompaña de la pila de
+    Python en ese momento: sirve para saber qué línea de la app lo provoca. (Se usa el
+    «writer» de registro estructurado porque GTK ya no pasa por `g_log_set_handler`.)"""
+    import ctypes
+    import traceback
+
+    graves = (
+        GLib.LogLevelFlags.LEVEL_WARNING
+        | GLib.LogLevelFlags.LEVEL_CRITICAL
+        | GLib.LogLevelFlags.LEVEL_ERROR
+    )
+
+    def escritor(nivel, campos, _n_campos, _datos) -> GLib.LogWriterOutput:
+        mensaje = ""
+        for campo in campos:
+            if campo.key == "MESSAGE":
+                mensaje = ctypes.string_at(campo.value).decode("utf-8", "replace")
+        print(f"[GTK] {mensaje}", file=sys.stderr)
+        if nivel & graves:
+            traceback.print_stack(limit=12)
+        return GLib.LogWriterOutput.HANDLED
+
+    GLib.log_set_writer_func(escritor, None)
+
+
 def main() -> int:
     # Diagnóstico de cuelgues: `kill -USR1 <pid>` vuelca en la terminal la pila de Python
     # de todos los hilos sin cerrar la aplicación.
@@ -60,6 +86,8 @@ def main() -> int:
     else:
         os.environ.pop("LANGUAGE", None)
     i18n.install()
+    if os.environ.get("GNOMILESTONE_DEBUG"):
+        _activar_diagnostico_gtk()
     app = GnoMilestoneApplication()
     return app.run(sys.argv)
 
