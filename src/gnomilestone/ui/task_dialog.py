@@ -379,6 +379,16 @@ class TaskDialog(Gtk.Window):
             left_margin=6,
             right_margin=6,
         )
+        teclas_desc = Gtk.EventControllerKey()
+        teclas_desc.connect(
+            "key-pressed",
+            lambda _c, kv, _kc, estado: (
+                kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter)
+                and not estado & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK)
+                and markdown_edicion.continuar_lista(self._descripcion_buffer)
+            ),
+        )
+        descripcion_view.add_controller(teclas_desc)
         descripcion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         descripcion_scroller.set_child(descripcion_view)
         self._vista_label = Gtk.Label(

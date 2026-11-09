@@ -286,6 +286,7 @@ class KanbanView(Gtk.Box):
 
         origen = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         origen.connect("prepare", self._on_preparar_arrastre, tarea.id)
+        origen.connect("drag-begin", self._on_arrastre_iniciado, tarjeta)
         tarjeta.add_controller(origen)
 
         return tarjeta
@@ -301,6 +302,13 @@ class KanbanView(Gtk.Box):
     ) -> Gdk.ContentProvider:
         valor = GObject.Value(_TIPO_ARRASTRE_TAREA, tarea_id)
         return Gdk.ContentProvider.new_for_value(valor)
+
+    @staticmethod
+    def _on_arrastre_iniciado(origen: Gtk.DragSource, _drag: Gdk.Drag, tarjeta: Gtk.Widget) -> None:
+        # El icono del arrastre es la propia tarjeta (no el icono genérico de documento).
+        # El puntero queda centrado horizontalmente y cerca del borde superior de la tarjeta.
+        icono = Gtk.WidgetPaintable.new(tarjeta)
+        origen.set_icon(icono, int(tarjeta.get_width() / 2), 12)
 
     def _on_drop(self, _objetivo: Gtk.DropTarget, tarea_id: int, _x: float, _y: float, estado_id: int) -> bool:
         tarea = self._store.obtener_tarea(tarea_id)

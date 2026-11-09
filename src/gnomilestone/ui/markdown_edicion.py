@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -70,3 +72,34 @@ def prefijar_lineas(buf: Gtk.TextBuffer, prefijo: str) -> None:
     buf.delete(_iter_de_linea(buf, primera), _fin_de_linea(buf, ultima))
     buf.insert(_iter_de_linea(buf, primera), "\n".join(nuevas))
     buf.end_user_action()
+
+
+_RE_LISTA = re.compile(r"^(\s*)(?:(\d+)\.|[-*+]|>)(?:\s\[[ xX]\])?\s")
+
+
+def continuar_lista(buf: Gtk.TextBuffer) -> bool:
+    """Al pulsar Enter en una línea de lista o cita, abre la siguiente con su prefijo (la
+    numeración sigue; las casillas nacen sin marcar). En un elemento vacío quita el prefijo y
+    termina la lista. Devuelve True si ha gestionado la tecla; False si Enter debe actuar
+    con normalidad (hay selección, el cursor no está al final o la línea no es de lista)."""
+    if buf.get_has_selection():
+        return False
+    cursor = buf.get_iter_at_mark(buf.get_insert())
+    linea = cursor.get_line()
+    if not cursor.ends_line():
+        return False
+    texto = buf.get_text(_iter_de_linea(buf, linea), cursor, False)
+    m = _RE_LISTA.match(texto)
+    if not m:
+        return False
+    buf.begin_user_action()
+    if texto[m.end() :].strip() == "":
+        buf.delete(_iter_de_linea(buf, linea), cursor)
+    else:
+        prefijo = m.group(0)
+        if m.group(2) is not None:
+            prefijo = prefijo.replace(f"{m.group(2)}.", f"{int(m.group(2)) + 1}.", 1)
+        prefijo = re.sub(r"\[[xX]\]", "[ ]", prefijo)
+        buf.insert_at_cursor("\n" + prefijo)
+    buf.end_user_action()
+    return True
