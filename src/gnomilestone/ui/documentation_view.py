@@ -47,6 +47,7 @@ log = logging.getLogger(__name__)
 
 # (sección, título visible): mismo orden que SECCIONES_DOCUMENTACION.
 _SECCIONES = (
+    ("vision_general", _("Visión general")),
     ("arquitectura", _("Arquitectura")),
     ("especificaciones", _("Especificaciones")),
     ("blueprint", _("Blueprint")),
@@ -55,6 +56,7 @@ _SECCIONES = (
 # Subsecciones fijas de Blueprint: se alimentan de las tareas, no de notas.
 # Iconos simbólicos del sistema de cada sección y de las subsecciones fijas.
 _ICONOS_SECCION = {
+    "vision_general": "help-about-symbolic",
     "arquitectura": "applications-engineering-symbolic",
     "especificaciones": "document-properties-symbolic",
     "blueprint": "emblem-documents-symbolic",
@@ -137,7 +139,7 @@ class DocumentationView(Gtk.Box):
         # Panel de navegación (árbol) a la izquierda, con el ancho ajustable arrastrando.
         panel = Gtk.Paned(
             orientation=Gtk.Orientation.HORIZONTAL,
-            position=290,
+            position=350,
             hexpand=True,
             vexpand=True,
             shrink_start_child=False,
@@ -160,7 +162,7 @@ class DocumentationView(Gtk.Box):
         _margenes(self._lateral, 10)
         scroller = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroller.set_child(self._lateral)
-        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, width_request=220, vexpand=True)
+        caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, width_request=280, vexpand=True)
         caja.append(self._busqueda)
         caja.append(scroller)
         return caja
@@ -940,7 +942,9 @@ class DocumentationView(Gtk.Box):
         self._seleccion = (seccion, clave)
         self._nivel = None
         if isinstance(clave, int):
-            self._expandidos.add(("sub", clave))
+            # La propia fila y su flecha deben tener el mismo comportamiento:
+            # seleccionar y alternar el despliegue de sus notas o diagramas.
+            self._expandidos.symmetric_difference_update({("sub", clave)})
         self.refrescar()
 
     def _on_nueva_subseccion(self, _boton: Gtk.Button, seccion: str) -> None:

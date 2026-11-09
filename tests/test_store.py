@@ -14,6 +14,31 @@ def test_crear_proyecto_crea_tres_estados_por_defecto(store):
     assert [e.nombre for e in estados] == ["Pendiente", "En curso", "Hecho"]
 
 
+def test_completar_tarea_la_mueve_al_primer_estado_final(store):
+    proyecto = store.crear_proyecto("Cierre")
+    estados = store.listar_estados(proyecto.id)
+    store.establecer_estado_final(proyecto.id, estados[2].id)
+    tarea = store.crear_tarea(proyecto.id, "Tarea", estado_id=estados[0].id)
+    tarea.porcentaje_completado = 100
+    store.actualizar_tarea(tarea)
+    actualizada = store.obtener_tarea(tarea.id)
+    assert actualizada is not None
+    assert actualizada.estado_id == estados[2].id
+
+
+def test_si_hay_varios_estados_finales_gana_el_primero(store):
+    proyecto = store.crear_proyecto("Orden")
+    estados = store.listar_estados(proyecto.id)
+    store.establecer_estado_final(proyecto.id, estados[1].id)
+    # Simula una base que contiene más de un cierre: se conserva la prioridad por orden.
+    with store._connect() as db:
+        db.execute("UPDATE estado_tablero SET es_final = 1 WHERE id = ?", (estados[2].id,))
+    tarea = store.crear_tarea(proyecto.id, "Tarea", estado_id=estados[0].id)
+    tarea.porcentaje_completado = 100
+    store.actualizar_tarea(tarea)
+    assert store.obtener_tarea(tarea.id).estado_id == estados[1].id
+
+
 def test_listar_proyectos_devuelve_los_creados(store):
     store.crear_proyecto("B")
     store.crear_proyecto("A")
@@ -384,10 +409,9 @@ def test_notas_de_documentacion_crud_y_orden(store):
     b = store.crear_nota_documentacion(proyecto.id, "arquitectura", "Datos")
     c = store.crear_nota_documentacion(proyecto.id, "blueprint", "Roadmap")
     assert (a.orden, b.orden, c.orden) == (0, 1, 0)
-    assert [n.titulo for n in store.listar_notas_documentacion(proyecto.id, "arquitectura")] == [
-        "Capas", "Datos",
-    ]
-    assert len(store.listar_notas_documentacion(proyecto.id)) == 3
+    titulos = [n.titulo for n in store.listar_notas_documentacion(proyecto.id, "arquitectura")]
+    assert {"Capas", "Datos", "Estructura del proyecto", "Pilas", "Empaquetado", "Pruebas"}.issubset(titulos)
+    assert len(store.listar_notas_documentacion(proyecto.id)) == 12
 
     b.titulo = "Modelo de datos"
     b.contenido = "Tablas"
@@ -417,7 +441,7 @@ def test_proyecto_nuevo_nace_con_subsecciones_por_defecto(store):
     por_seccion = {}
     for sub in store.listar_subsecciones_documentacion(proyecto.id):
         por_seccion.setdefault(sub.seccion, []).append(sub.nombre)
-    assert set(por_seccion) == {"arquitectura", "especificaciones", "decisiones_tecnicas"}
+    assert set(por_seccion) == {"vision_general", "arquitectura", "especificaciones", "decisiones_tecnicas"}
     assert "Modelo de datos" in por_seccion["especificaciones"]
 
 
@@ -443,11 +467,13 @@ def test_blueprint_no_admite_subsecciones_editables(store):
         store.crear_subseccion_documentacion(proyecto.id, "blueprint", "X")
 
 
-def test_flujos_nace_como_subseccion_de_diagramas(store):
+def test_diagramas_nace_como_subseccion_de_diagramas(store):
     proyecto = store.crear_proyecto("Docs")
     tipos = {s.nombre: s.tipo for s in store.listar_subsecciones_documentacion(proyecto.id)}
-    assert tipos["Flujos"] == "diagramas"
-    assert tipos["Componentes"] == "notas"
+    assert tipos["Diagramas"] == "diagramas"
+    assert tipos["Diseño y estructura"] == "notas"
+    assert tipos["Stack y empaquetado"] == "notas"
+    assert tipos["Calidad y entrega"] == "notas"
 
 
 def test_diagramas_crud_y_cascada(store):

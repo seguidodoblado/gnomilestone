@@ -51,8 +51,6 @@ _VISTAS_RAIL = (
 
 _css_rail_aplicado = False
 _REPORT_ICON = Path(__file__).resolve().parent.parent / "assets" / "mintinstall-office-symbolic.svg"
-
-
 def _asegurar_css_rail() -> None:
     global _css_rail_aplicado
     if _css_rail_aplicado:
@@ -264,6 +262,11 @@ class ProjectDetailView(Gtk.Box):
         self._informes.set_data(
             tareas_visibles, estados, recursos, asignaciones,
             dependencias=self._store.listar_dependencias(self._proyecto.id),
+            historial=[
+                evento
+                for tarea in tareas_con_archivadas
+                for evento in self._store.listar_historial_tarea(tarea.id)
+            ],
         )
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:

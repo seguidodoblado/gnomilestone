@@ -41,8 +41,10 @@ class Tarea:
     estado_id: int | None = None
     descripcion: str = ""
     fecha_inicio: str | None = None
+    fecha_fin_planificada_inicial: str | None = None
     fecha_fin_planificada: str | None = None
     fecha_limite: str | None = None
+    fecha_fin_real: str | None = None
     duracion_dias: int = 1
     porcentaje_completado: int = 0
     archivada: bool = False  # fuera de todas las vistas hasta que se desarchive
@@ -57,6 +59,18 @@ class Tarea:
     github_synced_at: str | None = None
     creado: str = ""
     actualizado: str = ""
+
+
+@dataclass
+class HistorialTarea:
+    id: int
+    tarea_id: int
+    creado: str
+    tipo: str
+    campo: str | None = None
+    valor_anterior: str | None = None
+    valor_nuevo: str | None = None
+    detalle: str = ""
 
 
 @dataclass
@@ -114,7 +128,13 @@ class Etiqueta:
 
 
 # Secciones de la documentación del proyecto, en el orden en que se muestran.
-SECCIONES_DOCUMENTACION = ("arquitectura", "especificaciones", "blueprint", "decisiones_tecnicas")
+SECCIONES_DOCUMENTACION = (
+    "vision_general",
+    "arquitectura",
+    "especificaciones",
+    "blueprint",
+    "decisiones_tecnicas",
+)
 
 
 # Secciones cuyas subsecciones son fijas (no se guardan en la base de datos): Blueprint se
