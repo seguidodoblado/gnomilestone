@@ -29,7 +29,11 @@ class EstadoTablero:
     orden: int
     color_hex: str | None = None
     github_option_id: str | None = None
+    descripcion: str = ""  # como la de una opción de Status de GitHub (ver sync.py)
     es_final: bool = False  # columna «de completadas»: entrar completa la tarea (ver completado.py)
+    # Columna «No Status» (mismo nombre que GitHub) generada por un pull de un Project V2:
+    # agrupa tareas sin columna real y se borra sola en cuanto se vacía (ver sync.py).
+    es_temporal: bool = False
 
 
 @dataclass

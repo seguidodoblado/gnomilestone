@@ -31,7 +31,16 @@ DATA_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "sha
 DB_PATH = DATA_DIR / "gnomilestone.db"
 
 MAX_VERSIONES = 50  # versiones anteriores que se conservan por nota o diagrama
-ESTADOS_POR_DEFECTO = ("Pendiente", "En curso", "Hecho")
+# Mismos nombres que trae un Project V2 de GitHub recién creado (sin tocar): así se
+# puede detectar con una comparación exacta si un tablero de GitHub sigue siendo el
+# esquema de fábrica (ver `sync.py`), y un proyecto nuevo local ya nace igual que él.
+ESTADOS_POR_DEFECTO = ("Todo", "In Progress", "Done")
+# Mismas descripciones que trae GitHub de fábrica para esas tres columnas.
+DESCRIPCIONES_ESTADOS_POR_DEFECTO = {
+    "Todo": "This item hasn't been started",
+    "In Progress": "This is actively being worked on",
+    "Done": "This has been completed",
+}
 PALETA_RECURSOS = (
     "#3584e4",
     "#33d17a",
@@ -124,6 +133,7 @@ def _proyecto_de_fila(fila: sqlite3.Row) -> Proyecto:
 def _estado_de_fila(fila: sqlite3.Row) -> EstadoTablero:
     datos = dict(fila)
     datos["es_final"] = bool(datos.get("es_final"))
+    datos["es_temporal"] = bool(datos.get("es_temporal"))
     return EstadoTablero(**datos)
 
 
@@ -653,6 +663,26 @@ class Store:
                 "WHERE titulo = 'Licencia GPL-3.0'"
             )
             db.execute("PRAGMA user_version = 29")
+            version = 29
+        if version < 30:
+            # Columna del tablero generada por un pull que sustituye el esquema por el de
+            # GitHub (ver sync.py): agrupa las tareas que se quedan sin columna real y se
+            # borra sola en cuanto se vacía.
+            cols_estado = {fila[1] for fila in db.execute("PRAGMA table_info(estado_tablero)")}
+            if "es_temporal" not in cols_estado:
+                db.execute(
+                    "ALTER TABLE estado_tablero ADD COLUMN es_temporal INTEGER NOT NULL DEFAULT 0"
+                )
+            db.execute("PRAGMA user_version = 30")
+            version = 30
+        if version < 31:
+            # Descripción de una columna, como la de una opción de Status de GitHub.
+            cols_estado = {fila[1] for fila in db.execute("PRAGMA table_info(estado_tablero)")}
+            if "descripcion" not in cols_estado:
+                db.execute(
+                    "ALTER TABLE estado_tablero ADD COLUMN descripcion TEXT NOT NULL DEFAULT ''"
+                )
+            db.execute("PRAGMA user_version = 31")
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -677,8 +707,10 @@ class Store:
             proyecto_id = cursor.lastrowid
             for indice, nombre_estado in enumerate(ESTADOS_POR_DEFECTO):
                 db.execute(
-                    "INSERT INTO estado_tablero (proyecto_id, nombre, orden) VALUES (?, ?, ?)",
-                    (proyecto_id, nombre_estado, indice),
+                    "INSERT INTO estado_tablero "
+                    "(proyecto_id, nombre, orden, es_final, descripcion) VALUES (?, ?, ?, ?, ?)",
+                    (proyecto_id, nombre_estado, indice, int(nombre_estado == "Done"),
+                     DESCRIPCIONES_ESTADOS_POR_DEFECTO.get(nombre_estado, "")),
                 )
             _sembrar_subsecciones(db, proyecto_id)
             fila = db.execute("SELECT * FROM proyecto WHERE id = ?", (proyecto_id,)).fetchone()
@@ -723,7 +755,13 @@ class Store:
             return [_estado_de_fila(fila) for fila in filas]
 
     def crear_estado(
-        self, proyecto_id: int, nombre: str, github_option_id: str | None = None
+        self,
+        proyecto_id: int,
+        nombre: str,
+        github_option_id: str | None = None,
+        es_final: bool = False,
+        es_temporal: bool = False,
+        descripcion: str = "",
     ) -> EstadoTablero:
         with closing(self._connect()) as db, db:
             siguiente_orden = db.execute(
@@ -731,13 +769,80 @@ class Store:
                 (proyecto_id,),
             ).fetchone()[0]
             cursor = db.execute(
-                "INSERT INTO estado_tablero (proyecto_id, nombre, orden, github_option_id) VALUES (?, ?, ?, ?)",
-                (proyecto_id, nombre, siguiente_orden, github_option_id),
+                "INSERT INTO estado_tablero "
+                "(proyecto_id, nombre, orden, github_option_id, es_final, es_temporal, descripcion) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (proyecto_id, nombre, siguiente_orden, github_option_id,
+                 int(es_final), int(es_temporal), descripcion),
             )
             fila = db.execute(
                 "SELECT * FROM estado_tablero WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()
             return _estado_de_fila(fila)
+
+    def actualizar_descripcion_estado(self, estado_id: int, descripcion: str) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE estado_tablero SET descripcion = ? WHERE id = ?",
+                (descripcion, estado_id),
+            )
+
+    def limpiar_estado_de_tareas(self, proyecto_id: int) -> None:
+        """Quita la columna a todas las tareas del proyecto (antes de sustituir el tablero
+        entero por el de GitHub, ver `sync.py`)."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE tarea SET estado_id = NULL WHERE proyecto_id = ?", (proyecto_id,))
+
+    def eliminar_estados_de_proyecto(self, proyecto_id: int) -> None:
+        """Borra todas las columnas del proyecto sin comprobar que estén vacías (a
+        diferencia de `eliminar_estado`): llamar siempre después de
+        `limpiar_estado_de_tareas`, nunca por iniciativa propia de la interfaz."""
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM estado_tablero WHERE proyecto_id = ?", (proyecto_id,))
+
+    def obtener_o_crear_estado_temporal(self, proyecto_id: int) -> EstadoTablero:
+        """La columna «No Status» (mismo nombre que usa GitHub) que agrupa tareas sin
+        columna real tras un pull de un Project V2 (ver `sync.py`). Se reutiliza si ya
+        existe."""
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT * FROM estado_tablero WHERE proyecto_id = ? AND es_temporal = 1 LIMIT 1",
+                (proyecto_id,),
+            ).fetchone()
+            if fila:
+                return _estado_de_fila(fila)
+        return self.crear_estado(proyecto_id, _("No Status"), es_temporal=True)
+
+    def asignar_estado_a_huerfanas(self, proyecto_id: int, estado_id: int) -> int:
+        """Asigna `estado_id` a las tareas del proyecto que se hayan quedado sin columna
+        (tras el espejo de un tablero de GitHub, ver `sync.py`). Devuelve cuántas.
+
+        Las archivadas quedan fuera: el Tablero las excluye de por sí (`listar_tareas`
+        sin `incluir_archivadas`), así que contarlas aquí desajustaría el aviso del
+        número de tareas frente a lo que se ve realmente en la columna."""
+        with closing(self._connect()) as db, db:
+            cursor = db.execute(
+                "UPDATE tarea SET estado_id = ? WHERE proyecto_id = ? AND estado_id IS NULL "
+                "AND archivada = 0",
+                (estado_id, proyecto_id),
+            )
+            return cursor.rowcount
+
+    def purgar_estado_temporal_si_vacio(self, estado_id: int) -> bool:
+        """Borra `estado_id` si es la columna temporal «No Status» y ya no tiene tareas,
+        igual que GitHub la oculta en cuanto se vacía. Devuelve si se ha borrado."""
+        with closing(self._connect()) as db, db:
+            fila = db.execute(
+                "SELECT es_temporal FROM estado_tablero WHERE id = ?", (estado_id,)
+            ).fetchone()
+            if not fila or not fila[0]:
+                return False
+            if db.execute(
+                "SELECT COUNT(*) FROM tarea WHERE estado_id = ?", (estado_id,)
+            ).fetchone()[0]:
+                return False
+            db.execute("DELETE FROM estado_tablero WHERE id = ?", (estado_id,))
+            return True
 
     def renombrar_estado(self, estado_id: int, nombre: str) -> None:
         with closing(self._connect()) as db, db:

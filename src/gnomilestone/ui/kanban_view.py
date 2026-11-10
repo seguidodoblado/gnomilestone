@@ -194,11 +194,18 @@ class KanbanView(Gtk.Box):
         for indice, estado in enumerate(estados):
             tareas = sorted(tareas_por_estado.get(estado.id, []), key=lambda t: t.orden)
             self._columnas_box.append(
-                self._construir_columna(estado.id, estado.nombre, tareas, indice)
+                self._construir_columna(
+                    estado.id, estado.nombre, tareas, indice, estado.descripcion
+                )
             )
 
     def _construir_columna(
-        self, estado_id: int, nombre: str, tareas: list[Tarea], indice: int
+        self,
+        estado_id: int,
+        nombre: str,
+        tareas: list[Tarea],
+        indice: int,
+        descripcion: str = "",
     ) -> Gtk.Widget:
         columna = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL, spacing=6, width_request=220, vexpand=True
@@ -214,6 +221,19 @@ class KanbanView(Gtk.Box):
         contador.add_css_class("dim-label")
         cabecera.append(contador)
         columna.append(cabecera)
+
+        if descripcion:
+            etiqueta_descripcion = Gtk.Label(
+                label=descripcion,
+                xalign=0,
+                wrap=True,
+                margin_bottom=4,
+                margin_start=10,
+                margin_end=10,
+            )
+            etiqueta_descripcion.add_css_class("caption")
+            etiqueta_descripcion.add_css_class("dim-label")
+            columna.append(etiqueta_descripcion)
 
         lista = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -472,12 +492,17 @@ class KanbanView(Gtk.Box):
             return True  # el soltar queda en espera de la respuesta del usuario
         cambia_columna = tarea.estado_id != estado_id
         if cambia_columna:
+            estado_anterior_id = tarea.estado_id
             completado.al_cambiar_de_columna(
                 tarea, estado_id, self._store.listar_estados(tarea.proyecto_id)
             )
             tarea.estado_id = estado_id
             self._store.actualizar_tarea(tarea)
             self._push_a_github(tarea_id)
+            if estado_anterior_id is not None:
+                # Si era la columna temporal «Sin estado» y se ha quedado vacía, se borra
+                # sola (igual que GitHub oculta su «No Status» al vaciarse).
+                self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)
         todas = self._store.listar_tareas(tarea.proyecto_id, incluir_archivadas=True)
         ids = [t.id for t in todas]
         nuevo = mover_tarea(ids, tarea_id, referencia_id, despues)

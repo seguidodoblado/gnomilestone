@@ -500,8 +500,8 @@ def test_push_columnas_envia_nombres_orden_y_restituye_estados(tmp_path):
     tarea.github_item_id = "ITEM"
     store.actualizar_tarea(tarea)
 
-    antes = [Op("old1", "Pendiente", "RED", "d"), Op("old2", "En curso", "BLUE")]
-    despues = [Op("n1", "Pendiente"), Op("n2", "Haciendo"), Op("n3", "Hecho"), Op("n4", "Revisión")]
+    antes = [Op("old1", "Todo", "RED", "d"), Op("old2", "In Progress", "BLUE")]
+    despues = [Op("n1", "Todo"), Op("n2", "Haciendo"), Op("n3", "Done"), Op("n4", "Revisión")]
     cliente = _ClienteColumnas(antes, despues)
     # El item de la tarea sigue en el proyecto, pero GitHub no le conoce estado.
     from gnomilestone.github import GitHubItem
@@ -510,10 +510,10 @@ def test_push_columnas_envia_nombres_orden_y_restituye_estados(tmp_path):
 
     GitHubSyncManager(store, cliente).push_columnas(proyecto.id, en_segundo_plano=False)
 
-    assert [n for n, _c in cliente.enviadas] == ["Pendiente", "Haciendo", "Hecho", "Revisión"]
-    assert dict(cliente.enviadas)["Pendiente"] == "RED"  # conserva el color previo
+    assert [n for n, _c in cliente.enviadas] == ["Todo", "Haciendo", "Done", "Revisión"]
+    assert dict(cliente.enviadas)["Todo"] == "RED"  # conserva el color previo
     asociados = {e.nombre: e.github_option_id for e in store.listar_estados(proyecto.id)}
-    assert asociados == {"Pendiente": "n1", "Haciendo": "n2", "Hecho": "n3", "Revisión": "n4"}
+    assert asociados == {"Todo": "n1", "Haciendo": "n2", "Done": "n3", "Revisión": "n4"}
     assert cliente.estados_item == [("ITEM", "n2")]
 
 
@@ -543,13 +543,13 @@ def test_push_columnas_restituye_el_estado_remoto_de_todos_los_items(tmp_path):
     store.asociar_github_option_estado(en_curso.id, "old2")
     store.renombrar_estado(en_curso.id, "Haciendo")
 
-    antes = [Op("old1", "Pendiente"), Op("old2", "En curso")]
+    antes = [Op("old1", "Todo"), Op("old2", "In Progress")]
     items = [
         GitHubItem(id="A", title="a", status_option_id="old2"),  # solo existe en GitHub
         GitHubItem(id="B", title="b", status_option_id="old1"),
         GitHubItem(id="C", title="c", status_option_id=None),
     ]
-    cliente = _ClienteColumnas(antes, [Op("n1", "Pendiente"), Op("n2", "Haciendo"), Op("n3", "Hecho")])
+    cliente = _ClienteColumnas(antes, [Op("n1", "Todo"), Op("n2", "Haciendo"), Op("n3", "Done")])
     cliente.respuestas[0] = (cliente.respuestas[0][0], antes, items)
 
     GitHubSyncManager(store, cliente).push_columnas(proyecto.id, en_segundo_plano=False)

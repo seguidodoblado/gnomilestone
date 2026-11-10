@@ -11,7 +11,10 @@ def store(tmp_path):
 def test_crear_proyecto_crea_tres_estados_por_defecto(store):
     proyecto = store.crear_proyecto("Migración web")
     estados = store.listar_estados(proyecto.id)
-    assert [e.nombre for e in estados] == ["Pendiente", "En curso", "Hecho"]
+    assert [e.nombre for e in estados] == ["Todo", "In Progress", "Done"]
+    # Mismo esquema que un Project V2 recién creado en GitHub: "Done" es la final desde
+    # el alta, para no depender de que el usuario lo marque a mano (ver sync.py).
+    assert [e.nombre for e in estados if e.es_final] == ["Done"]
 
 
 def test_completar_tarea_la_mueve_al_primer_estado_final(store):
@@ -339,11 +342,12 @@ def test_prioridad_se_guarda_en_la_tarea(store):
 def test_estado_final_es_unico_y_porcentaje_previo_se_guarda(store):
     proyecto = store.crear_proyecto("P")
     pendiente, _en_curso, hecho = store.listar_estados(proyecto.id)
-    assert not any(e.es_final for e in store.listar_estados(proyecto.id))
+    # "Done" ya nace como final (ver test_crear_proyecto_crea_tres_estados_por_defecto).
+    assert [e.nombre for e in store.listar_estados(proyecto.id) if e.es_final] == ["Done"]
 
     store.establecer_estado_final(proyecto.id, pendiente.id)
     store.establecer_estado_final(proyecto.id, hecho.id)
-    assert [e.nombre for e in store.listar_estados(proyecto.id) if e.es_final] == ["Hecho"]
+    assert [e.nombre for e in store.listar_estados(proyecto.id) if e.es_final] == ["Done"]
     store.establecer_estado_final(proyecto.id, None)
     assert not any(e.es_final for e in store.listar_estados(proyecto.id))
 

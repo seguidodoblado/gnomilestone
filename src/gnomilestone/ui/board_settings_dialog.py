@@ -84,6 +84,7 @@ class BoardSettingsDialog(Gtk.Window):
         estados = self._store.listar_estados(self._proyecto_id)
         for indice, estado in enumerate(estados):
             row = Gtk.ListBoxRow()
+            columna = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=4, margin_bottom=4)
             fila = Gtk.Box(spacing=6)
             entry = Gtk.Entry(text=estado.nombre, hexpand=True)
             entry.connect("activate", self._on_rename, estado)
@@ -110,8 +111,17 @@ class BoardSettingsDialog(Gtk.Window):
             delete_button = Gtk.Button(icon_name="user-trash-symbolic")
             delete_button.connect("clicked", self._on_delete, estado, estados)
             fila.append(delete_button)
+            columna.append(fila)
 
-            row.set_child(fila)
+            descripcion_entry = Gtk.Entry(
+                text=estado.descripcion,
+                placeholder_text=_("Descripción (se sincroniza con GitHub)"),
+            )
+            descripcion_entry.add_css_class("caption")
+            descripcion_entry.connect("activate", self._on_descripcion, estado)
+            columna.append(descripcion_entry)
+
+            row.set_child(columna)
             self._list_box.append(row)
 
     def _on_final(self, boton: Gtk.ToggleButton, estado: EstadoTablero) -> None:
@@ -135,6 +145,10 @@ class BoardSettingsDialog(Gtk.Window):
         if not nombre:
             return
         self._store.renombrar_estado(estado.id, nombre)
+        self._on_changed()
+
+    def _on_descripcion(self, entry: Gtk.Entry, estado: EstadoTablero) -> None:
+        self._store.actualizar_descripcion_estado(estado.id, entry.get_text().strip())
         self._on_changed()
 
     def _on_move(

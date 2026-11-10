@@ -144,8 +144,12 @@ class TableView(Gtk.Box):
         self._buscar_entry.connect("search-changed", self._on_filtro_cambiado)
         barra_filtro.append(self._buscar_entry)
 
+        self._colores_estado: dict[int, str] = {}
         self._estado_dropdown = Gtk.DropDown.new_from_strings([_("Todas las columnas")])
         self._estado_dropdown.connect("notify::selected", self._on_filtro_estado_cambiado)
+        _fabrica_filtro_estado = self._crear_fabrica_filtro_estado()
+        self._estado_dropdown.set_factory(_fabrica_filtro_estado)
+        self._estado_dropdown.set_list_factory(_fabrica_filtro_estado)
         barra_filtro.append(self._estado_dropdown)
         # El botón se añade al final, cuando ya existen las columnas.
         self.append(barra_filtro)
@@ -231,6 +235,7 @@ class TableView(Gtk.Box):
         etiquetas_por_tarea = etiquetas_por_tarea or {}
         etiquetas = [_("Todas las columnas")] + [estado.nombre for estado in estados]
         self._ids_estado = [None] + [estado.id for estado in estados]
+        self._colores_estado = colores_de_estados(estados)
         self._estado_dropdown.set_model(Gtk.StringList.new(etiquetas))
         if self._estado_filtro in self._ids_estado:
             self._estado_dropdown.set_selected(self._ids_estado.index(self._estado_filtro))
@@ -243,11 +248,10 @@ class TableView(Gtk.Box):
         seleccionada = self._selection.get_selected_item()
         id_seleccionada = seleccionada.tarea.id if seleccionada and seleccionada.tarea else None
 
-        colores_estado = colores_de_estados(estados)
         self._store_base.remove_all()
         for tarea, prefijo in ordenar_jerarquicamente(tareas):
             nombre_estado = estados_por_id.get(tarea.estado_id, "")
-            color_estado = colores_estado.get(tarea.estado_id, "")
+            color_estado = self._colores_estado.get(tarea.estado_id, "")
             self._store_base.append(
                 TareaRow(
                     prefijo + tarea.titulo,
@@ -274,6 +278,25 @@ class TableView(Gtk.Box):
                     lambda p=posicion: self._view.scroll_to(p, None, Gtk.ListScrollFlags.NONE, None)
                 )
                 return
+
+    def _crear_fabrica_filtro_estado(self) -> Gtk.SignalListItemFactory:
+        # Mismo punto de color que la columna «Columna» y el Tablero (ver
+        # `colores_de_estados`); "Todas las columnas" (posición 0) no lleva punto.
+        factory = Gtk.SignalListItemFactory()
+        factory.connect(
+            "setup", lambda _f, item: item.set_child(Gtk.Label(xalign=0, use_markup=True))
+        )
+
+        def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            posicion = item.get_position()
+            nombre = GLib.markup_escape_text(item.get_item().get_string())
+            estado_id = self._ids_estado[posicion] if posicion < len(self._ids_estado) else None
+            color = self._colores_estado.get(estado_id) if estado_id is not None else None
+            punto = f'<span foreground="{color}">●</span> ' if color else ""
+            item.get_child().set_markup(f"{punto}{nombre}")
+
+        factory.connect("bind", _bind)
+        return factory
 
     def _coincide(self, fila: TareaRow, _datos) -> bool:
         return coincide_con_filtro(fila, self._buscar_entry.get_text(), self._estado_filtro)

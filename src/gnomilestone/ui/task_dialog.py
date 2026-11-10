@@ -1076,6 +1076,7 @@ class TaskDialog(Gtk.Window):
             )
         else:
             tarea = self._tarea
+            estado_anterior_id = tarea.estado_id
             tarea.titulo = titulo
             tarea.padre_id = padre_id
             tarea.porcentaje_completado = porcentaje
@@ -1094,6 +1095,8 @@ class TaskDialog(Gtk.Window):
             tarea.porcentaje_completado = porcentaje
             tarea.es_hito = es_hito
             self._store.actualizar_tarea(tarea)
+            if estado_anterior_id is not None and estado_anterior_id != estado_id:
+                self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)
 
         if not self._sincronizar_dependencias(tarea.id):
             return False

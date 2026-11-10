@@ -599,7 +599,7 @@ class ProjectDetailView(Gtk.Box):
                 self._sync_progress.set_visible(False)
                 self._sync_button.set_sensitive(True)
                 self.refrescar()
-                avisos = list(res.errores) + list(res.conflictos)
+                avisos = list(res.errores) + list(res.conflictos) + list(res.avisos)
                 if avisos:
                     # También a la terminal: el diálogo no permite copiar el texto.
                     log.warning("Avisos de la sincronización con GitHub:\n%s", "\n".join(avisos))

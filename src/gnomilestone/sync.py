@@ -13,9 +13,10 @@ from gnomilestone.github import (
     GitHubNotFoundError,
     GitHubStatusOption,
 )
+from gnomilestone.i18n import _
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
-from gnomilestone.store import Store
+from gnomilestone.store import ESTADOS_POR_DEFECTO, Store
 
 log = logging.getLogger(__name__)
 
@@ -34,12 +35,15 @@ class SyncResult:
     documentos_actualizados: int = 0  # notas de «Contexto del proyecto» traídas del repositorio
     errores: list[str] | None = None
     conflictos: list[str] | None = None
+    avisos: list[str] | None = None  # informativos: no bloquean ni señalan un fallo
 
     def __post_init__(self) -> None:
         if self.errores is None:
             self.errores = []
         if self.conflictos is None:
             self.conflictos = []
+        if self.avisos is None:
+            self.avisos = []
 
 
 class GitHubSyncManager:
@@ -117,15 +121,15 @@ class GitHubSyncManager:
             resultado.errores.append("El proyecto no tiene configurado propietario de GitHub.")
             return resultado
 
-        # 1. Si hay Project V2 vinculado, sincronizar columnas de estado e items
+        # 1. Si hay Project V2 vinculado, el tablero de GitHub sustituye por completo al
+        # local: nunca se fusiona por nombre, siempre se recrean las columnas desde cero
+        # con el id de opción de GitHub como única clave de identidad (espejo).
         items_v2: list[GitHubItem] = []
-        status_map: dict[str, int] = {}  # status_option_id o name -> estado_id
+        status_map: dict[str, int] = {}  # github_option_id -> estado_id local
+        cambios_en_tablero = False  # el Project V2 ya no es el esquema Todo/In Progress/Done
+        tablero_v2_sincronizado = False  # se han traído columnas reales de un Project V2
 
         estados_existentes = self._store.listar_estados(proyecto_id)
-        for est in estados_existentes:
-            if est.github_option_id:
-                status_map[est.github_option_id] = est.id
-            status_map[est.nombre.strip().lower()] = est.id
 
         if project_v2_id:
             try:
@@ -140,28 +144,54 @@ class GitHubSyncManager:
 
                 if num is not None:
                     _meta, status_options, items_v2 = self._client.obtener_detalles_proyecto_v2(owner, num)
+                    tablero_v2_sincronizado = True
 
-                    # Crear o asociar estados
+                    es_default_sin_cambiar = (
+                        tuple(o.name for o in status_options) == ESTADOS_POR_DEFECTO
+                    )
+                    cambios_en_tablero = not es_default_sin_cambiar
+                    opcion_final_anterior_id = next(
+                        (
+                            e.github_option_id
+                            for e in estados_existentes
+                            if e.es_final and e.github_option_id
+                        ),
+                        None,
+                    )
+
+                    # Se quita la columna a todas las tareas y se borran las columnas
+                    # actuales antes de recrearlas: PRAGMA foreign_keys=ON impide borrar
+                    # una columna con tareas (ON DELETE RESTRICT), de ahí el orden.
+                    self._store.limpiar_estado_de_tareas(proyecto_id)
+                    self._store.eliminar_estados_de_proyecto(proyecto_id)
+
+                    estados_existentes = []
                     for opt in status_options:
-                        estado_existente = next(
-                            (e for e in estados_existentes if e.github_option_id == opt.id or e.nombre.strip().lower() == opt.name.strip().lower()),
-                            None,
-                        )
-                        if estado_existente:
-                            if estado_existente.github_option_id != opt.id:
-                                self._store.asociar_github_option_estado(estado_existente.id, opt.id)
-                            status_map[opt.id] = estado_existente.id
-                            status_map[opt.name.strip().lower()] = estado_existente.id
+                        if es_default_sin_cambiar:
+                            # GitHub no expone qué opción es «la de cierre»: solo se puede
+                            # confiar en ello cuando el tablero sigue siendo el de fábrica.
+                            es_final = opt.name == "Done"
                         else:
-                            nuevo_estado = self._store.crear_estado(
-                                proyecto_id=proyecto_id,
-                                nombre=opt.name,
-                                github_option_id=opt.id,
+                            es_final = opt.id == opcion_final_anterior_id
+                        nuevo_estado = self._store.crear_estado(
+                            proyecto_id=proyecto_id,
+                            nombre=opt.name,
+                            github_option_id=opt.id,
+                            es_final=es_final,
+                            descripcion=opt.description,
+                        )
+                        resultado.estados_creados += 1
+                        estados_existentes.append(nuevo_estado)
+                        status_map[opt.id] = nuevo_estado.id
+
+                    if cambios_en_tablero and not any(e.es_final for e in estados_existentes):
+                        resultado.avisos.append(
+                            _(
+                                "El tablero de GitHub ya no es el esquema por defecto "
+                                "(Todo/In Progress/Done): decide a mano, en Ajustes del "
+                                "tablero, qué columna completa las tareas."
                             )
-                            resultado.estados_creados += 1
-                            estados_existentes.append(nuevo_estado)
-                            status_map[opt.id] = nuevo_estado.id
-                            status_map[opt.name.strip().lower()] = nuevo_estado.id
+                        )
             except Exception as e:
                 log.exception("Error al sincronizar Project V2")
                 resultado.errores.append(f"Error sincronizando GitHub Project V2: {e}")
@@ -212,13 +242,9 @@ class GitHubSyncManager:
             ):
                 continue
 
-            estado_id = None
-            if item.status_option_id and item.status_option_id in status_map:
-                estado_id = status_map[item.status_option_id]
-            elif item.status_name and item.status_name.strip().lower() in status_map:
-                estado_id = status_map[item.status_name.strip().lower()]
-            elif estados_existentes:
-                estado_id = estados_existentes[0].id
+            # Solo por id de opción: nunca se adivina por nombre ni se usa una columna
+            # arbitraria si no hay coincidencia (se queda sin columna, ver barrido final).
+            estado_id = status_map.get(item.status_option_id) if item.status_option_id else None
 
             # Fechas y duración
             fecha_inicio = item.start_date
@@ -345,16 +371,12 @@ class GitHubSyncManager:
                     body = issue.get("body") or ""
                     url = issue.get("html_url")
 
-                    # Estado por defecto según abierto/cerrado
+                    # Sin Project V2 no hay opción de estado que traer: una issue cerrada
+                    # va a la columna marcada como final (es_final, nunca por nombre); si
+                    # no hay ninguna marcada, se queda sin columna (ver barrido final).
                     estado_id = None
                     if is_closed:
-                        # Buscar columna con nombre 'done', 'cerrado', 'terminado' o la última
-                        for e in reversed(estados_existentes):
-                            if any(k in e.nombre.lower() for k in ("done", "cerrad", "hech", "finaliz")):
-                                estado_id = e.id
-                                break
-                    if estado_id is None and estados_existentes:
-                        estado_id = estados_existentes[0].id
+                        estado_id = next((e.id for e in estados_existentes if e.es_final), None)
 
                     assignees = [a["login"] for a in issue.get("assignees", [])]
                     milestone = issue.get("milestone")
@@ -430,6 +452,22 @@ class GitHubSyncManager:
                 resultado.errores.append(f"Error sincronizando issues de {owner}/{repo_name}: {e}")
             self._pull_comentarios(proyecto_id, owner, repo_name, resultado)
             self._pull_contexto(proyecto_id, owner, repo_name, resultado)
+
+        if tablero_v2_sincronizado:
+            # Tareas sin opción de estado real en GitHub (su propio cajón "No Status", o
+            # las que no tenían ninguna tarea local que las representara): se agrupan,
+            # cambie o no el esquema de columnas, para que no desaparezcan del Tablero.
+            estado_temporal = self._store.obtener_o_crear_estado_temporal(proyecto_id)
+            huerfanas = self._store.asignar_estado_a_huerfanas(proyecto_id, estado_temporal.id)
+            if huerfanas:
+                resultado.avisos.append(
+                    _(
+                        "{n} tareas se han quedado sin columna real de GitHub y se han "
+                        "agrupado en «No Status»."
+                    ).format(n=huerfanas)
+                )
+            else:
+                self._store.purgar_estado_temporal_si_vacio(estado_temporal.id)
 
         return resultado
 
@@ -509,7 +547,7 @@ class GitHubSyncManager:
                     id="",
                     name=estado.nombre,
                     color=previa.color if previa else self._COLORES_OPCION[indice % 8],
-                    description=previa.description if previa else "",
+                    description=estado.descripcion,
                 )
             )
         self._client.reemplazar_opciones_status(field_id, deseadas)
