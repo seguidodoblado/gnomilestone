@@ -67,9 +67,11 @@ class TareaRow(GObject.Object):
         estado_color: str = "",
         recursos: list[Recurso] | None = None,
         etiquetas: list[Etiqueta] | None = None,
+        depende_de: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.titulo = titulo
+        self.depende_de: list[str] = depende_de or []  # títulos de las tareas origen
         self.hijos = hijos
         self.tarea = tarea
         self.estado = estado_nombre

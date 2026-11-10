@@ -239,8 +239,10 @@ class ProjectDetailView(Gtk.Box):
 
         etiquetas_por_tarea = self._store.listar_etiquetas_por_tarea(self._proyecto.id)
 
+        dependencias = self._store.listar_dependencias(self._proyecto.id)
         self._tabla.set_tareas(
-            tareas_visibles, estados, estados_por_id, recursos_por_tarea, etiquetas_por_tarea
+            tareas_visibles, estados, estados_por_id, recursos_por_tarea, etiquetas_por_tarea,
+            dependencias,
         )
 
         filas_arbol = construir_filas(
@@ -250,7 +252,6 @@ class ProjectDetailView(Gtk.Box):
             etiquetas_por_tarea,
             colores_de_estados(estados),
         )
-        dependencias = self._store.listar_dependencias(self._proyecto.id)
         self._gantt.set_filas(
             filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas_con_archivadas)
         )
