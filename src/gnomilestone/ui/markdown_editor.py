@@ -14,6 +14,7 @@ from gi.repository import Gdk, Gtk
 
 from gnomilestone.i18n import _
 from gnomilestone.ui import markdown_edicion
+from gnomilestone.ui.hoja import HojaPagina, ZoomHoja
 from gnomilestone.ui.markdown_view import VistaMarkdown
 
 
@@ -26,8 +27,12 @@ class MarkdownEditor(Gtk.Box):
         alto_minimo: int = 130,
         preprocesar: Callable[[str], str] | None = None,
         al_enlace: Callable[[str], bool] | None = None,
+        zoom_hoja: ZoomHoja | None = None,
     ) -> None:
-        """`preprocesar` transforma el Markdown antes de pintar la vista previa (p. ej. para
+        """Con `zoom_hoja` el editor se muestra como una página tipo A4 centrada (ver
+        ui/hoja.py), tanto al editar como en la vista previa, y ese zoom los gobierna a ambos.
+
+        `preprocesar` transforma el Markdown antes de pintar la vista previa (p. ej. para
         resolver enlaces internos) y `al_enlace(uri)` atiende los clics en enlaces: devuelve
         True si lo gestiona (si no, GTK abre el enlace como siempre)."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -60,19 +65,29 @@ class MarkdownEditor(Gtk.Box):
         teclas = Gtk.EventControllerKey()
         teclas.connect("key-pressed", self._on_tecla_edicion)
         vista_edicion.add_controller(teclas)
-        edicion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        edicion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         edicion_scroller.set_child(vista_edicion)
         self._vista = VistaMarkdown(texto_vacio=texto_vacio, al_enlace=al_enlace, preprocesar=preprocesar)
-        for margen in ("top", "bottom", "start", "end"):
-            getattr(self._vista, f"set_margin_{margen}")(6)
-        vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        vista_scroller.set_child(self._vista)
+        if zoom_hoja is not None:
+            # La página aporta sus propios márgenes; se escribe sobre ella, no en un recuadro.
+            pagina_edicion = HojaPagina(zoom_hoja, desplazable=False)
+            pagina_edicion.hoja.append(edicion_scroller)
+            pagina_vista = HojaPagina(zoom_hoja, desplazable=True)
+            pagina_vista.hoja.append(self._vista)
+            pagina_edicion_widget, pagina_vista_widget = pagina_edicion, pagina_vista
+        else:
+            for margen in ("top", "bottom", "start", "end"):
+                getattr(self._vista, f"set_margin_{margen}")(6)
+            vista_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+            vista_scroller.set_child(self._vista)
+            pagina_edicion_widget, pagina_vista_widget = edicion_scroller, vista_scroller
         self._stack = Gtk.Stack()
-        self._stack.add_named(edicion_scroller, "editar")
-        self._stack.add_named(vista_scroller, "vista")
+        self._stack.add_named(pagina_edicion_widget, "editar")
+        self._stack.add_named(pagina_vista_widget, "vista")
         self._stack.set_size_request(-1, alto_minimo)
         self._stack.set_vexpand(True)  # crece al maximizar la ventana
-        self._stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
+        if zoom_hoja is None:
+            self._stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
         self.append(self._stack)
 
     def _on_tecla_edicion(self, _ctrl, keyval: int, _keycode: int, estado: Gdk.ModifierType) -> bool:

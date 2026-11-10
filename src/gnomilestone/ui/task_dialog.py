@@ -31,6 +31,26 @@ log = logging.getLogger(__name__)
 
 _PORCENTAJES_RAPIDOS = (0, 25, 50, 75, 100)
 
+_css_completar: Gtk.CssProvider | None = None
+
+
+def _aplicar_css_completar() -> None:
+    """Estilo verde del botón «Completar» (el mismo verde que las tareas completadas)."""
+    global _css_completar
+    if _css_completar is not None:
+        return
+    _css_completar = Gtk.CssProvider()
+    _css_completar.load_from_string(
+        "button.gnomilestone-completar { background-image: linear-gradient(to bottom,"
+        " #4fa86f, #2f7f4f); color: white; border-color: #2a6e44; text-shadow: none; }\n"
+        "button.gnomilestone-completar:hover { background-image: linear-gradient(to bottom,"
+        " #5fb87f, #38905a); }\n"
+        "button.gnomilestone-completar:active { background-image: none; background-color: #2a6e44; }\n"
+    )
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(), _css_completar, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
 
 def _descendientes(tareas: list[Tarea], raiz_id: int) -> set[int]:
     hijos_por_padre: dict[int | None, list[int]] = {}
@@ -327,6 +347,17 @@ class TaskDialog(Gtk.Window):
             otra_button = Gtk.Button(label=_("Guardar y crear otra"))
             otra_button.connect("clicked", self._on_guardar_y_crear_otra)
             acciones.append(otra_button)
+        if self._tarea is not None:
+            # Solo en tareas abiertas: se oculta al llegar al 100 %.
+            self._completar_button = Gtk.Button(label=_("Completar"))
+            _aplicar_css_completar()
+            self._completar_button.add_css_class("gnomilestone-completar")
+            self._completar_button.set_tooltip_text(
+                _("Marcarla al 100 %, moverla a la columna de completadas y guardar")
+            )
+            self._completar_button.connect("clicked", self._on_completar)
+            self._completar_button.set_visible(self._porcentaje_scale.get_value() < 100)
+            acciones.append(self._completar_button)
         save_button = Gtk.Button(label=_("Guardar"))
         save_button.add_css_class("suggested-action")
         save_button.connect("clicked", self._on_save)
@@ -787,6 +818,18 @@ class TaskDialog(Gtk.Window):
 
     def _on_porcentaje_cambio(self, escala: Gtk.Scale) -> None:
         self._porcentaje_label.set_text(f"{round(escala.get_value())} %")
+        boton = getattr(self, "_completar_button", None)
+        if boton is not None:
+            boton.set_visible(round(escala.get_value()) < 100)
+
+    def _on_completar(self, _button: Gtk.Button) -> None:
+        self._porcentaje_scale.set_value(100)
+        final = completado.id_columna_final(self._estados)
+        for indice, estado in enumerate(self._estados):
+            if estado.id == final:
+                self._estado_dropdown.set_selected(indice)
+                break
+        self._on_save(_button)
 
     def _ajustar_visibilidad_hito(self) -> None:
         # Un hito es puntual: final y duración no tienen sentido.

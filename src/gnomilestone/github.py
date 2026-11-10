@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import shutil
@@ -578,6 +579,23 @@ class GitHubClient:
 
     def obtener_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
         return self._request(f"repos/{owner}/{repo}/issues/{number}")
+
+    def obtener_fichero_repo(self, owner: str, repo: str, ruta: str) -> str | None:
+        """Texto de un fichero del repositorio (rama por defecto), o None si no existe, es
+        una carpeta o no se puede leer como texto (p. ej. pesa más de 1 MB)."""
+        try:
+            datos = self._request(f"repos/{owner}/{repo}/contents/{urllib.parse.quote(ruta)}")
+        except GitHubNotFoundError:
+            return None
+        if not isinstance(datos, dict) or datos.get("type") != "file":
+            return None
+        contenido = datos.get("content")
+        if datos.get("encoding") != "base64" or not isinstance(contenido, str):
+            return None
+        try:
+            return base64.b64decode(contenido).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return None
 
     def crear_etiqueta(self, owner: str, repo: str, nombre: str, color: str) -> None:
         """Crea la etiqueta en el repositorio con su color; si ya existe (422) no hace nada."""
