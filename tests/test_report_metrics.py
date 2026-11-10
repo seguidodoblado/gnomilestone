@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from gnomilestone.models import Asignacion, Dependencia, HistorialTarea, Proyecto, Recurso, Tarea
 from gnomilestone.report_metrics import (
     estado_github,
+    eventos_con_fecha_de_finalizacion,
     fechas_planificadas_reales,
     flujo_acumulado,
     recursos_sin_tareas,
@@ -103,3 +104,23 @@ def test_flujo_acumulado_cuenta_por_dia_y_estado():
     assert conteos[1] == [1, 1, 1]  # a el día 1; b desde el día 2
     assert conteos[2] == [0, 1, 1]
     assert flujo_acumulado([], [], hoy=date(2026, 11, 3)) == ([], {})
+
+
+def test_las_finalizaciones_se_fechan_en_el_fin_real_de_la_tarea():
+    hecha = tarea(1, porcentaje_completado=100, fecha_fin_real="2026-10-08", estado_id=9)
+    abierta = tarea(2, porcentaje_completado=40)
+    reabierta = tarea(3, porcentaje_completado=30, fecha_fin_real=None)
+    eventos = [
+        HistorialTarea(1, 1, "2026-11-10T09:00:00Z", "creacion"),
+        HistorialTarea(2, 1, "2026-11-10T09:01:00Z", "progreso", "porcentaje_completado", "0", "100"),
+        HistorialTarea(3, 1, "2026-11-10T09:01:00Z", "fin_real", "fecha_fin_real", None, "2026-11-10"),
+        HistorialTarea(4, 1, "2026-11-10T09:01:00Z", "estado", "estado_id", "2", "9"),
+        HistorialTarea(5, 2, "2026-11-10T09:02:00Z", "progreso", "porcentaje_completado", "0", "40"),
+        HistorialTarea(6, 3, "2026-11-10T09:03:00Z", "progreso", "porcentaje_completado", "100", "30"),
+    ]
+    resultado = eventos_con_fecha_de_finalizacion([hecha, abierta, reabierta], eventos, id_estado_final=9)
+    # Se conservan la creación y los avances que no son una finalización...
+    assert sorted(e.id for e in resultado if e.id > 0) == [1, 5, 6]
+    # ...y hay una sola finalización, en el fin real de la tarea y no en el día del alta.
+    finales = [e for e in resultado if e.tipo == "fin_real"]
+    assert [(e.tarea_id, e.creado[:10]) for e in finales] == [(1, "2026-10-08")]

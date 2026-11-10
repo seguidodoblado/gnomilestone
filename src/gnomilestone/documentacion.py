@@ -10,14 +10,26 @@ from gnomilestone.enlaces import normalizar
 from gnomilestone.models import DiagramaDocumentacion, NotaDocumentacion, Tarea
 
 
+def fecha_completada(tarea: Tarea) -> str | None:
+    """Día (AAAA-MM-DD) en que se completó la tarea, o None si no lo está.
+
+    Es su fecha de fin real, que se puede fijar a mano (una tarea insertada con retraso se
+    completó cuando se terminó de verdad, no cuando se dio de alta). Solo si falta, se usa
+    la de la última modificación, que es cuando llegó al 100 %.
+    """
+    if tarea.porcentaje_completado < 100:
+        return None
+    dia = (tarea.fecha_fin_real or tarea.actualizado or "")[:10]
+    return dia or None
+
+
 def historial_realizado(tareas: list[Tarea]) -> list[tuple[str, list[Tarea]]]:
-    """Tareas completadas (incluidas las archivadas) agrupadas por día, de más antiguo a
-    más reciente. El modelo no guarda la fecha de cierre: se usa la de la última
-    modificación (`actualizado`), que es cuando la tarea llegó al 100 %."""
+    """Tareas completadas (incluidas las archivadas) agrupadas por el día de su fecha de fin
+    real (ver `fecha_completada`), de más antiguo a más reciente."""
     por_dia: dict[str, list[Tarea]] = {}
     for tarea in tareas:
-        if tarea.porcentaje_completado >= 100:
-            por_dia.setdefault((tarea.actualizado or "")[:10], []).append(tarea)
+        if (dia := fecha_completada(tarea)) is not None:
+            por_dia.setdefault(dia, []).append(tarea)
     return [
         (dia, sorted(grupo, key=lambda t: (t.actualizado, t.id)))
         for dia, grupo in sorted(por_dia.items())

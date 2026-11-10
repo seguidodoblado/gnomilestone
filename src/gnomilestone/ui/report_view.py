@@ -998,6 +998,29 @@ class ReportView(Gtk.Box):
     # Planificación
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _tramos_desviacion(ideal, real, burndown: bool):
+        """Polígonos entre la línea ideal y la real, con True si ahí se va por delante.
+
+        Los puntos son (x, y) en pantalla (y crece hacia abajo). En burnup se va por delante
+        cuando lo completado está por encima del ideal; en burndown, cuando lo pendiente está
+        por debajo. Si las líneas se cruzan dentro de un tramo, se parte en dos en el cruce.
+        """
+        signo = -1 if burndown else 1
+        tramos = []
+        for (xi0, yi0), (xi1, yi1), (_xr0, yr0), (xr1, yr1) in zip(ideal, ideal[1:], real, real[1:]):
+            d0, d1 = signo * (yi0 - yr0), signo * (yi1 - yr1)
+            if d0 == 0 and d1 == 0:
+                continue
+            if d0 * d1 >= 0:
+                tramos.append(([(xi0, yi0), (xi1, yi1), (xr1, yr1), (xi0, yr0)], d0 + d1 > 0))
+                continue
+            t = d0 / (d0 - d1)
+            cruce = (xi0 + (xi1 - xi0) * t, yi0 + (yi1 - yi0) * t)
+            tramos.append(([(xi0, yi0), cruce, (xi0, yr0)], d0 > 0))
+            tramos.append(([cruce, (xi1, yi1), (xr1, yr1)], d1 > 0))
+        return tramos
+
     def _draw_burnup(self, cr, x, y, width, height) -> None:
         """Curva burnup/burndown basada en las finalizaciones registradas en el historial."""
         total = len(self._tareas)
@@ -1022,8 +1045,7 @@ class ReportView(Gtk.Box):
         # archivadas quedan fuera del avance (el mapa de calor sí las conserva).
         visibles = {t.id for t in self._tareas}
         for evento in self._historial:
-            if (evento.tipo == "progreso" and evento.valor_nuevo == "100"
-                    and evento.tarea_id in visibles):
+            if evento.tipo == "fin_real" and evento.tarea_id in visibles:
                 fecha = evento.creado[:10]
                 completadas_por_dia[fecha] = completadas_por_dia.get(fecha, 0) + 1
         if not completadas_por_dia:
@@ -1043,24 +1065,20 @@ class ReportView(Gtk.Box):
             real = total - min(total, acumuladas) if self._avance_burndown else min(total, acumuladas)
             puntos_ideal.append((xx, y0 + alto - alto * ideal / total))
             puntos_real.append((xx, y0 + alto - alto * real / total))
-        # Área entre la trayectoria ideal y la real: permite leer la desviación
-        # de un vistazo sin alterar las dos líneas principales.
-        cr.new_path()
-        cr.move_to(*puntos_ideal[0])
-        for punto in puntos_ideal[1:]:
-            cr.line_to(*punto)
-        for punto in reversed(puntos_real):
-            cr.line_to(*punto)
-        cr.close_path()
-        desviacion_gradiente = cairo.LinearGradient(x0, y0, x0, y0 + alto)
-        if progreso < 100:
-            desviacion_gradiente.add_color_stop_rgba(0, 0.88, 0.20, 0.14, 0.28)
-            desviacion_gradiente.add_color_stop_rgba(1, 0.88, 0.20, 0.14, 0.04)
-        else:
-            desviacion_gradiente.add_color_stop_rgba(0, 0.20, 0.65, 0.42, 0.28)
-            desviacion_gradiente.add_color_stop_rgba(1, 0.20, 0.65, 0.42, 0.04)
-        cr.set_source(desviacion_gradiente)
-        cr.fill()
+        # Área entre la trayectoria ideal y la real: verde donde se va por delante del ideal
+        # y rojo donde se va por detrás, tramo a tramo (al cruzarse las líneas, cambia de color).
+        for poligono, adelantado in self._tramos_desviacion(puntos_ideal, puntos_real, self._avance_burndown):
+            cr.new_path()
+            cr.move_to(*poligono[0])
+            for punto in poligono[1:]:
+                cr.line_to(*punto)
+            cr.close_path()
+            color = (0.20, 0.65, 0.42) if adelantado else (0.88, 0.20, 0.14)
+            degradado = cairo.LinearGradient(x0, y0, x0, y0 + alto)
+            degradado.add_color_stop_rgba(0, *color, 0.30)
+            degradado.add_color_stop_rgba(1, *color, 0.05)
+            cr.set_source(degradado)
+            cr.fill()
         for puntos, color, grosor in (
             (puntos_ideal, (0.55, 0.58, 0.64), 2),
             (puntos_real, (0.22, 0.65, 0.42), 3),
