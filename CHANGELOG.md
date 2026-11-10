@@ -49,6 +49,7 @@ en este archivo.
 ### Changed
 
 - Se centraliza en `project_detail_view.py` la lógica de un proyecto (antes repartida en `window.py`), simplificando la ventana principal; `ordenar_jerarquicamente` (prefijos de conector para listados planos) pasa de `window.py` a `task_tree_view.py`, de donde ya la puede reutilizar la vista Tabla
+- **Documentos en doble idioma:** `CONTRIBUTING`, `README`, `SECURITY` y `SUPPORT` pasan a ser un único fichero con español e inglés (como `CODE_OF_CONDUCT.md`) y desaparecen sus versiones `.en.md`. En el README, el logotipo y los badges van una sola vez.
 
 ### Fixed
 
