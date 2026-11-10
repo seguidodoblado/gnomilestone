@@ -18,6 +18,8 @@
   <a href="https://wakatime.com/badge/github/seguidodoblado/gnomilestone"><img src="https://wakatime.com/badge/github/seguidodoblado/gnomilestone.svg" alt="wakatime"></a>
 </p>
 
+---
+
 ## 🇪🇸 Español
 
 Gestor de proyectos de escritorio para GNOME (GTK4/Adwaita), heredero espiritual de
