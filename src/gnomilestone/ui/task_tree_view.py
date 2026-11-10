@@ -110,6 +110,14 @@ class TareaRow(GObject.Object):
         return formatear_fecha_local(self.tarea.fecha_limite) if self.tarea and self.tarea.fecha_limite else ""
 
     @property
+    def fecha_fin_real(self) -> str:
+        return (
+            formatear_fecha_local(self.tarea.fecha_fin_real)
+            if self.tarea and self.tarea.fecha_fin_real
+            else ""
+        )
+
+    @property
     def duracion_dias(self) -> int:
         return self.tarea.duracion_dias if self.tarea else 0
 
@@ -456,6 +464,7 @@ COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
     ("fecha_inicio", _("Inicio"), False, False),
     ("fecha_fin_planificada", _("Planificado"), False, False),
     ("fecha_limite", _("Límite"), False, False),
+    ("fecha_fin_real", _("Real"), False, False),
     ("duracion_dias", _("Duración (días)"), False, False),
     ("porcentaje_completado", _("% completado"), False, False),
 )
@@ -504,6 +513,7 @@ class TaskTreeView(Gtk.ColumnView):
             ("fecha_inicio", _("Inicio"), "fecha_inicio", False),
             ("fecha_fin_planificada", _("Planificado"), "fecha_fin_planificada", False),
             ("fecha_limite", _("Límite"), "fecha_limite", False),
+            ("fecha_fin_real", _("Real"), "fecha_fin_real", False),
             ("duracion_dias", _("Duración (días)"), "duracion_dias", False),
             ("porcentaje_completado", _("% completado"), "porcentaje_texto", False),
         ):

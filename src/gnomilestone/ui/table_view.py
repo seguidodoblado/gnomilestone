@@ -145,6 +145,7 @@ class TableView(Gtk.Box):
         barra_filtro.append(self._buscar_entry)
 
         self._colores_estado: dict[int, str] = {}
+        self._ids_estado: list[int | None] = [None]
         self._estado_dropdown = Gtk.DropDown.new_from_strings([_("Todas las columnas")])
         self._estado_dropdown.connect("notify::selected", self._on_filtro_estado_cambiado)
         _fabrica_filtro_estado = self._crear_fabrica_filtro_estado()
@@ -178,6 +179,7 @@ class TableView(Gtk.Box):
             "fecha_inicio": "fecha_inicio",
             "fecha_fin_planificada": "fecha_fin_planificada",
             "fecha_limite": "fecha_limite",
+            "fecha_fin_real": "fecha_fin_real",
             "duracion_dias": "duracion_dias",
             "porcentaje_completado": "porcentaje_texto",
         }
