@@ -13,6 +13,7 @@ from gnomilestone.documentacion import secciones_por_titulo
 from gnomilestone.i18n import _
 from gnomilestone.models import NotaDocumentacion, VersionDocumentacion
 from gnomilestone.ui.dialogos import dato_con_icono
+from gnomilestone.ui.hoja import HojaPagina, ZoomHoja
 from gnomilestone.ui.markdown_view import VistaMarkdown
 from gnomilestone.ui.note_window import ETIQUETAS_ESTADO
 from gnomilestone.versiones import formatear_fecha
@@ -44,9 +45,12 @@ class NotePreviewWindow(Gtk.Window):
         versiones anteriores (de la más reciente a la más antigua)."""
         super().__init__(
             title=nota.titulo or _("Sin título"),
-            transient_for=parent,
-            default_width=1000,
-            default_height=820,
+            # Sin transient_for: con él, X11 la marca como «diálogo» y el gestor de ventanas
+            # quita el botón de maximizar y puede ignorar maximize(). Es una ventana de
+            # documento, así que se asocia a la aplicación y no a la ventana principal.
+            application=parent.get_application() if parent is not None else None,
+            default_width=1100,
+            default_height=900,
         )
         titulo = Gtk.Label(label=nota.titulo or _("Sin título"), xalign=0, wrap=True)
         titulo.add_css_class("title-1")
@@ -77,10 +81,10 @@ class NotePreviewWindow(Gtk.Window):
             estado.add_css_class(f"gnomilestone-estado-{nota.estado}")
             subtitulo.append(estado)
 
-        pagina = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, hexpand=True)
-        for margen in ("top", "bottom", "start", "end"):
-            getattr(pagina, f"set_margin_{margen}")(32)
-        self._pagina = pagina
+        # Página tipo A4 centrada sobre un escritorio gris (ver ui/hoja.py).
+        self._zoom = ZoomHoja()
+        self._scroller = HojaPagina(self._zoom)
+        pagina = self._scroller.hoja
         if ruta:  # «Padre › Abuelo…» clicable, encima del título
             migas = Gtk.Label(xalign=0, wrap=True, use_markup=True)
             migas.set_markup(
@@ -138,8 +142,6 @@ class NotePreviewWindow(Gtk.Window):
                 )
                 resto.add_css_class("dim-label")
                 pagina.append(resto)
-        self._scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True, hexpand=True)
-        self._scroller.set_child(pagina)
 
         if len(destinos) >= 2:
             # Índice y página separados por un borde que se arrastra para ensanchar el índice.
@@ -161,11 +163,13 @@ class NotePreviewWindow(Gtk.Window):
         editar = Gtk.Button(label=_("Editar"))
         editar.add_css_class("suggested-action")
         editar.connect("clicked", lambda _b: (self.close(), al_editar()))
-        botones = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        botones = Gtk.Box(spacing=8)
+        botones.append(self._zoom.botones())
+        botones.append(Gtk.Box(hexpand=True))
         botones.append(cerrar)
         botones.append(editar)
-        for margen in ("bottom", "start", "end"):
-            getattr(botones, f"set_margin_{margen}")(16)
+        for margen in ("top", "bottom", "start", "end"):
+            getattr(botones, f"set_margin_{margen}")(10)
 
         caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         caja.append(cuerpo_ventana)
@@ -204,7 +208,7 @@ class NotePreviewWindow(Gtk.Window):
 
     def _ir_a(self, destino: Gtk.Widget) -> None:
         """Desplaza la página hasta el widget `destino`."""
-        encontrado, punto = destino.compute_point(self._pagina, Graphene.Point())
+        encontrado, punto = destino.compute_point(self._scroller.escritorio, Graphene.Point())
         if encontrado:
             self._scroller.get_vadjustment().set_value(max(0.0, punto.y - 8))
 

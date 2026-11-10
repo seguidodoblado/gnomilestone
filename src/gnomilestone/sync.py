@@ -5,7 +5,7 @@ import threading
 from dataclasses import dataclass
 from datetime import date
 
-from gnomilestone import completado, ganttcalc
+from gnomilestone import completado, contexto_github, ganttcalc
 from gnomilestone.github import (
     GitHubClient,
     GitHubError,
@@ -31,6 +31,7 @@ class SyncResult:
     tareas_actualizadas: int = 0
     estados_creados: int = 0
     recursos_creados: int = 0
+    documentos_actualizados: int = 0  # notas de «Contexto del proyecto» traídas del repositorio
     errores: list[str] | None = None
     conflictos: list[str] | None = None
 
@@ -428,8 +429,28 @@ class GitHubSyncManager:
                 log.exception("Error al sincronizar issues de repositorio")
                 resultado.errores.append(f"Error sincronizando issues de {owner}/{repo_name}: {e}")
             self._pull_comentarios(proyecto_id, owner, repo_name, resultado)
+            self._pull_contexto(proyecto_id, owner, repo_name, resultado)
 
         return resultado
+
+    def _pull_contexto(self, proyecto_id: int, owner: str, repo_name: str, resultado: SyncResult) -> None:
+        """Rellena las notas de «Contexto del proyecto» (README, código de conducta,
+        contribución, licencia y seguridad) con los ficheros del repositorio. GitHub manda:
+        si la nota difiere se sobrescribe, y su versión anterior queda en «Versiones»."""
+        try:
+            subsecciones = self._store.listar_subsecciones_documentacion(
+                proyecto_id, contexto_github.SECCION
+            )
+            if not subsecciones:
+                return
+            documentos = contexto_github.traer_documentos(self._client, owner, repo_name)
+            aplicado = contexto_github.aplicar_documentos(
+                self._store, proyecto_id, subsecciones[0].id, documentos
+            )
+            resultado.documentos_actualizados += len(aplicado.actualizadas) + len(aplicado.creadas)
+        except Exception as e:
+            log.exception("Error al traer los ficheros de contexto del repositorio")
+            resultado.errores.append(f"Error trayendo los ficheros de contexto de {owner}/{repo_name}: {e}")
 
     # -- Columnas del tablero -> campo Status del Project V2 ------------------------
 

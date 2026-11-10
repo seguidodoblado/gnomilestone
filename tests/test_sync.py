@@ -685,3 +685,33 @@ def test_renombrar_en_local_y_sincronizar_no_duplica_la_tarea(tmp_path):
     assert res.tareas_creadas == 0
     assert res.conflictos == []
     assert [x.titulo for x in store.listar_tareas(p.id)] == ["Título renombrado en local"]
+
+
+def test_pull_trae_los_ficheros_de_contexto_del_repositorio(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("Demo", github_repo_owner="yo", github_repo_name="demo")
+    client = MagicMock(spec=GitHubClient)
+    client.listar_issues.return_value = []
+    ficheros = {"README.md": "# Demo\n", "LICENSE": "GPL\n"}
+    client.obtener_fichero_repo.side_effect = lambda _o, _r, ruta: ficheros.get(ruta)
+
+    res = GitHubSyncManager(store, client).pull_proyecto(p.id)
+
+    assert not res.errores
+    assert res.documentos_actualizados == 2
+    sub = store.listar_subsecciones_documentacion(p.id, "vision_general")[0]
+    notas = {n.titulo: n.contenido for n in store.listar_notas_documentacion(p.id, subseccion_id=sub.id)}
+    assert notas["README"] == "# Demo\n"
+    assert notas["Licencia"] == "```\nGPL\n```\n"
+    assert notas.get("Seguridad", "") == ""  # no está en el repositorio: no se toca
+
+    # Una segunda sincronización sin cambios en GitHub no vuelve a escribir nada.
+    assert GitHubSyncManager(store, client).pull_proyecto(p.id).documentos_actualizados == 0
+
+
+def test_pull_sin_repositorio_no_busca_ficheros_de_contexto(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("Demo", github_repo_owner="yo")  # solo tablero, sin repo
+    client = MagicMock(spec=GitHubClient)
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    client.obtener_fichero_repo.assert_not_called()

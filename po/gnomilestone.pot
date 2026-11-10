@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.1.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-09 23:24+0100\n"
+"POT-Creation-Date: 2026-11-10 03:08+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,56 +17,144 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:24
-msgid "Nota en blanco"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:24
-msgid "Empezar desde cero"
-msgstr ""
-
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:27
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:29
-msgid "Decisión técnica (ADR)"
+msgid "README"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:30
-msgid "Contexto, decisión, alternativas y consecuencias"
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:28
+msgid "Presentación del proyecto: qué es, instalación y uso"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:31
-msgid "Decisión: "
+msgid ""
+"## Descripción\n"
+"Qué es el proyecto y qué problema resuelve.\n"
+"\n"
+"## Características\n"
+"- \n"
+"- \n"
+"\n"
+"## Instalación\n"
+"```bash\n"
+"\n"
+"```\n"
+"\n"
+"## Uso\n"
+"Cómo empezar a usarlo.\n"
+"\n"
+"## Contribuir y licencia\n"
+"Enlaces a «Contribuyendo» y «Licencia».\n"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:33
-msgid ""
-"## Contexto\n"
-"¿Qué problema o necesidad motiva la decisión?\n"
-"\n"
-"## Decisión\n"
-"Qué se ha decidido y por qué.\n"
-"\n"
-"## Alternativas consideradas\n"
-"- Alternativa A:\n"
-"- Alternativa B:\n"
-"\n"
-"## Consecuencias\n"
-"- Positivas:\n"
-"- Negativas:\n"
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:40
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:42
+msgid "Código de conducta"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:41
+msgid "Compromiso, comportamiento esperado y cómo informar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:44
+msgid ""
+"## Nuestro compromiso\n"
+"Queremos una comunidad abierta, respetuosa y libre de acoso.\n"
+"\n"
+"## Comportamiento esperado\n"
+"- Tratar a las demás personas con respeto.\n"
+"- Aceptar las críticas constructivas.\n"
+"\n"
+"## Comportamiento inaceptable\n"
+"- Acoso, insultos o discriminación.\n"
+"\n"
+"## Cómo informar\n"
+"Contacto al que dirigir los incidentes.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:53
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:55
+msgid "Contribuyendo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:54
+msgid "Cómo proponer cambios: entorno, pruebas y revisión"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:57
+msgid ""
+"## Antes de empezar\n"
+"Abre una incidencia para comentar el cambio.\n"
+"\n"
+"## Entorno de desarrollo\n"
+"Cómo preparar el proyecto en local.\n"
+"\n"
+"## Pruebas y estilo\n"
+"- [ ] Los tests pasan\n"
+"- [ ] El linter no avisa\n"
+"\n"
+"## Enviar el cambio\n"
+"Rama, mensaje de commit y petición de integración.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:65
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:67
+msgid "Licencia"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:66
+msgid "Licencia del proyecto y su alcance"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:69
+msgid ""
+"## Licencia\n"
+"Este proyecto se distribuye bajo la licencia **GPL-3.0 o posterior**.\n"
+"\n"
+"## Qué permite\n"
+"- Usar, estudiar y modificar el software.\n"
+"- Redistribuirlo, con las mismas condiciones.\n"
+"\n"
+"## Terceros\n"
+"Dependencias y recursos con licencia propia.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:77
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:79
+msgid "Seguridad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:78
+msgid "Versiones con soporte y cómo informar de una vulnerabilidad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:81
+msgid ""
+"## Versiones con soporte\n"
+"| Versión | Soporte |\n"
+"| --- | --- |\n"
+"| última | sí |\n"
+"\n"
+"## Cómo informar de una vulnerabilidad\n"
+"No abras una incidencia pública: escribe al contacto indicado aquí.\n"
+"\n"
+"## Qué esperar\n"
+"Plazo de respuesta y proceso de corrección.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:95
 msgid "Especificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:45
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:96
 msgid "Objetivo, requisitos y criterios de aceptación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:46
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:97
 msgid "Especificación: "
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:48
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:99
 msgid ""
 "## Objetivo\n"
 "Qué debe conseguir.\n"
@@ -82,19 +170,162 @@ msgid ""
 "- \n"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:59
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:107
+msgid "Funcionalidad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:108
+msgid "Historia de usuario con flujo y criterios de aceptación"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:109
+msgid "Funcionalidad: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:111
+msgid ""
+"## Historia\n"
+"Como [persona], quiero [objetivo] para [beneficio].\n"
+"\n"
+"## Flujo\n"
+"1. \n"
+"2. \n"
+"\n"
+"## Criterios de aceptación\n"
+"- [ ] \n"
+"\n"
+"## Casos límite\n"
+"- \n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:119
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:178
+msgid "Modelo de datos"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:120
+msgid "Entidades, atributos, relaciones y reglas de integridad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:121
+msgid "Modelo de datos: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:123
+msgid ""
+"## Entidades\n"
+"| Entidad | Descripción |\n"
+"| --- | --- |\n"
+"| | |\n"
+"\n"
+"## Atributos y relaciones\n"
+"- \n"
+"\n"
+"## Reglas de integridad\n"
+"- \n"
+"\n"
+"## Migraciones\n"
+"Cómo evoluciona el esquema.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:131
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:179
+msgid "Datos de usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:132
+msgid "Qué se guarda del usuario, dónde y con qué privacidad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:133
+msgid "Datos de usuario: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:135
+msgid ""
+"## Datos que se guardan\n"
+"- \n"
+"\n"
+"## Dónde se almacenan\n"
+"- \n"
+"\n"
+"## Privacidad\n"
+"Qué se envía a terceros y qué no.\n"
+"\n"
+"## Eliminación\n"
+"Cómo puede borrarlos el usuario.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:143
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:180
+msgid "Interfaz"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:144
+msgid "Pantallas, navegación, usabilidad y accesibilidad"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:145
+msgid "Interfaz: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:147
+msgid ""
+"## Pantallas\n"
+"- \n"
+"\n"
+"## Navegación\n"
+"Cómo se pasa de una a otra.\n"
+"\n"
+"## Criterios de usabilidad\n"
+"- \n"
+"\n"
+"## Accesibilidad\n"
+"Teclado, contraste y lectores de pantalla.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:155
+msgid "Integración externa"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:156
+msgid "Servicio externo, datos intercambiados y manejo de errores"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:157
+msgid "Integración: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:159
+msgid ""
+"## Servicio\n"
+"Qué servicio es y para qué se usa.\n"
+"\n"
+"## Autenticación\n"
+"- \n"
+"\n"
+"## Datos intercambiados\n"
+"| Dirección | Dato |\n"
+"| --- | --- |\n"
+"| | |\n"
+"\n"
+"## Errores y límites\n"
+"Límites de uso y reintentos.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:173
 msgid "Componente"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:60
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:174
 msgid "Responsabilidad, interfaz y dependencias"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:61
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:175
 msgid "Componente: "
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:63
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:177
 msgid ""
 "## Responsabilidad\n"
 "Qué hace y qué no.\n"
@@ -106,6 +337,229 @@ msgid ""
 "- \n"
 "\n"
 "## Notas de diseño\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:185
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:187
+msgid "Capas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:186
+msgid "Capas del sistema y sus reglas de dependencia"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:189
+msgid ""
+"## Visión general\n"
+"Cómo se organiza el sistema en capas.\n"
+"\n"
+"## Capas\n"
+"| Capa | Responsabilidad | Ubicación |\n"
+"| --- | --- | --- |\n"
+"| | | |\n"
+"\n"
+"## Reglas de dependencia\n"
+"- Cada capa solo depende de la inferior.\n"
+"\n"
+"## Excepciones\n"
+"- \n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:197
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:199
+msgid "Estructura del proyecto"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:198
+msgid "Árbol de carpetas y qué contiene cada una"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:201
+msgid ""
+"## Árbol de directorios\n"
+"```text\n"
+"src/\n"
+"tests/\n"
+"```\n"
+"\n"
+"## Qué contiene cada carpeta\n"
+"- `src/`: \n"
+"- `tests/`: \n"
+"\n"
+"## Convenciones\n"
+"Dónde va un fichero nuevo y cómo se nombra.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:208
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:210
+msgid "Pila tecnológica"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:209
+msgid "Lenguajes, bibliotecas y herramientas, con su motivo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:212
+msgid ""
+"## Lenguajes y plataformas\n"
+"- \n"
+"\n"
+"## Bibliotecas principales\n"
+"| Biblioteca | Versión | Para qué |\n"
+"| --- | --- | --- |\n"
+"| | | |\n"
+"\n"
+"## Herramientas de desarrollo\n"
+"- \n"
+"\n"
+"## Motivos de la elección\n"
+"Por qué esta pila y no otra.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:220
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:222
+msgid "Empaquetado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:221
+msgid "Cómo se construye y se distribuye el software"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:224
+msgid ""
+"## Formatos de distribución\n"
+"- \n"
+"\n"
+"## Construcción\n"
+"```bash\n"
+"\n"
+"```\n"
+"\n"
+"## Versionado\n"
+"Esquema de versiones y etiquetas.\n"
+"\n"
+"## Instalación\n"
+"Cómo lo instala quien lo usa.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:232
+msgid "Estrategia de pruebas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:233
+msgid "Qué se prueba, con qué herramientas y qué debe pasar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:234
+msgid "Pruebas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:236
+msgid ""
+"## Qué se prueba\n"
+"- [ ] Lógica de negocio\n"
+"- [ ] Interfaz\n"
+"\n"
+"## Herramientas\n"
+"- \n"
+"\n"
+"## Cómo ejecutarlas\n"
+"```bash\n"
+"\n"
+"```\n"
+"\n"
+"## Criterios para integrar\n"
+"- Los tests pasan.\n"
+"- El linter no avisa.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:244
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:246
+msgid "Integración continua"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:245
+msgid "Comprobaciones automáticas en cada cambio"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:248
+msgid ""
+"## Cuándo se ejecuta\n"
+"En cada push y pull request.\n"
+"\n"
+"## Pasos\n"
+"1. Instalar dependencias\n"
+"2. Linter\n"
+"3. Tests\n"
+"\n"
+"## Fichero del flujo\n"
+"`.github/workflows/ci.yml`\n"
+"\n"
+"## Si falla\n"
+"Qué comprobar primero.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:256
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:258
+msgid "Despliegue continuo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:257
+msgid "Cómo se publica automáticamente una versión"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:260
+msgid ""
+"## Disparador\n"
+"Etiqueta `vX.Y.Z`.\n"
+"\n"
+"## Pasos\n"
+"1. Construir\n"
+"2. Publicar\n"
+"3. Verificar\n"
+"\n"
+"## Fichero del flujo\n"
+"`.github/workflows/cd.yml`\n"
+"\n"
+"## Reversión\n"
+"Cómo deshacer una publicación errónea.\n"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:271
+msgid "Nota en blanco"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:271
+msgid "Empezar desde cero"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:278
+msgid "Decisión técnica (ADR)"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:279
+msgid "Contexto, decisión, alternativas y consecuencias"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:280
+msgid "Decisión: "
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/plantillas.py:282
+msgid ""
+"## Contexto\n"
+"¿Qué problema o necesidad motiva la decisión?\n"
+"\n"
+"## Decisión\n"
+"Qué se ha decidido y por qué.\n"
+"\n"
+"## Alternativas consideradas\n"
+"- Alternativa A:\n"
+"- Alternativa B:\n"
+"\n"
+"## Consecuencias\n"
+"- Positivas:\n"
+"- Negativas:\n"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:170
@@ -129,18 +583,6 @@ msgstr ""
 msgid "Diagramas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:178
-msgid "Modelo de datos"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:179
-msgid "Datos de usuario"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:180
-msgid "Interfaz"
-msgstr ""
-
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:181
 msgid "Integraciones"
 msgstr ""
@@ -150,7 +592,7 @@ msgid "Funcionalidades"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/store.py:184
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:270
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:290
 msgid "General"
 msgstr ""
 
@@ -171,12 +613,14 @@ msgid "Datos de terceros"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/archived_dialog.py:37
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:453
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:474
 msgid "Tareas archivadas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/archived_dialog.py:57
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:117
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:585
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:616
 msgid "Buscar tarea…"
 msgstr ""
 
@@ -185,7 +629,7 @@ msgid "Desarchivar todas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/archived_dialog.py:71
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:159
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:161
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/versiones_window.py:71
 msgid "Cerrar"
 msgstr ""
@@ -242,7 +686,7 @@ msgid "Mover y eliminar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/code_block.py:118
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:106
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:121
 msgid "Código"
 msgstr ""
 
@@ -293,27 +737,27 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/github_link_dialog.py:117
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/global_gantt_view.py:84
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/labels_dialog.py:219
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:86
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:216
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:92
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:223
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:329
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:497
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:524
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:112
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_list_view.py:152
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/resource_dialog.py:449
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:320
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:754
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:876
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:340
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:785
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:919
 msgid "Cancelar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:63
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:226
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:88
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:188
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:94
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:195
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:114
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/resource_dialog.py:452
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:327
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:358
 msgid "Guardar"
 msgstr ""
 
@@ -322,13 +766,13 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:992
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/global_gantt_view.py:84
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/labels_dialog.py:219
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:92
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:216
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:98
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:223
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:524
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_list_view.py:152
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:309
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:754
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:876
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:329
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:785
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:919
 msgid "Eliminar"
 msgstr ""
 
@@ -338,7 +782,7 @@ msgid "Eliminar diagrama"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:71
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:96
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:102
 msgid "Versiones"
 msgstr ""
 
@@ -403,7 +847,7 @@ msgid "Etiqueta de la flecha"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:224
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:186
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:193
 msgid "Cambios sin guardar"
 msgstr ""
 
@@ -412,18 +856,18 @@ msgid "Si cierras ahora, se perderán los cambios del diagrama."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:226
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:188
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:840
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:195
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:883
 msgid "Seguir editando"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:226
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:188
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:195
 msgid "Descartar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/diagram_window.py:248
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:212
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:219
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{titulo}»? Esta acción no se puede deshacer."
@@ -437,9 +881,9 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:684
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:766
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:866
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:46
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:51
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:213
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:47
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:55
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:220
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/versiones_window.py:102
 msgid "Sin título"
 msgstr ""
@@ -469,7 +913,7 @@ msgid "Decisiones técnicas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:76
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:276
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:296
 msgid "Historial"
 msgstr ""
 
@@ -500,7 +944,7 @@ msgid "Eliminar subsección"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:226
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:44
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:45
 msgid "Nueva nota"
 msgstr ""
 
@@ -542,7 +986,7 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:616
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:713
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:58
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:62
 msgid "Última modificación"
 msgstr ""
 
@@ -556,7 +1000,7 @@ msgid "Ver la nota completa"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:702
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:80
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:85
 msgid "Nota sin contenido"
 msgstr ""
 
@@ -566,7 +1010,7 @@ msgid "Subpáginas ({n})"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/documentation_view.py:725
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:110
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:114
 msgid "Subpáginas"
 msgstr ""
 
@@ -593,16 +1037,16 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:48
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:246
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:264
 msgid "Ocultar lista de tareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:205
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:221
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:223
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:239
 msgid "Columnas visibles"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:246
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/gantt_view.py:264
 msgid "Mostrar lista de tareas"
 msgstr ""
 
@@ -672,14 +1116,14 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/global_gantt_view.py:77
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/kanban_view.py:244
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:517
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:869
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:912
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:214
 msgid "Eliminar tarea"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/global_gantt_view.py:80
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:520
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:872
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:915
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{titulo}»? Sus subtareas y dependencias "
@@ -694,8 +1138,8 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/milestones_view.py:122
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:211
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:226
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:90
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:123
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:110
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:143
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/versiones_window.py:99
 msgid "Sin fecha"
 msgstr ""
@@ -703,6 +1147,18 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/history_view.py:163
 #, python-brace-format
 msgid "{n} completadas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/hoja.py:82
+msgid "Alejar (Ctrl+rueda)"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/hoja.py:83
+msgid "Tamaño original"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/hoja.py:84
+msgid "Acercar (Ctrl+rueda)"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/kanban_view.py:236
@@ -719,7 +1175,7 @@ msgid "Color de la etiqueta"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/labels_dialog.py:62
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:93
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:113
 msgid "Aplicar"
 msgstr ""
 
@@ -788,68 +1244,68 @@ msgstr ""
 msgid "margen de {dias} días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:41
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:161
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:46
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:163
 msgid "Editar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:42
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:47
 msgid "Vista previa"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:103
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:118
 msgid "Negrita"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:103
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:104
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:105
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:107
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:118
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:119
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:120
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:122
 msgid "texto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:104
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:119
 msgid "Cursiva"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:105
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:120
 msgid "Tachado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:106
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:121
 msgid "código"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:107
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:122
 msgid "Enlace"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:121
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:136
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:139
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:357
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:388
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:389
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:426
 msgid "Título"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:122
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:137
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:38
 msgid "Lista"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:123
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:138
 msgid "Lista numerada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:124
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:139
 msgid "Lista de tareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:125
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_editor.py:140
 msgid "Cita"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_view.py:99
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/markdown_view.py:105
 msgid ""
 "Este tipo de diagrama de Mermaid todavía no se puede dibujar: se muestra su "
 "código."
@@ -891,72 +1347,72 @@ msgstr ""
 msgid "Pulsa para ver las tareas previas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:67
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:71
 #, python-brace-format
 msgid "Versión {n} · {m} anteriores"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:110
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:114
 msgid "Enlazada desde"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:124
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:128
 msgid "Historial de versiones"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:137
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:141
 #, python-brace-format
 msgid "…y {n} más"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:184
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:78
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_preview_window.py:188
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:83
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/versiones_window.py:112
 msgid "Contenido"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:19
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:20
 msgid "Sin estado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:20
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:21
 msgid "Borrador"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:21
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:22
 msgid "Vigente"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:22
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:23
 msgid "Obsoleta"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:55
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:60
 msgid "Título de la nota"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:59
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:64
 msgid "Estado de la nota"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:67
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:72
 msgid "Ninguna (nivel raíz)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:73
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:78
 msgid "Página padre"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:92
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:210
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:98
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:217
 msgid "Eliminar nota"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:97
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:103
 msgid "Ver y restaurar versiones anteriores de la nota"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:187
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/note_window.py:194
 msgid "Si cierras ahora, se perderán los cambios de la nota."
 msgstr ""
 
@@ -1084,7 +1540,7 @@ msgid "Documentación del proyecto"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:89
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:234
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:254
 msgid "Nueva tarea"
 msgstr ""
 
@@ -1117,12 +1573,7 @@ msgid "La fecha límite debe ser igual o posterior al {fecha}."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:449
-msgid "Archivar completadas…"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:453
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:474
-msgid "Tareas archivadas…"
+msgid "Archivar completadas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:463
@@ -1131,7 +1582,7 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:474
 #, python-brace-format
-msgid "Tareas archivadas ({n})…"
+msgid "Tareas archivadas ({n})"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:490
@@ -1145,7 +1596,7 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_detail_view.py:497
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:313
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:333
 msgid "Archivar"
 msgstr ""
 
@@ -1177,12 +1628,12 @@ msgid "Quitar imagen"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:76
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:362
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:393
 msgid "Descripción"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:84
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:486
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:517
 msgid "Fecha de inicio"
 msgstr ""
 
@@ -1221,7 +1672,8 @@ msgid "No se pudo copiar la imagen seleccionada."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_dialog.py:208
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:81
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:910
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:101
 msgid "Hoy"
 msgstr ""
 
@@ -1239,7 +1691,7 @@ msgid "Crear proyecto"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/project_list_view.py:68
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:456
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:458
 msgid "En curso"
 msgstr ""
 
@@ -1259,237 +1711,279 @@ msgid ""
 "columnas y recursos. Esta acción no se puede deshacer."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:91
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:95
 msgid "Resumen"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:92
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:96
 msgid "Flujo de trabajo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:93
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:97
 msgid "Planificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:94
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:98
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/resource_usage_view.py:542
 msgid "Equipo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:233
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:237
 #, python-brace-format
 msgid ""
 "Ruta crítica: {critica} · Recursos sin tareas: {sin_tareas} · GitHub "
 "vinculadas: {vinculadas}, locales: {locales}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:235
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:239
 msgid "sin dependencias"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:259
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:263
 #, python-brace-format
 msgid ""
 "{total} tareas · {completadas} completadas · Progreso medio: {progreso:.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:276
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:280
 msgid "Estado general"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:278
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:282
 msgid "Riesgo temporal"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:280
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:313
-msgid "Ruta crítica"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:288
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:290
 msgid "Tareas por estado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:290
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:292
 msgid "Ritmo de trabajo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:293
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:295
 msgid "Anual"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:293
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:295
 msgid "Mensual"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:297
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:299
 msgid "Tiempo medio por columna"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:299
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:301
 msgid "Acumulación por columna · CFD"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:307
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:309
 msgid "Ritmo de avance"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:309
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:311
 msgid "Desviación de planificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:311
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:313
 msgid "Fechas planificadas frente a reales"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:322
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:315
+msgid "Ruta crítica"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:324
 msgid "Reparto por persona"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:325
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:327
 msgid "Actividad por persona"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:327
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:329
 msgid "Carga y progreso por persona"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:360
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:362
 msgid "Este informe se añadirá en una próxima versión"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:439
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:441
 #, python-brace-format
 msgid "Progreso global: {value:.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:454
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:456
 msgid "Total"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:455
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:457
 msgid "Sin empezar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:457
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:876
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:459
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1084
 msgid "Completadas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:458
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:460
 msgid "Vencidas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:459
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:461
 msgid "Progreso medio"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:495
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:497
 msgid "Alertas rojas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:496
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:498
 msgid "Planificación pasada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:497
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:499
 msgid "Próximas 7 días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:525
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:527
 #, python-brace-format
 msgid "Recursos activos: {count} · Tareas sin asignar: {sin_asignar}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:537
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:896
-msgid "No hay dependencias críticas"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:552
-#, python-brace-format
-msgid "+{count} más"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:583
-#, python-format, python-brace-format
-msgid "Única tarea crítica · {dias} días · {progreso:.0f}% completado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:587
-#, python-format, python-brace-format
-msgid ""
-"{count} tareas encadenadas · {dias} días · {progreso:.0f}% completado · esta "
-"cadena puede retrasar el proyecto"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:617
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:553
 msgid "Barras"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:617
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:553
 msgid "Circular"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:766
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:702
 msgid "Menos actividad → Más actividad"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:772
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:708
 #, python-brace-format
 msgid "Actividad registrada · {eventos} eventos"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:805
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:746
+msgid "Todavía no hay tareas con historial de estados"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:772
+#, python-brace-format
+msgid "{dias:.1f} d"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:777
+msgid ""
+"Media por tarea de los días en cada columna, incluida la estancia actual"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:784
+msgid "Se necesitan al menos dos días de historial para dibujarlo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:855
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:939
+msgid "Todavía no hay tareas con inicio y final planificado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:926
+msgid ""
+"Contorno: previsto inicial · Relleno: real (verde a tiempo, naranja con "
+"retraso, rojo vencida, azul en curso)"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:928
+#, python-brace-format
+msgid "+{count} más"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:942
+msgid "A tiempo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:943
+msgid "Adelantadas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:944
+msgid "Con retraso"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:971
+#, python-brace-format
+msgid "Retraso medio: {dias:.1f} días"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:989
+#, python-brace-format
+msgid "+{dias} d"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:995
+#, python-brace-format
+msgid "{count} tareas en plazo sin terminar, aún sin desviación"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1009
 msgid "Burndown"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:805
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1009
 msgid "Burnup"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:825
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1033
 msgid "Sin datos históricos todavía"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:871
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1079
 msgid "Ideal"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:876
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1084
 msgid "Pendientes"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:883
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1091
 #, python-brace-format
 msgid "Desviación: {valor:+.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:886
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1094
 msgid "Días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:930
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1104
+msgid "No hay dependencias críticas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1138
 msgid "Única tarea crítica"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:932
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1140
 msgid "Esta cadena puede retrasar el proyecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1044
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1252
 msgid "Ventana de 7 días centrada en el primer evento crítico · rojo = crítico"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1046
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1254
 msgid "Ventana de 7 días centrada en el primer evento relevante"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1062
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1270
 msgid "Sin recursos en el proyecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1086
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/report_view.py:1294
 #, python-brace-format
 msgid "{tareas} tareas · {progreso:.0f}%"
 msgstr ""
@@ -1640,42 +2134,42 @@ msgid "Asignado"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:148
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:372
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:403
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:391
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:438
 msgid "Columna"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:152
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:376
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:407
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:392
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:439
 msgid "Prioridad"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:157
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:380
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:411
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:393
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:440
 msgid "Etiquetas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:162
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:490
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:521
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:395
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:442
 msgid "Planificado"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:163
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:522
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:553
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:396
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:443
 msgid "Límite"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/table_view.py:164
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:512
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:543
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:397
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:444
 msgid "Duración (días)"
@@ -1688,254 +2182,262 @@ msgstr ""
 msgid "% completado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:82
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:102
 msgid "Mañana"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:84
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:104
 msgid "Próxima semana"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:234
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:254
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:211
 msgid "Editar tarea"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:271
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:291
 msgid "Fechas y progreso"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:272
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:292
 msgid "Asignaciones"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:273
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:293
 msgid "Dependencias"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:275
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:295
 msgid "Comentarios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:294
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:314
 #, python-brace-format
 msgid "Ver en GitHub (#{num})"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:315
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:335
 msgid "Quitarla de todas las vistas; se recupera desde «Tareas archivadas»"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:324
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:344
 msgid "Guardar y crear otra"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:364
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:349
+msgid "Completar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:353
+msgid "Marcarla al 100 %, moverla a la columna de completadas y guardar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:395
 msgid "Sin descripción"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:368
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:399
 msgid "Tarea padre"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:397
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:428
 msgid "Añadir etiqueta (Enter para crear)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:404
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:435
 msgid "Ninguna"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:431
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:462
 msgid "Sin prioridad"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:431
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:462
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:55
 msgid "Baja"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:431
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:462
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:55
 msgid "Media"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:431
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:462
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_tree_view.py:55
 msgid "Alta"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:495
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:526
 msgid "Planificado inicial"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:502
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:533
 msgid "Desbloquear edición"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:508
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:539
 msgid "Final real"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:526
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:557
 msgid "Porcentaje completado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:545
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:576
 msgid "Es un hito"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:552
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:583
 msgid "Asignado a"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:564
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:595
 msgid "Nombre (se crea al asignar)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:569
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:600
 msgid "Asignar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:579
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:610
 msgid "No hay otras tareas de las que depender."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:583
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:614
 msgid "Depende de"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:605
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:743
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:636
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:774
 msgid "Nuevo comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:621
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:652
 msgid "Cancelar edición"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:624
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:744
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:655
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:775
 msgid "Comentar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:635
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:666
 msgid "Sin actividad registrada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:646
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:677
 msgid "Tarea creada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:647
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:678
 msgid "Estado cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:648
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:679
 msgid "Progreso cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:649
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:680
 msgid "Final planificado cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:650
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:681
 msgid "Planificado inicial cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:651
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:682
 msgid "Final real cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:652
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:683
 msgid "Inicio cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:653
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:684
 msgid "Límite cambiado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:677
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:708
 msgid "Sin comentarios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:685
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:716
 msgid "Tú"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:692
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:736
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:723
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:767
 msgid "Editar comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:697
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:750
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:728
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:781
 msgid "Eliminar comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:737
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:768
 msgid "Guardar cambios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:752
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:783
 msgid ""
 "Si el comentario está en GitHub, también se eliminará allí. No se puede "
 "deshacer."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:838
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:881
 msgid "Hay cambios sin guardar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:839
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:882
 msgid "Si cierras ahora se perderán los cambios de esta tarea."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:840
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:883
 msgid "Descartar cambios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:914
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:957
 msgid "El título no puede estar vacío."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:924
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:967
 msgid "Un hito necesita una fecha: no se puede situar en el Gantt sin ella."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:934
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:977
 msgid "El final planificado necesita una fecha de inicio."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:941
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:984
 msgid "El final planificado no puede ser anterior al inicio."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:948
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:991
 msgid "La fecha límite no puede ser anterior al final planificado."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1073
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1116
 msgid "Sin etiquetas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1086
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1129
 msgid "Quitar etiqueta"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1109
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1152
 msgid "Nadie asignado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1120
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1163
 msgid "Quitar asignación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1132
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1175
 msgid "Porcentaje de dedicación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1200
+#: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/ui/task_dialog.py:1243
 msgid "Esa dependencia crearía un ciclo entre tareas."
 msgstr ""
 

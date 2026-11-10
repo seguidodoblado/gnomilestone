@@ -9,7 +9,8 @@ def test_la_nota_en_blanco_va_siempre_primera_y_vacia():
 
 def test_plantillas_propias_de_cada_seccion():
     assert [p.clave for p in plantillas_para("decisiones_tecnicas")] == ["en_blanco", "adr"]
-    assert [p.clave for p in plantillas_para("especificaciones")] == ["en_blanco", "especificacion"]
-    assert [p.clave for p in plantillas_para("arquitectura")] == ["en_blanco", "componente"]
+    # Arquitectura y especificaciones tienen varias; la genérica de cada una va justo tras la en blanco.
+    assert [p.clave for p in plantillas_para("especificaciones")][:2] == ["en_blanco", "especificacion"]
+    assert [p.clave for p in plantillas_para("arquitectura")][:2] == ["en_blanco", "componente"]
     adr = plantillas_para("decisiones_tecnicas")[1]
     assert "## Decisión" in adr.contenido and "## Consecuencias" in adr.contenido

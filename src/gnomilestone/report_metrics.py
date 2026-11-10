@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
 from gnomilestone.models import Asignacion, Dependencia, Proyecto, Recurso, Tarea
@@ -44,7 +44,6 @@ def desviaciones_planificacion(tareas: list[Tarea]) -> list[Desviacion]:
         if plan is None or not tarea.fecha_inicio:
             continue
         estimado = parse_fecha(tarea.fecha_inicio)
-        from datetime import timedelta
         estimado += timedelta(days=max(tarea.duracion_dias, 1) - 1)
         if estimado != plan:
             resultado.append(Desviacion(tarea, plan, estimado, (estimado - plan).days))
@@ -102,3 +101,190 @@ def resumen_multi_proyecto(
         "progreso_medio": sum(t.porcentaje_completado for t in activas) / len(activas) if activas else 0,
         "vencidas": vencidas,
     }
+
+
+# ----------------------------------------------------------------------
+# Planificación: fechas previstas frente a reales
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FechasTarea:
+    """Previsto y real de una tarea. `fin_real` es None si aún no ha terminado."""
+
+    tarea: Tarea
+    inicio: date
+    fin_inicial: date
+    fin_actual: date
+    fin_real: date | None
+
+    @property
+    def desviacion_dias(self) -> int | None:
+        """Días de retraso (+) o adelanto (−) respecto al plan inicial.
+
+        Terminada: fin real − fin inicial. Sin terminar y ya pasada de plazo:
+        hoy − fin inicial, es decir, lo que lleva de retraso. Sin terminar y en
+        plazo no hay desviación todavía (None).
+        """
+        if self.fin_real is not None:
+            return (self.fin_real - self.fin_inicial).days
+        hoy = datetime.now().astimezone().date()
+        if self.tarea.porcentaje_completado < 100 and hoy > self.fin_inicial:
+            return (hoy - self.fin_inicial).days
+        return None
+
+    @property
+    def movimientos(self) -> int:
+        """Cuánto se ha movido el final respecto al plan inicial (días, con signo)."""
+        return (self.fin_actual - self.fin_inicial).days
+
+
+def fechas_planificadas_reales(tareas: list[Tarea]) -> list[FechasTarea]:
+    """Tareas con inicio y fin planificado, ordenadas por inicio."""
+    filas = []
+    for tarea in tareas:
+        if not tarea.fecha_inicio:
+            continue
+        actual = tarea.fecha_fin_planificada or tarea.fecha_fin_planificada_inicial
+        inicial = tarea.fecha_fin_planificada_inicial or tarea.fecha_fin_planificada
+        if not actual or not inicial:
+            continue
+        filas.append(FechasTarea(
+            tarea,
+            parse_fecha(tarea.fecha_inicio),
+            parse_fecha(inicial),
+            parse_fecha(actual),
+            parse_fecha(tarea.fecha_fin_real) if tarea.fecha_fin_real else None,
+        ))
+    return sorted(filas, key=lambda f: (f.inicio, f.tarea.id))
+
+
+@dataclass(frozen=True)
+class ResumenDesviacion:
+    a_tiempo: int
+    con_retraso: int
+    adelantadas: int
+    sin_medir: int
+    retraso_medio: float  # días, solo sobre las que van con retraso
+    peores: list[FechasTarea]  # mayores retrasos, de más a menos
+
+
+def resumen_desviacion(tareas: list[Tarea], maximo_peores: int = 5) -> ResumenDesviacion:
+    filas = fechas_planificadas_reales(tareas)
+    a_tiempo = con_retraso = adelantadas = sin_medir = 0
+    retrasadas = []
+    for fila in filas:
+        dias = fila.desviacion_dias
+        if dias is None:
+            sin_medir += 1
+        elif dias > 0:
+            con_retraso += 1
+            retrasadas.append(fila)
+        elif dias < 0:
+            adelantadas += 1
+        else:
+            a_tiempo += 1
+    retrasadas.sort(key=lambda f: (-f.desviacion_dias, f.tarea.titulo.casefold()))
+    medio = sum(f.desviacion_dias for f in retrasadas) / len(retrasadas) if retrasadas else 0.0
+    return ResumenDesviacion(a_tiempo, con_retraso, adelantadas, sin_medir, medio, retrasadas[:maximo_peores])
+
+
+# ----------------------------------------------------------------------
+# Flujo de trabajo: tiempo por columna y diagrama de flujo acumulado (CFD)
+# ----------------------------------------------------------------------
+
+
+def _instante(texto: str | None) -> datetime | None:
+    """Interpreta las marcas de SQLite ("2026-11-09 06:08:48" o con T/Z); sin zona."""
+    if not texto:
+        return None
+    try:
+        return datetime.fromisoformat(texto.strip().replace("Z", "").replace(" ", "T"))
+    except ValueError:
+        return None
+
+
+def _id_estado(valor: str | None) -> int | None:
+    try:
+        return int(valor) if valor not in (None, "", "None") else None
+    except ValueError:
+        return None
+
+
+def trayectoria_estados(
+    tarea: Tarea, historial: list, ahora: datetime
+) -> list[tuple[datetime, datetime, int | None]]:
+    """Tramos (desde, hasta, estado_id) por los que ha pasado la tarea.
+
+    Parte de la creación en el estado anterior al primer cambio registrado y sigue
+    cada cambio de estado hasta `ahora`. Sin cambios registrados es un único tramo
+    en el estado actual.
+    """
+    cambios = sorted(
+        (
+            (_instante(e.creado), e)
+            for e in historial
+            if e.tarea_id == tarea.id and e.tipo == "estado" and _instante(e.creado)
+        ),
+        key=lambda par: (par[0], par[1].id),
+    )
+    inicio = _instante(tarea.creado) or (cambios[0][0] if cambios else ahora)
+    if not cambios:
+        return [(inicio, max(inicio, ahora), tarea.estado_id)]
+    tramos = []
+    estado = _id_estado(cambios[0][1].valor_anterior)
+    desde = min(inicio, cambios[0][0])
+    for momento, evento in cambios:
+        tramos.append((desde, momento, estado))
+        desde, estado = momento, _id_estado(evento.valor_nuevo)
+    tramos.append((desde, max(desde, ahora), estado))
+    return tramos
+
+
+def tiempo_medio_por_columna(
+    tareas: list[Tarea], historial: list, ahora: datetime | None = None
+) -> dict[int, tuple[float, int]]:
+    """Por estado_id: (días medios que una tarea pasa en esa columna, tareas medidas).
+
+    Se promedia por tarea (suma de sus estancias en la columna), no por visita.
+    """
+    # SQLite guarda las marcas en UTC y sin zona; se compara en esa misma referencia.
+    ahora = ahora or datetime.now(UTC).replace(tzinfo=None)
+    acumulado: dict[int, list[float]] = defaultdict(list)
+    for tarea in tareas:
+        por_estado: dict[int, float] = defaultdict(float)
+        for desde, hasta, estado in trayectoria_estados(tarea, historial, ahora):
+            if estado is not None:
+                por_estado[estado] += (hasta - desde).total_seconds() / 86400
+        for estado, dias in por_estado.items():
+            acumulado[estado].append(dias)
+    return {e: (sum(v) / len(v), len(v)) for e, v in acumulado.items()}
+
+
+def flujo_acumulado(
+    tareas: list[Tarea], historial: list, hoy: date | None = None, maximo_dias: int = 120
+) -> tuple[list[date], dict[int, list[int]]]:
+    """CFD: para cada día, cuántas tareas había en cada estado al terminar ese día.
+
+    Devuelve (días, {estado_id: [conteo por día]}). Cubre desde la primera creación
+    hasta hoy, recortado a los últimos `maximo_dias`. Una tarea cuenta desde el día
+    en que se creó.
+    """
+    hoy = hoy or datetime.now(UTC).date()
+    ahora = datetime.combine(hoy, datetime.max.time())
+    trayectorias = [trayectoria_estados(t, historial, ahora) for t in tareas]
+    inicios = [tramos[0][0].date() for tramos in trayectorias if tramos]
+    if not inicios:
+        return [], {}
+    primero = max(min(inicios), hoy - timedelta(days=maximo_dias - 1))
+    dias = [primero + timedelta(days=i) for i in range((hoy - primero).days + 1)]
+    conteos: dict[int, list[int]] = defaultdict(lambda: [0] * len(dias))
+    for tramos in trayectorias:
+        for indice, dia in enumerate(dias):
+            fin_dia = datetime.combine(dia, datetime.max.time())
+            if tramos[0][0] > fin_dia:
+                continue
+            estado = next((e for desde, hasta, e in reversed(tramos) if desde <= fin_dia), None)
+            if estado is not None:
+                conteos[estado][indice] += 1
+    return dias, dict(conteos)

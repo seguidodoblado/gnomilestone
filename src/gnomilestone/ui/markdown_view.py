@@ -10,9 +10,11 @@ from gi.repository import Gdk, GLib, Gtk, Pango
 
 from gnomilestone.codigo import Codigo, Separador, Texto, dividir_bloques
 from gnomilestone.i18n import _
+from gnomilestone.markdown_imagenes import SegmentoImagenes, segmentar
 from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.mermaid import MermaidNoSoportado, interpretar
 from gnomilestone.ui.code_block import BloqueCodigo
+from gnomilestone.ui.fila_imagenes import FilaImagenes
 from gnomilestone.ui.mermaid_view import VistaMermaid
 
 _css_aplicado = False
@@ -79,7 +81,11 @@ class VistaMarkdown(Gtk.Box):
                 self.append(self._widget_codigo(bloque))
             else:
                 texto = self._preprocesar(bloque.markdown) if self._preprocesar else bloque.markdown
-                self.append(self._etiqueta(markdown_a_pango(texto), False))
+                for segmento in segmentar(texto):
+                    if isinstance(segmento, SegmentoImagenes):
+                        self.append(FilaImagenes(segmento.imagenes, self._al_enlace, self._compacto))
+                    else:
+                        self.append(self._etiqueta(markdown_a_pango(segmento.markdown), False))
 
     def _widget_codigo(self, bloque: Codigo) -> Gtk.Widget:
         """Un bloque de código; si es Mermaid y lo sabemos dibujar, como diagrama. Si no

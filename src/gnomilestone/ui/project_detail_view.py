@@ -446,11 +446,11 @@ class ProjectDetailView(Gtk.Box):
             margin_start=6,
             margin_end=6,
         )
-        archivar = Gtk.Button(label=_("Archivar completadas…"))
+        archivar = Gtk.Button(label=_("Archivar completadas"))
         archivar.add_css_class("flat")
         archivar.connect("clicked", self._on_archivar_completadas)
         caja.append(archivar)
-        self._ver_archivadas_button = Gtk.Button(label=_("Tareas archivadas…"))
+        self._ver_archivadas_button = Gtk.Button(label=_("Tareas archivadas"))
         self._ver_archivadas_button.add_css_class("flat")
         self._ver_archivadas_button.connect("clicked", self._on_ver_archivadas)
         caja.append(self._ver_archivadas_button)
@@ -471,7 +471,7 @@ class ProjectDetailView(Gtk.Box):
             else 0
         )
         self._ver_archivadas_button.set_label(
-            _("Tareas archivadas ({n})…").format(n=n) if n else _("Tareas archivadas…")
+            _("Tareas archivadas ({n})").format(n=n) if n else _("Tareas archivadas")
         )
 
     def _on_ver_archivadas(self, _button: Gtk.Button) -> None:

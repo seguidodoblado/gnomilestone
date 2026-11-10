@@ -82,7 +82,10 @@ class GanttView(Gtk.Box):
         ancho_panel = settings.read_settings().get("gantt_panel_ancho", 240)
         panel = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=ancho_panel, vexpand=True)
 
-        self._tree_scroller = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER)
+        # EXTERNAL (no NEVER): con NEVER el árbol pide alto para todas sus filas y, con
+        # muchas subtareas, la ventana crece hacia abajo. Así el scroll vertical lo
+        # muestra la barra del lienzo, que comparte ajuste con el árbol.
+        self._tree_scroller = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.EXTERNAL)
         self._tree_scroller.set_child(self._tree)
         panel.set_start_child(self._tree_scroller)
         panel.set_resize_start_child(False)
@@ -109,10 +112,16 @@ class GanttView(Gtk.Box):
             vexpand=True,
             hexpand=True,
             hscrollbar_policy=Gtk.PolicyType.ALWAYS,
-            vscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
         )
         self._canvas_scroller.set_child(self._drawing_area)
-        self._canvas_scroller.set_vadjustment(self._tree_scroller.get_vadjustment())
+        # Cada scroll conserva su propio ajuste (compartirlo hace que se lo reconfiguren
+        # entre sí en cada layout y se entre en bucle); solo se sincroniza la posición.
+        self._sincronizando_scroll = False
+        adj_arbol = self._tree_scroller.get_vadjustment()
+        adj_lienzo = self._canvas_scroller.get_vadjustment()
+        adj_arbol.connect("value-changed", self._sincronizar_scroll, adj_lienzo)
+        adj_lienzo.connect("value-changed", self._sincronizar_scroll, adj_arbol)
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         canvas_box.append(self._canvas_scroller)
 
@@ -135,6 +144,15 @@ class GanttView(Gtk.Box):
         self._progreso_resumen = progreso_resumen or {}
         self._tree.set_filas(filas)
         # set_filas() ya dispara "items-changed" (vía _on_filas_cambiadas), que repinta el Gantt.
+
+    def _sincronizar_scroll(self, origen: Gtk.Adjustment, destino: Gtk.Adjustment) -> None:
+        if self._sincronizando_scroll:
+            return
+        self._sincronizando_scroll = True
+        try:
+            destino.set_value(origen.get_value())
+        finally:
+            self._sincronizando_scroll = False
 
     def _on_origen_desplazado(self, delta_px: float) -> None:
         # El lienzo ha crecido por la izquierda durante un arrastre (ver

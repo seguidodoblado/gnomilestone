@@ -46,6 +46,7 @@ def _codigo(texto_escapado: str) -> str:
 
 
 _CODIGO_EN_LINEA = re.compile(r"`([^`\n]+)`")
+_IMAGEN = re.compile(r"!\[([^\]\n]*)\]\([^)\s]+(?:\s+\"[^\"]*\")?\)")
 _ENLACE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
 _NEGRITA = re.compile(r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1")
 _CURSIVA = re.compile(r"(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])|(?<![\w_])_(?=\S)([^_\n]+?)(?<=\S)_(?![\w_])")
@@ -65,6 +66,9 @@ def _en_linea(texto: str) -> str:
         return f"\x00{len(codigos) - 1}\x00"
 
     texto = _CODIGO_EN_LINEA.sub(_guardar_codigo, texto)
+    # El visor aún no dibuja imágenes: se muestra su texto alternativo (así un badge dentro
+    # de un enlace, `[![texto](img)](url)`, queda como el enlace `[texto](url)`).
+    texto = _IMAGEN.sub(lambda m: m.group(1), texto)
     texto = html.escape(texto, quote=True)
     texto = _ENLACE.sub(lambda m: f'<a href="{m.group(2)}">{m.group(1)}</a>', texto)
     texto = _NEGRITA.sub(lambda m: f"<b>{m.group(2)}</b>", texto)

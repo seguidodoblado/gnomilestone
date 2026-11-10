@@ -11,6 +11,7 @@ from gnomilestone.i18n import _
 from gnomilestone.models import ESTADOS_NOTA, NotaDocumentacion, VersionDocumentacion
 from gnomilestone.store import Store
 from gnomilestone.ui.dialogos import boton_con_icono
+from gnomilestone.ui.hoja import ZoomHoja
 from gnomilestone.ui.markdown_editor import MarkdownEditor
 from gnomilestone.ui.versiones_window import VersionesWindow
 
@@ -42,14 +43,18 @@ class NoteWindow(Gtk.Window):
         """`padres` = [(id, título sangrado)] de las notas que pueden ser su página padre."""
         super().__init__(
             title=nota.titulo or _("Nueva nota"),
-            transient_for=parent,
-            default_width=860,
-            default_height=680,
+            # Sin transient_for: con él, X11 la marca como «diálogo» y el gestor de ventanas
+            # quita el botón de maximizar y puede ignorar maximize(). Es una ventana de
+            # documento, así que se asocia a la aplicación y no a la ventana principal.
+            application=parent.get_application() if parent is not None else None,
+            default_width=1000,
+            default_height=860,
         )
         self._store = store
         self._nota = nota
         self._al_cambiar = al_cambiar
         self._cerrar_sin_preguntar = False
+        self._zoom = ZoomHoja()
 
         self._titulo = Gtk.Entry(
             text=nota.titulo, placeholder_text=_("Título de la nota"), hexpand=True
@@ -81,6 +86,7 @@ class NoteWindow(Gtk.Window):
             alto_minimo=360,
             preprocesar=preprocesar,
             al_enlace=al_enlace,
+            zoom_hoja=self._zoom,
         )
 
         cancelar = Gtk.Button(label=_("Cancelar"))
@@ -100,6 +106,7 @@ class NoteWindow(Gtk.Window):
         botones = Gtk.Box(spacing=8)
         botones.append(eliminar)
         botones.append(versiones)
+        botones.append(self._zoom.botones())
         botones.append(Gtk.Box(hexpand=True))
         botones.append(cancelar)
         botones.append(guardar)

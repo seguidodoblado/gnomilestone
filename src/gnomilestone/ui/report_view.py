@@ -28,8 +28,12 @@ from gnomilestone.models import (
 )
 from gnomilestone.report_metrics import (
     estado_github,
+    fechas_planificadas_reales,
+    flujo_acumulado,
     reparto_por_recurso,
+    resumen_desviacion,
     ruta_critica,
+    tiempo_medio_por_columna,
 )
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 
@@ -90,7 +94,7 @@ class ReportView(Gtk.Box):
         pestanas = (
             (_("Resumen"), self._draw_summary, 560),
             (_("Flujo de trabajo"), self._draw_workflow, 640),
-            (_("Planificación"), self._draw_planning, 800),
+            (_("Planificación"), self._draw_planning, 1000),
             (_("Equipo"), self._draw_team, 600),
         )
         for nombre, dibujar, alto_minimo in pestanas:
@@ -268,8 +272,8 @@ class ReportView(Gtk.Box):
 
     def _draw_summary(self, cr, width: int, height: int) -> None:
         """Resumen: ¿cómo está el proyecto ahora mismo?"""
-        (progreso,), (estado, riesgo), (critica,) = self._distribuir(
-            width, height, ((30, (1,)), (42, (55, 45)), (28, (1,)))
+        (progreso,), (estado, riesgo) = self._distribuir(
+            width, height, ((38, (1,)), (62, (55, 45)))
         )
         self._draw_card(cr, *progreso)
         self._draw_progress(cr, *progreso)
@@ -277,8 +281,6 @@ class ReportView(Gtk.Box):
         self._draw_kpis(cr, *estado)
         self._draw_card(cr, *riesgo, _("Riesgo temporal"))
         self._draw_alerts(cr, *riesgo)
-        self._draw_card(cr, *critica, _("Ruta crítica"))
-        self._draw_critical_summary(cr, *critica)
 
     def _draw_workflow(self, cr, width: int, height: int) -> None:
         """Flujo de trabajo: ¿dónde se mueven o se atascan las tareas?"""
@@ -295,21 +297,21 @@ class ReportView(Gtk.Box):
         )
         self._draw_heatmap(cr, x + 18, y + 64, w - 36, h - 64)
         self._draw_card(cr, *tiempo, _("Tiempo medio por columna"))
-        self._draw_placeholder(cr, *tiempo)
+        self._draw_column_time(cr, *tiempo)
         self._draw_card(cr, *cfd, _("Acumulación por columna · CFD"))
-        self._draw_placeholder(cr, *cfd)
+        self._draw_cfd(cr, *cfd)
 
     def _draw_planning(self, cr, width: int, height: int) -> None:
         """Planificación: ¿vamos según lo previsto?"""
         (avance, desviacion), (fechas,), (critica,) = self._distribuir(
-            width, height, ((32, (3, 2)), (22, (1,)), (46, (1,)))
+            width, height, ((28, (3, 2)), (38, (1,)), (34, (1,)))
         )
         self._draw_card(cr, *avance, _("Ritmo de avance"))
         self._draw_burnup(cr, *avance)
         self._draw_card(cr, *desviacion, _("Desviación de planificación"))
-        self._draw_placeholder(cr, *desviacion)
+        self._draw_deviation(cr, *desviacion)
         self._draw_card(cr, *fechas, _("Fechas planificadas frente a reales"))
-        self._draw_placeholder(cr, *fechas)
+        self._draw_planned_vs_actual(cr, *fechas)
         self._draw_card(cr, *critica, _("Ruta crítica"))
         x, y, w, _h = critica
         self._draw_critical_path(cr, x + 18, y + 48, w - 36)
@@ -527,72 +529,6 @@ class ReportView(Gtk.Box):
             )
         )
 
-    def _draw_critical_summary(self, cr, x, y, width, height) -> None:
-        """Cadena crítica en una línea, sin la línea temporal (que vive en Planificación)."""
-        cadena = self._critica
-        cr.set_source_rgb(*self._text_color)
-        cr.set_font_size(max(12, self._font_size + 1))
-        if not cadena:
-            cr.move_to(x + 18, y + height / 2 + 12)
-            cr.show_text(_("No hay dependencias críticas"))
-            return
-        chip_h, flecha_w = 30, 26
-        chip_y = y + 58 + max(0, (height - 58 - chip_h - 44) / 2)
-        cx, limite = x + 18, x + width - 18
-        cr.set_font_size(max(11, self._font_size))
-        for indice, tarea in enumerate(cadena):
-            titulo = tarea.titulo[:28]
-            ext = cr.text_extents(titulo)
-            chip_w = ext.width + 24
-            restantes = len(cadena) - indice
-            necesario = chip_w + (flecha_w if indice else 0) + (70 if restantes > 1 else 0)
-            if indice and cx + necesario > limite:
-                cr.set_source_rgba(*self._text_color, 0.7)
-                cr.move_to(cx + 6, chip_y + chip_h / 2 + 5)
-                cr.show_text(_("+{count} más").format(count=restantes))
-                break
-            if indice:
-                linea_y = chip_y + chip_h / 2
-                cr.set_source_rgb(0.88, 0.20, 0.14)
-                cr.set_line_width(2)
-                cr.move_to(cx + 4, linea_y)
-                cr.line_to(cx + flecha_w - 8, linea_y)
-                cr.stroke()
-                cr.move_to(cx + flecha_w - 4, linea_y)
-                cr.line_to(cx + flecha_w - 10, linea_y - 5)
-                cr.line_to(cx + flecha_w - 10, linea_y + 5)
-                cr.close_path()
-                cr.fill()
-                cr.set_line_width(1)
-                cx += flecha_w
-            completada = tarea.porcentaje_completado >= 100
-            oscuro, claro = ((0.14, 0.46, 0.30), (0.26, 0.72, 0.48)) if completada else ((0.68, 0.08, 0.10), (0.96, 0.25, 0.20))
-            self._rounded_rectangle(cr, cx, chip_y, chip_w, chip_h, 8)
-            gradiente = cairo.LinearGradient(cx, chip_y, cx, chip_y + chip_h)
-            gradiente.add_color_stop_rgb(0, *claro)
-            gradiente.add_color_stop_rgb(1, *oscuro)
-            cr.set_source(gradiente)
-            cr.fill()
-            cr.set_source_rgb(1, 1, 1)
-            cr.move_to(cx + 12, chip_y + chip_h / 2 + 5)
-            cr.show_text(titulo)
-            cx += chip_w
-        dias = sum(max(t.duracion_dias, 1) for t in cadena)
-        progreso = sum(t.porcentaje_completado for t in cadena) / len(cadena)
-        if len(cadena) == 1:
-            detalle = _("Única tarea crítica · {dias} días · {progreso:.0f}% completado").format(
-                dias=dias, progreso=progreso
-            )
-        else:
-            detalle = _("{count} tareas encadenadas · {dias} días · {progreso:.0f}% completado · "
-                        "esta cadena puede retrasar el proyecto").format(
-                count=len(cadena), dias=dias, progreso=progreso
-            )
-        cr.set_source_rgb(*self._text_color)
-        cr.set_font_size(max(10, self._font_size - 1))
-        cr.move_to(x + 18, chip_y + chip_h + 28)
-        cr.show_text(detalle)
-
     # ------------------------------------------------------------------
     # Flujo de trabajo
     # ------------------------------------------------------------------
@@ -790,6 +726,274 @@ class ReportView(Gtk.Box):
         primero, segundo = colores[indice], colores[indice + 1]
         return tuple(a + (b - a) * fraccion for a, b in zip(primero, segundo))
 
+
+    # ------------------------------------------------------------------
+    # Flujo de trabajo: tiempo por columna y CFD
+    # ------------------------------------------------------------------
+
+    def _draw_nota(self, cr, x, y, width, height, texto: str) -> None:
+        cr.set_source_rgb(0.55, 0.57, 0.62)
+        cr.set_font_size(max(11, self._font_size))
+        ext = cr.text_extents(texto)
+        cr.move_to(x + (width - ext.width) / 2, y + height / 2 + 12)
+        cr.show_text(texto)
+
+    def _draw_column_time(self, cr, x, y, width, height) -> None:
+        """Días medios que una tarea pasa en cada columna del tablero."""
+        medios = tiempo_medio_por_columna(self._tareas, self._historial)
+        columnas = [(e, medios[e.id]) for e in self._estados if e.id in medios]
+        if not columnas:
+            self._draw_nota(cr, x, y, width, height, _("Todavía no hay tareas con historial de estados"))
+            return
+        maximo = max(dias for _e, (dias, _n) in columnas) or 1
+        fila_h = max(22, min(40, (height - 90) / len(columnas)))
+        etiqueta_w = min(150, width * 0.3)
+        bx, bw = x + 18 + etiqueta_w, max(40, width - 36 - etiqueta_w - 90)
+        yy = y + 62 + max(0, (height - 62 - 28 - fila_h * len(columnas)) / 2)
+        for estado, (dias, tareas_medidas) in columnas:
+            indice = self._estados.index(estado)
+            color = self._hex_color(_PALETA_COLUMNAS[indice % len(_PALETA_COLUMNAS)])
+            cr.set_source_rgb(*self._text_color)
+            cr.set_font_size(max(11, self._font_size))
+            cr.move_to(x + 18, yy + fila_h / 2 + 4)
+            cr.show_text(estado.nombre[:18])
+            self._rounded_rectangle(cr, bx, yy + 3, bw, fila_h - 8, 6)
+            cr.set_source_rgba(0.45, 0.48, 0.54, 0.22)
+            cr.fill()
+            relleno = max(4.0, bw * dias / maximo)
+            gradiente = cairo.LinearGradient(bx, yy, bx + relleno, yy)
+            gradiente.add_color_stop_rgb(0, *(c * 0.72 for c in color))
+            gradiente.add_color_stop_rgb(1, *color)
+            self._rounded_rectangle(cr, bx, yy + 3, relleno, fila_h - 8, 6)
+            cr.set_source(gradiente)
+            cr.fill()
+            cr.set_source_rgb(*self._text_color)
+            cr.move_to(bx + bw + 10, yy + fila_h / 2 + 4)
+            cr.show_text(_("{dias:.1f} d").format(dias=dias))
+            yy += fila_h
+        cr.set_source_rgb(0.55, 0.57, 0.62)
+        cr.set_font_size(max(9, self._font_size - 2))
+        cr.move_to(x + 18, y + height - 12)
+        cr.show_text(_("Media por tarea de los días en cada columna, incluida la estancia actual"))
+
+    def _draw_cfd(self, cr, x, y, width, height) -> None:
+        """Diagrama de flujo acumulado: tareas por columna a lo largo del tiempo."""
+        dias, conteos = flujo_acumulado(self._tareas, self._historial)
+        if len(dias) < 2 or not conteos:
+            self._draw_nota(cr, x, y, width, height,
+                            _("Se necesitan al menos dos días de historial para dibujarlo"))
+            return
+        x0, y0 = x + 46, y + 60
+        ancho, alto = width - 46 - 24, height - 60 - 62
+        total_max = max(1, max(
+            sum(conteos.get(e.id, [0] * len(dias))[i] for e in self._estados)
+            for i in range(len(dias))
+        ))
+        cr.set_line_width(1)
+        cr.set_font_size(max(9, self._font_size - 2))
+        for paso in range(5):
+            valor = total_max * paso / 4
+            yy = y0 + alto - alto * paso / 4
+            cr.set_source_rgba(*self._text_color, 0.12)
+            cr.move_to(x0, yy)
+            cr.line_to(x0 + ancho, yy)
+            cr.stroke()
+            cr.set_source_rgb(*self._text_color)
+            etiqueta = f"{valor:.0f}"
+            cr.move_to(x0 - 8 - cr.text_extents(etiqueta).width, yy + 3)
+            cr.show_text(etiqueta)
+        n = len(dias) - 1
+        acumulado = [0] * len(dias)
+        # De abajo arriba: la última columna (completadas) en la base, como en un CFD.
+        for estado in reversed(self._estados):
+            serie = conteos.get(estado.id, [0] * len(dias))
+            indice = self._estados.index(estado)
+            color = self._hex_color(_PALETA_COLUMNAS[indice % len(_PALETA_COLUMNAS)])
+            inferior = list(acumulado)
+            superior = [a + s for a, s in zip(acumulado, serie)]
+            cr.new_path()
+            for i, valor in enumerate(superior):
+                px, py = x0 + ancho * i / n, y0 + alto - alto * valor / total_max
+                cr.move_to(px, py) if i == 0 else cr.line_to(px, py)
+            for i in range(n, -1, -1):
+                cr.line_to(x0 + ancho * i / n, y0 + alto - alto * inferior[i] / total_max)
+            cr.close_path()
+            cr.set_source_rgba(*color, 0.85)
+            cr.fill()
+            acumulado = superior
+        cr.set_source_rgb(*self._text_color)
+        for i in sorted({0, n // 2, n}):
+            etiqueta = dias[i].strftime("%d/%m")
+            ext = cr.text_extents(etiqueta)
+            px = x0 + ancho * i / n
+            cr.move_to(min(max(x0, px - ext.width / 2), x0 + ancho - ext.width), y0 + alto + 16)
+            cr.show_text(etiqueta)
+        lx = x0
+        ly = y + height - 16
+        cr.set_font_size(max(10, self._font_size - 1))
+        for estado in self._estados:
+            indice = self._estados.index(estado)
+            color = self._hex_color(_PALETA_COLUMNAS[indice % len(_PALETA_COLUMNAS)])
+            if lx + 24 + cr.text_extents(estado.nombre).width > x + width - 12:
+                break
+            cr.set_source_rgb(*color)
+            self._rounded_rectangle(cr, lx, ly - 9, 10, 10, 3)
+            cr.fill()
+            cr.set_source_rgb(*self._text_color)
+            cr.move_to(lx + 15, ly)
+            cr.show_text(estado.nombre)
+            lx += 15 + cr.text_extents(estado.nombre).width + 18
+
+    # ------------------------------------------------------------------
+    # Planificación: fechas y desviación
+    # ------------------------------------------------------------------
+
+    def _draw_planned_vs_actual(self, cr, x, y, width, height) -> None:
+        """Una fila por tarea: barra prevista (contorno) y barra real (rellena)."""
+        filas = fechas_planificadas_reales(self._tareas)
+        if not filas:
+            self._draw_nota(cr, x, y, width, height, _("Todavía no hay tareas con inicio y final planificado"))
+            return
+        hoy = datetime.now().astimezone().date()
+        fila_h = max(26, min(40, (height - 110) / max(1, min(len(filas), 12))))
+        visibles = max(1, int((height - 110) // fila_h))
+        mostradas = filas[:visibles]
+        desde = min(f.inicio for f in mostradas)
+        hasta = max([hoy] + [d for f in mostradas for d in (f.fin_inicial, f.fin_actual, f.fin_real) if d])
+        # El día final cuenta entero (una tarea de un día ocupa un día) y el eje abarca
+        # al menos dos semanas para que las tareas cortas no se aplasten.
+        hasta = max(hasta, desde + timedelta(days=13))
+        dias_total = (hasta - desde).days + 1
+        etiqueta_w = min(190, width * 0.26)
+        ax, aw = x + 18 + etiqueta_w, width - 36 - etiqueta_w
+        ay = y + 66
+
+        def px(dia: date) -> float:
+            return ax + aw * (dia - desde).days / dias_total
+
+        def px_fin(dia: date) -> float:
+            return px(dia + timedelta(days=1))
+
+        for indice, fila in enumerate(mostradas):
+            yy = ay + indice * fila_h
+            cr.set_source_rgb(*self._text_color)
+            cr.set_font_size(max(10, self._font_size - 1))
+            cr.move_to(x + 18, yy + fila_h / 2 + 4)
+            cr.show_text(fila.tarea.titulo[:26])
+            barra_h = (fila_h - 8) / 2
+            cr.set_source_rgba(0.55, 0.58, 0.64, 0.9)
+            cr.set_line_width(1.5)
+            self._rounded_rectangle(
+                cr, px(fila.inicio), yy + 3, max(8, px_fin(fila.fin_inicial) - px(fila.inicio)), barra_h, 3
+            )
+            cr.stroke()
+            fin = fila.fin_real or (hoy if fila.tarea.porcentaje_completado < 100 else fila.fin_inicial)
+            if fila.fin_real is None and fila.inicio > hoy:
+                continue  # aún no ha empezado: solo el contorno del plan
+            dias = fila.desviacion_dias
+            if fila.fin_real is None:
+                color = (0.88, 0.20, 0.14) if dias else (0.22, 0.47, 0.84)
+            else:
+                color = (0.20, 0.65, 0.42) if dias <= 0 else (0.95, 0.55, 0.08)
+            self._rounded_rectangle(
+                cr, px(fila.inicio), yy + 4 + barra_h, max(8, px_fin(max(fin, fila.inicio)) - px(fila.inicio)), barra_h, 3
+            )
+            cr.set_source_rgb(*color)
+            cr.fill()
+        cr.set_line_width(1.5)
+        hoy_x = px(hoy) + (px_fin(hoy) - px(hoy)) / 2
+        cr.set_source_rgba(0.98, 0.32, 0.16, 0.85)
+        cr.move_to(hoy_x, ay - 6)
+        cr.line_to(hoy_x, ay + len(mostradas) * fila_h)
+        cr.stroke()
+        cr.set_font_size(max(10, self._font_size - 1))
+        etiqueta_hoy = _("Hoy")
+        ext = cr.text_extents(etiqueta_hoy)
+        self._rounded_rectangle(cr, hoy_x - ext.width / 2 - 6, ay - 26, ext.width + 12, 17, 4)
+        cr.set_source_rgb(0.98, 0.32, 0.16)
+        cr.fill()
+        cr.set_source_rgb(1, 1, 1)
+        cr.move_to(hoy_x - ext.width / 2, ay - 13)
+        cr.show_text(etiqueta_hoy)
+        cr.set_source_rgb(*self._text_color)
+        base_y = ay + len(mostradas) * fila_h + 16
+        for dia in (desde, hasta):
+            etiqueta = dia.strftime("%d/%m")
+            ext = cr.text_extents(etiqueta)
+            cr.move_to(min(max(ax, px(dia) - ext.width / 2), ax + aw - ext.width), base_y)
+            cr.show_text(etiqueta)
+        resto = len(filas) - len(mostradas)
+        pie = _("Contorno: previsto inicial · Relleno: real (verde a tiempo, naranja con retraso, rojo vencida, azul en curso)")
+        if resto:
+            pie += " · " + _("+{count} más").format(count=resto)
+        cr.set_font_size(max(9, self._font_size - 2))
+        cr.set_source_rgb(0.55, 0.57, 0.62)
+        cr.move_to(x + 18, y + height - 12)
+        cr.show_text(pie)
+
+    def _draw_deviation(self, cr, x, y, width, height) -> None:
+        """Resumen de cumplimiento del plan inicial y las tareas más retrasadas."""
+        resumen = resumen_desviacion(self._tareas)
+        medidas = resumen.a_tiempo + resumen.con_retraso + resumen.adelantadas
+        if not medidas and not resumen.sin_medir:
+            self._draw_nota(cr, x, y, width, height, _("Todavía no hay tareas con inicio y final planificado"))
+            return
+        fichas = (
+            (_("A tiempo"), resumen.a_tiempo, (0.20, 0.65, 0.42)),
+            (_("Adelantadas"), resumen.adelantadas, (0.22, 0.47, 0.84)),
+            (_("Con retraso"), resumen.con_retraso, (0.88, 0.20, 0.14)),
+        )
+        hueco, ficha_h = 10, 64
+        ficha_w = (width - 36 - hueco * 2) / 3
+        for i, (etiqueta, valor, color) in enumerate(fichas):
+            fx = x + 18 + i * (ficha_w + hueco)
+            self._rounded_rectangle(cr, fx, y + 58, ficha_w, ficha_h, 8)
+            cr.set_source_rgba(0.45, 0.48, 0.54, 0.16)
+            cr.fill()
+            cr.set_source_rgb(*color)
+            cr.select_font_face(self._font_family, 0, 1)
+            cr.set_font_size(max(20, self._font_size + 11))
+            texto = str(valor)
+            ext = cr.text_extents(texto)
+            cr.move_to(fx + (ficha_w - ext.width) / 2, y + 58 + 30)
+            cr.show_text(texto)
+            cr.select_font_face(self._font_family, 0, 0)
+            cr.set_source_rgb(*self._text_color)
+            cr.set_font_size(max(10, self._font_size - 1))
+            ext = cr.text_extents(etiqueta)
+            cr.move_to(fx + (ficha_w - ext.width) / 2, y + 58 + ficha_h - 10)
+            cr.show_text(etiqueta)
+        yy = y + 58 + ficha_h + 26
+        cr.set_source_rgb(*self._text_color)
+        cr.set_font_size(max(11, self._font_size))
+        if resumen.con_retraso:
+            cr.move_to(x + 18, yy)
+            cr.show_text(_("Retraso medio: {dias:.1f} días").format(dias=resumen.retraso_medio))
+            yy += 24
+        maximo = max((f.desviacion_dias for f in resumen.peores), default=1)
+        fila_h = 24
+        for fila in resumen.peores:
+            if yy + fila_h > y + height - 28:
+                break
+            cr.set_source_rgb(*self._text_color)
+            cr.set_font_size(max(10, self._font_size - 1))
+            cr.move_to(x + 18, yy + 12)
+            cr.show_text(fila.tarea.titulo[:22])
+            bx = x + 18 + min(170, width * 0.34)
+            bw = max(30, width - 36 - (bx - x - 18) - 60)
+            self._rounded_rectangle(cr, bx, yy + 2, max(4, bw * fila.desviacion_dias / maximo), 12, 6)
+            cr.set_source_rgb(0.88, 0.20, 0.14)
+            cr.fill()
+            cr.set_source_rgb(*self._text_color)
+            cr.move_to(bx + bw + 8, yy + 12)
+            cr.show_text(_("+{dias} d").format(dias=fila.desviacion_dias))
+            yy += fila_h
+        if resumen.sin_medir:
+            cr.set_source_rgb(0.55, 0.57, 0.62)
+            cr.set_font_size(max(9, self._font_size - 2))
+            cr.move_to(x + 18, y + height - 12)
+            cr.show_text(_("{count} tareas en plazo sin terminar, aún sin desviación").format(count=resumen.sin_medir))
+
     # ------------------------------------------------------------------
     # Planificación
     # ------------------------------------------------------------------
@@ -814,8 +1018,12 @@ class ReportView(Gtk.Box):
         if not total:
             return
         completadas_por_dia: dict[str, int] = {}
+        # Solo cuentan las tareas visibles, las mismas que forman el total; las
+        # archivadas quedan fuera del avance (el mapa de calor sí las conserva).
+        visibles = {t.id for t in self._tareas}
         for evento in self._historial:
-            if evento.tipo == "progreso" and evento.valor_nuevo == "100":
+            if (evento.tipo == "progreso" and evento.valor_nuevo == "100"
+                    and evento.tarea_id in visibles):
                 fecha = evento.creado[:10]
                 completadas_por_dia[fecha] = completadas_por_dia.get(fecha, 0) + 1
         if not completadas_por_dia:
