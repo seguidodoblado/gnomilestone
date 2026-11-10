@@ -39,6 +39,10 @@ class GanttView(Gtk.Box):
         self._tree = TaskTreeView(
             on_editar=on_editar_tarea, on_eliminar=on_eliminar_tarea, on_archivar=on_archivar_tarea
         )
+        # Centrar el eje en «hoy» solo al cargar un proyecto, no al expandir o plegar filas
+        # (eso también cambia las filas y movía el eje de fechas bajo el ratón).
+        self._centrado_pendiente = True
+        self.connect("map", lambda *_a: self._pedir_centrado_si_hace_falta())
         self._tree.tree_model.connect("items-changed", self._on_filas_cambiadas)
         aplicar_columnas_guardadas(self._tree, "gantt_columnas_visibles")
 
@@ -169,7 +173,23 @@ class GanttView(Gtk.Box):
             getattr(self, "_progreso_resumen", {}),
         )
         # Las tareas históricas no deben dejar la vista inicial semanas/meses atrás.
-        GLib.idle_add(self._centrar_en_hoy)
+        self._pedir_centrado_si_hace_falta()
+
+    def pedir_centrado(self) -> None:
+        """Al cambiar de proyecto: la próxima carga de filas vuelve a centrar el eje en hoy."""
+        self._centrado_pendiente = True
+
+    def _pedir_centrado_si_hace_falta(self) -> None:
+        if self._centrado_pendiente and self._tree.filas_visibles():
+            GLib.idle_add(self._centrado_inicial)
+
+    def _centrado_inicial(self) -> bool:
+        if not self._centrado_pendiente:
+            return False
+        if self._canvas_scroller.get_hadjustment().get_page_size() <= 0:
+            return False  # aún sin asignar (vista oculta): sigue pendiente hasta que se muestre
+        self._centrado_pendiente = False
+        return self._centrar_en_hoy()
 
     def _on_zoom_in(self, _button: Gtk.Button | None = None) -> None:
         self._indice_zoom = min(self._indice_zoom + 1, len(_PASOS_ZOOM) - 1)

@@ -11,10 +11,11 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
-from gnomilestone import ganttcalc
+from gnomilestone import completado, ganttcalc
 from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto, Tarea
+from gnomilestone.report_metrics import eventos_con_fecha_de_finalizacion
 from gnomilestone.resource_usage import construir_filas_uso
 from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
@@ -221,6 +222,8 @@ class ProjectDetailView(Gtk.Box):
         self.refrescar()
 
     def mostrar_proyecto(self, proyecto: Proyecto) -> None:
+        if self._proyecto is None or self._proyecto.id != proyecto.id:
+            self._gantt.pedir_centrado()  # otro proyecto: el eje vuelve a empezar en hoy
         self._proyecto = proyecto
         self.refrescar()
 
@@ -267,11 +270,15 @@ class ProjectDetailView(Gtk.Box):
         self._informes.set_data(
             tareas_visibles, estados, recursos, asignaciones,
             dependencias=self._store.listar_dependencias(self._proyecto.id),
-            historial=[
-                evento
-                for tarea in tareas_con_archivadas
-                for evento in self._store.listar_historial_tarea(tarea.id)
-            ],
+            historial=eventos_con_fecha_de_finalizacion(
+                tareas_con_archivadas,
+                [
+                    evento
+                    for tarea in tareas_con_archivadas
+                    for evento in self._store.listar_historial_tarea(tarea.id)
+                ],
+                completado.id_columna_final(estados),
+            ),
         )
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:

@@ -25,7 +25,10 @@ from gnomilestone.markdown_imagenes import Imagen
 
 log = logging.getLogger(__name__)
 
-ANCHO_MAXIMO = 760
+# Máximos de una imagen en un documento: una mayor se reduce conservando su proporción; las
+# pequeñas (badges) no se agrandan.
+ANCHO_MAXIMO = 640
+ALTO_MAXIMO = 360
 ALTO_COMPACTO = 24  # en las tarjetas las imágenes se reducen a este alto
 LADO_MAXIMO_PIXELES = 4000  # una imagen mayor se descarta: no merece la memoria
 
@@ -188,8 +191,9 @@ class FilaImagenes(Gtk.Box):
     def _poner(self, hueco: Gtk.Box, etiqueta: Gtk.Label, pixbuf: GdkPixbuf.Pixbuf, ancho: int, alto: int) -> None:
         if self._compacto and alto > ALTO_COMPACTO:
             ancho, alto = max(1, round(ancho * ALTO_COMPACTO / alto)), ALTO_COMPACTO
-        if ancho > ANCHO_MAXIMO:
-            alto, ancho = round(alto * ANCHO_MAXIMO / ancho), ANCHO_MAXIMO
+        escala = min(1.0, ANCHO_MAXIMO / ancho, ALTO_MAXIMO / alto)
+        if escala < 1.0:
+            ancho, alto = max(1, round(ancho * escala)), max(1, round(alto * escala))
         # Un DrawingArea de tamaño exacto: una Gtk.Picture pediría el tamaño de su textura
         # (el doble en los SVG rasterizados a 2x) y el texto desbordaría las imágenes.
         area = Gtk.DrawingArea(content_width=ancho, content_height=alto)

@@ -10,8 +10,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
+from gnomilestone.documentacion import fecha_completada
 from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
-from gnomilestone.models import Asignacion, Dependencia, Proyecto, Recurso, Tarea
+from gnomilestone.models import Asignacion, Dependencia, HistorialTarea, Proyecto, Recurso, Tarea
 
 
 @dataclass(frozen=True)
@@ -288,3 +289,28 @@ def flujo_acumulado(
             if estado is not None:
                 conteos[estado][indice] += 1
     return dias, dict(conteos)
+
+
+def eventos_con_fecha_de_finalizacion(
+    tareas: list[Tarea], eventos: list[HistorialTarea], id_estado_final: int | None = None
+) -> list[HistorialTarea]:
+    """Historial en el que cada finalización cae en la fecha de fin real de su tarea.
+
+    Quita los eventos que marcaban una finalización en el momento de guardar el cambio (pasar
+    al 100 %, fijar el fin real, entrar en la columna final) y añade uno por cada tarea
+    completada, fechado en su `fecha_completada`. Así una tarea dada de alta con retraso
+    cuenta el día en que se terminó, y una reabierta deja de contar como completada.
+    """
+    resultado = [
+        e for e in eventos
+        if e.tipo != "fin_real"
+        and not (e.tipo == "progreso" and e.valor_nuevo == "100")
+        and not (e.tipo == "estado" and id_estado_final is not None and e.valor_nuevo == str(id_estado_final))
+    ]
+    for tarea in tareas:
+        if (dia := fecha_completada(tarea)) is not None:
+            resultado.append(HistorialTarea(
+                id=-tarea.id, tarea_id=tarea.id, creado=f"{dia}T12:00:00Z",
+                tipo="fin_real", campo="fecha_fin_real", valor_nuevo=dia,
+            ))
+    return resultado

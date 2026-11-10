@@ -1,4 +1,9 @@
-from gnomilestone.documentacion import eventos_roadmap, historial_realizado, hitos_del_proyecto
+from gnomilestone.documentacion import (
+    eventos_roadmap,
+    fecha_completada,
+    historial_realizado,
+    hitos_del_proyecto,
+)
 from gnomilestone.models import Tarea
 
 
@@ -82,3 +87,25 @@ def test_candidatas_a_padre_excluye_la_nota_y_sus_descendientes_y_sangra():
     notas = _arbol()
     assert candidatas_a_padre(notas, 2) == [(1, "Raíz A"), (4, "Raíz B"), (5, "    Hija B")]
     assert [i for i, _t in candidatas_a_padre(notas, None)] == [1, 2, 3, 4, 5]
+
+
+def test_el_historial_usa_la_fecha_de_fin_real_y_no_la_de_alta():
+    # Dadas de alta el 10 de noviembre, pero terminadas antes: cuenta cuando se terminaron.
+    tareas = [
+        t(1, porcentaje_completado=100, fecha_fin_real="2026-10-08", actualizado="2026-11-10T09:00:00Z"),
+        t(2, porcentaje_completado=100, fecha_fin_real="2026-10-08", actualizado="2026-11-10T09:05:00Z"),
+        t(3, porcentaje_completado=100, fecha_fin_real="2026-10-20", actualizado="2026-11-10T09:10:00Z"),
+        t(4, porcentaje_completado=100, actualizado="2026-11-12T10:00:00Z"),  # sin fin real: usa la modificación
+        t(5, porcentaje_completado=60, fecha_fin_real="2026-10-01", actualizado="2026-11-10T09:00:00Z"),
+    ]
+    historial = historial_realizado(tareas)
+    assert [(dia, [x.id for x in grupo]) for dia, grupo in historial] == [
+        ("2026-10-08", [1, 2]),
+        ("2026-10-20", [3]),
+        ("2026-11-12", [4]),
+    ]
+
+
+def test_fecha_completada_es_none_si_la_tarea_no_esta_al_cien_por_cien():
+    assert fecha_completada(t(1, porcentaje_completado=99, fecha_fin_real="2026-10-01")) is None
+    assert fecha_completada(t(2, porcentaje_completado=100, fecha_fin_real="2026-10-01")) == "2026-10-01"
