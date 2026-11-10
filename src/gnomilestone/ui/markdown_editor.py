@@ -10,7 +10,7 @@ from collections.abc import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import Gdk, Gtk
 
 from gnomilestone.i18n import _
 from gnomilestone.ui import markdown_edicion
@@ -62,6 +62,9 @@ class MarkdownEditor(Gtk.Box):
             left_margin=6,
             right_margin=6,
         )
+        teclas = Gtk.EventControllerKey()
+        teclas.connect("key-pressed", self._on_tecla_edicion)
+        vista_edicion.add_controller(teclas)
         edicion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         edicion_scroller.set_child(vista_edicion)
         self._vista = VistaMarkdown(texto_vacio=texto_vacio, al_enlace=al_enlace, preprocesar=preprocesar)
@@ -86,6 +89,14 @@ class MarkdownEditor(Gtk.Box):
         if zoom_hoja is None:
             self._stack.add_css_class("card")  # mismo marco visual que un Entry/SpinButton
         self.append(self._stack)
+
+    def _on_tecla_edicion(self, _ctrl, keyval: int, _keycode: int, estado: Gdk.ModifierType) -> bool:
+        # Enter continúa listas y citas; Mayús/Ctrl+Enter salta de línea sin prefijo.
+        if keyval not in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+            return False
+        if estado & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK):
+            return False
+        return markdown_edicion.continuar_lista(self._buffer)
 
     # -- API ---------------------------------------------------------------
 

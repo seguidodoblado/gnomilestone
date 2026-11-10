@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
 import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
+
+_RE_NUMERO = re.compile(r"^\d+\. ")
 
 
 def _iter_de_linea(buf: Gtk.TextBuffer, linea: int) -> Gtk.TextIter:
@@ -43,7 +47,7 @@ def envolver(buf: Gtk.TextBuffer, antes: str, despues: str, ejemplo: str) -> Non
 
 def prefijar_lineas(buf: Gtk.TextBuffer, prefijo: str) -> None:
     """Añade `prefijo` a cada línea de la selección (o a la actual); si todas lo llevan, lo
-    quita. Con «1. » numera las líneas."""
+    quita. Con «1. » numera las líneas (y las desnumera si todas ya estaban numeradas)."""
     if buf.get_has_selection():
         inicio, fin = buf.get_selection_bounds()
     else:
@@ -57,16 +61,51 @@ def prefijar_lineas(buf: Gtk.TextBuffer, prefijo: str) -> None:
         for n in range(primera, ultima + 1)
     ]
     numeradas = prefijo == "1. "
-    quitar = not numeradas and all(linea.startswith(prefijo) for linea in lineas)
+    if numeradas:
+        quitar = all(_RE_NUMERO.match(linea) for linea in lineas)
+    else:
+        quitar = all(linea.startswith(prefijo) for linea in lineas)
     nuevas = []
     for i, linea in enumerate(lineas, start=1):
         if quitar:
-            nuevas.append(linea[len(prefijo) :])
+            nuevas.append(_RE_NUMERO.sub("", linea, count=1) if numeradas else linea[len(prefijo) :])
         elif numeradas:
-            nuevas.append(f"{i}. {linea}")
+            # Una línea que ya llevaba número se renumera en vez de duplicarlo.
+            nuevas.append(f"{i}. {_RE_NUMERO.sub('', linea, count=1)}")
         else:
             nuevas.append(prefijo + linea)
     buf.begin_user_action()
     buf.delete(_iter_de_linea(buf, primera), _fin_de_linea(buf, ultima))
     buf.insert(_iter_de_linea(buf, primera), "\n".join(nuevas))
     buf.end_user_action()
+
+
+_RE_LISTA = re.compile(r"^(\s*)(?:(\d+)\.|[-*+]|>)(?:\s\[[ xX]\])?\s")
+
+
+def continuar_lista(buf: Gtk.TextBuffer) -> bool:
+    """Al pulsar Enter en una línea de lista o cita, abre la siguiente con su prefijo (la
+    numeración sigue; las casillas nacen sin marcar). En un elemento vacío quita el prefijo y
+    termina la lista. Devuelve True si ha gestionado la tecla; False si Enter debe actuar
+    con normalidad (hay selección, el cursor no está al final o la línea no es de lista)."""
+    if buf.get_has_selection():
+        return False
+    cursor = buf.get_iter_at_mark(buf.get_insert())
+    linea = cursor.get_line()
+    if not cursor.ends_line():
+        return False
+    texto = buf.get_text(_iter_de_linea(buf, linea), cursor, False)
+    m = _RE_LISTA.match(texto)
+    if not m:
+        return False
+    buf.begin_user_action()
+    if texto[m.end() :].strip() == "":
+        buf.delete(_iter_de_linea(buf, linea), cursor)
+    else:
+        prefijo = m.group(0)
+        if m.group(2) is not None:
+            prefijo = prefijo.replace(f"{m.group(2)}.", f"{int(m.group(2)) + 1}.", 1)
+        prefijo = re.sub(r"\[[xX]\]", "[ ]", prefijo)
+        buf.insert_at_cursor("\n" + prefijo)
+    buf.end_user_action()
+    return True

@@ -14,6 +14,7 @@ from gnomilestone.models import Dependencia, Tarea
 from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.gantt_view import GanttView
+from gnomilestone.ui.kanban_view import colores_de_estados
 from gnomilestone.ui.task_dialog import TaskDialog
 from gnomilestone.ui.task_tree_view import TareaRow, construir_filas
 
@@ -152,7 +153,8 @@ class GlobalGanttView(Gtk.Box):
             proyecto = self._store.obtener_proyecto(proyecto_id)
             if proyecto is None:
                 continue
-            estados_por_id = {e.id: e.nombre for e in self._store.listar_estados(proyecto_id)}
+            estados = self._store.listar_estados(proyecto_id)
+            estados_por_id = {e.id: e.nombre for e in estados}
             tareas = self._store.listar_tareas(proyecto_id)
             if not self._mostrar_completadas_check.get_active():
                 tareas = ocultar_completadas(tareas)
@@ -164,6 +166,7 @@ class GlobalGanttView(Gtk.Box):
                     estados_por_id,
                     recursos_por_tarea,
                     self._store.listar_etiquetas_por_tarea(proyecto_id),
+                    colores_de_estados(estados),
                 ),
             )
             filas.append(fila_proyecto)

@@ -546,3 +546,54 @@ def test_borrar_una_nota_sube_sus_subpaginas_a_su_abuela(store):
     assert store.obtener_nota_documentacion(c.id).padre_id == a.id
     store.eliminar_nota_documentacion(a.id)
     assert store.obtener_nota_documentacion(c.id).padre_id is None
+
+
+def test_reordenar_tareas_renumera_el_orden(store):
+    proyecto = store.crear_proyecto("Orden por arrastre")
+    a = store.crear_tarea(proyecto.id, "A")
+    b = store.crear_tarea(proyecto.id, "B")
+    c = store.crear_tarea(proyecto.id, "C")
+    store.reordenar_tareas([c.id, a.id, b.id])
+    assert [t.titulo for t in store.listar_tareas(proyecto.id)] == ["C", "A", "B"]
+
+
+def test_fila_de_tarea_expone_el_issue_de_github(store):
+    from gnomilestone.ui.task_tree_view import TareaRow
+
+    proyecto = store.crear_proyecto("Issues")
+    tarea = store.crear_tarea(proyecto.id, "Con issue")
+    assert TareaRow("x", [], tarea=tarea).issue == ""
+    tarea.github_issue_number = 17
+    tarea.github_url = "https://github.com/o/r/issues/17"
+    fila = TareaRow("x", [], tarea=tarea)
+    assert (fila.issue, fila.issue_url) == ("#17", "https://github.com/o/r/issues/17")
+
+
+def test_una_copia_vieja_de_la_tarea_no_borra_su_issue_de_github(store):
+    # Regresión: el diálogo guardaba una copia leída antes de terminar el primer envío (sin
+    # número de issue) y borraba el vínculo; el siguiente envío creaba un issue duplicado.
+    proyecto = store.crear_proyecto("Duplicados")
+    tarea = store.crear_tarea(proyecto.id, "Vista de Lista")
+    copia_vieja = store.obtener_tarea(tarea.id)
+    store.vincular_issue_github(tarea.id, 39, "https://github.com/o/r/issues/39")
+
+    copia_vieja.titulo = "Vista de Lista (editada)"
+    store.actualizar_tarea(copia_vieja)
+
+    actual = store.obtener_tarea(tarea.id)
+    assert actual.titulo == "Vista de Lista (editada)"
+    assert (actual.github_issue_number, actual.github_url) == (
+        39,
+        "https://github.com/o/r/issues/39",
+    )
+
+
+def test_vincular_issue_no_pisa_lo_editado_durante_el_envio(store):
+    proyecto = store.crear_proyecto("Envio")
+    tarea = store.crear_tarea(proyecto.id, "Original")
+    editada = store.obtener_tarea(tarea.id)
+    editada.titulo = "Editada mientras se enviaba"
+    store.actualizar_tarea(editada)
+    store.vincular_issue_github(tarea.id, 7, "https://github.com/o/r/issues/7")
+    actual = store.obtener_tarea(tarea.id)
+    assert (actual.titulo, actual.github_issue_number) == ("Editada mientras se enviaba", 7)

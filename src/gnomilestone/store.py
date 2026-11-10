@@ -853,6 +853,14 @@ class Store:
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
 
+    def reordenar_tareas(self, ids_en_orden: list[int]) -> None:
+        """Renumera `orden` según la secuencia dada (la misma que usan Lista y Gantt)."""
+        with closing(self._connect()) as db, db:
+            db.executemany(
+                "UPDATE tarea SET orden = ? WHERE id = ?",
+                [(orden, tarea_id) for orden, tarea_id in enumerate(ids_en_orden)],
+            )
+
     def listar_tareas_archivadas(self, proyecto_id: int) -> list[Tarea]:
         with closing(self._connect()) as db:
             filas = db.execute(
@@ -943,6 +951,15 @@ class Store:
             ).fetchone()
             return _tarea_de_fila(fila) if fila else None
 
+    def vincular_issue_github(self, tarea_id: int, numero: int | None, url: str | None) -> None:
+        """Guarda solo el número y la URL del issue recién creado, sin tocar el resto de la fila
+        (que el usuario pudo editar mientras se enviaba)."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE tarea SET github_issue_number = ?, github_url = ? WHERE id = ?",
+                (numero, url, tarea_id),
+            )
+
     def actualizar_tarea(self, tarea: Tarea) -> None:
         with closing(self._connect()) as db, db:
             fila_anterior = db.execute("SELECT * FROM tarea WHERE id = ?", (tarea.id,)).fetchone()
@@ -960,8 +977,13 @@ class Store:
                 "fecha_inicio = ?, fecha_fin_planificada_inicial = ?, fecha_fin_planificada = ?, "
                 "fecha_limite = ?, fecha_fin_real = ?, "
                 "duracion_dias = ?, porcentaje_completado = ?, orden = ?, "
-                "es_hito = ?, github_issue_number = ?, github_issue_id = ?, github_item_id = ?, "
-                "github_url = ?, prioridad = ?, porcentaje_previo = ?, "
+                # El vínculo con GitHub nunca se borra desde aquí: un objeto Tarea viejo (p. ej.
+                # el de un diálogo abierto antes de que termine el primer envío) llegaría sin
+                # número de issue y lo borraría, y el siguiente envío crearía un issue duplicado.
+                "es_hito = ?, github_issue_number = COALESCE(?, github_issue_number), "
+                "github_issue_id = COALESCE(?, github_issue_id), "
+                "github_item_id = COALESCE(?, github_item_id), "
+                "github_url = COALESCE(?, github_url), prioridad = ?, porcentaje_previo = ?, "
                 "actualizado = datetime('now') WHERE id = ?",
                 (tarea.padre_id, tarea.estado_id, tarea.titulo, tarea.descripcion,
                  tarea.fecha_inicio, tarea.fecha_fin_planificada_inicial,

@@ -5,18 +5,23 @@ from collections.abc import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gio, Gtk
+from gi.repository import Gio, GLib, Gtk
 
 from gnomilestone.i18n import _
 from gnomilestone.models import Etiqueta, Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
+from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
+from gnomilestone.ui.kanban_view import colores_de_estados
 from gnomilestone.ui.task_tree_view import (
     ALTURA_FILA,
     CLASE_FILA_FIJA,
+    COLUMNAS_INFO,
     TareaRow,
     adjuntar_menu_contextual,
     asegurar_css_fila_fija,
+    estado_factory,
     etiquetas_factory,
+    issue_factory,
     ordenar_jerarquicamente,
     prioridad_factory,
 )
@@ -25,6 +30,8 @@ from gnomilestone.ui.vencimiento import (
     asegurar_css_vencimientos,
     texto_vencimiento,
 )
+
+_ANCHO_TITULO = 360
 
 
 def coincide_con_filtro(fila: TareaRow, texto: str, estado_id: int | None) -> bool:
@@ -121,6 +128,7 @@ class TableView(Gtk.Box):
         self._estado_dropdown = Gtk.DropDown.new_from_strings([_("Todas las columnas")])
         self._estado_dropdown.connect("notify::selected", self._on_filtro_estado_cambiado)
         barra_filtro.append(self._estado_dropdown)
+        # El botón se añade al final, cuando ya existen las columnas.
         self.append(barra_filtro)
 
         self._store_base = Gio.ListStore(item_type=TareaRow)
@@ -134,43 +142,57 @@ class TableView(Gtk.Box):
         if on_editar_tarea is not None and on_eliminar_tarea is not None:
             adjuntar_menu_contextual(self._view, on_editar_tarea, on_eliminar_tarea, on_archivar_tarea)
 
-        self._view.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Título"), factory=_titulo_factory(), expand=True, resizable=True
+        # Clave -> (propiedad de texto | fábrica). El orden y los títulos salen de COLUMNAS_INFO.
+        fabricas = {
+            "titulo": _titulo_factory(),
+            "asignado": _recursos_factory(),
+            "estado": estado_factory(arbol=False),
+            "prioridad": prioridad_factory(arbol=False),
+            "etiquetas": etiquetas_factory(arbol=False),
+            "issue": issue_factory(arbol=False),
+        }
+        propiedades = {
+            "fecha_inicio": "fecha_inicio",
+            "fecha_fin_planificada": "fecha_fin_planificada",
+            "fecha_limite": "fecha_limite",
+            "duracion_dias": "duracion_dias",
+            "porcentaje_completado": "porcentaje_texto",
+        }
+        self._columnas: dict[str, Gtk.ColumnViewColumn] = {}
+        for clave, titulo, _fija, _defecto in COLUMNAS_INFO:
+            col = Gtk.ColumnViewColumn(
+                title=titulo,
+                factory=fabricas.get(clave) or _texto_factory(propiedades[clave]),
+                resizable=True,
             )
-        )
-        self._view.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Asignado"), factory=_recursos_factory(), resizable=True
-            )
-        )
-        self._view.append_column(
-            Gtk.ColumnViewColumn(title=_("Columna"), factory=_texto_factory("estado"), resizable=True)
-        )
-        self._view.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Prioridad"), factory=prioridad_factory(arbol=False), resizable=True
-            )
-        )
-        self._view.append_column(
-            Gtk.ColumnViewColumn(
-                title=_("Etiquetas"), factory=etiquetas_factory(arbol=False), resizable=True
-            )
-        )
-        for titulo, propiedad in (
-            (_("Inicio"), "fecha_inicio"),
-            (_("Planificado"), "fecha_fin_planificada"),
-            (_("Límite"), "fecha_limite"),
-            (_("Duración (días)"), "duracion_dias"),
-            (_("% completado"), "porcentaje_texto"),
-        ):
-            self._view.append_column(
-                Gtk.ColumnViewColumn(title=titulo, factory=_texto_factory(propiedad), resizable=True)
-            )
+            if clave == "titulo":
+                # Sin expand: una columna expandida absorbe el espacio sobrante y, al tirar de
+                # su borde, solo se deja ensanchar (no estrechar). Con ancho propio se
+                # redimensiona igual que las demás.
+                col.set_fixed_width(_ANCHO_TITULO)
+            # En la Lista se ven todas salvo «Issue», que se activa desde el menú de columnas.
+            col.set_visible(clave != "issue")
+            self._view.append_column(col)
+            self._columnas[clave] = col
+        aplicar_columnas_guardadas(self, "lista_columnas_visibles")
+        barra_filtro.append(crear_menu_columnas(self, "lista_columnas_visibles"))
 
         scroller = Gtk.ScrolledWindow(vexpand=True)
         scroller.set_child(self._view)
         self.append(scroller)
+
+    def columnas_disponibles(self) -> list[tuple[str, str, bool]]:
+        """(clave, etiqueta, es_fija) de cada columna, para el menú «Columnas visibles»."""
+        return [(clave, etiqueta, fija) for clave, etiqueta, fija, _def in COLUMNAS_INFO]
+
+    def set_columna_visible(self, clave: str, visible: bool) -> None:
+        col = self._columnas.get(clave)
+        if col is not None:
+            col.set_visible(visible)
+
+    def is_columna_visible(self, clave: str) -> bool:
+        col = self._columnas.get(clave)
+        return col.get_visible() if col is not None else False
 
     def set_tareas(
         self,
@@ -191,19 +213,41 @@ class TableView(Gtk.Box):
             self._estado_filtro = None
             self._estado_dropdown.set_selected(0)
 
+        # La lista se reconstruye entera (p. ej. al guardar una tarea): se recuerda la fila
+        # seleccionada para no volver a la primera.
+        seleccionada = self._selection.get_selected_item()
+        id_seleccionada = seleccionada.tarea.id if seleccionada and seleccionada.tarea else None
+
+        colores_estado = colores_de_estados(estados)
         self._store_base.remove_all()
         for tarea, prefijo in ordenar_jerarquicamente(tareas):
             nombre_estado = estados_por_id.get(tarea.estado_id, "")
+            color_estado = colores_estado.get(tarea.estado_id, "")
             self._store_base.append(
                 TareaRow(
                     prefijo + tarea.titulo,
                     [],
                     tarea=tarea,
                     estado_nombre=nombre_estado,
+                    estado_color=color_estado,
                     recursos=recursos_por_tarea.get(tarea.id, []),
                     etiquetas=etiquetas_por_tarea.get(tarea.id, []),
                 )
             )
+        if id_seleccionada is not None:
+            self._seleccionar_tarea(id_seleccionada)
+
+    def _seleccionar_tarea(self, tarea_id: int) -> None:
+        """Selecciona (y deja a la vista) la fila de esa tarea, si sigue mostrándose."""
+        for posicion in range(self._modelo_filtrado.get_n_items()):
+            fila = self._modelo_filtrado.get_item(posicion)
+            if fila.tarea is not None and fila.tarea.id == tarea_id:
+                self._selection.set_selected(posicion)
+                # El ColumnView aún no ha maquetado las filas nuevas: se desplaza al ocioso.
+                GLib.idle_add(
+                    lambda p=posicion: self._view.scroll_to(p, None, Gtk.ListScrollFlags.NONE, None)
+                )
+                return
 
     def _coincide(self, fila: TareaRow, _datos) -> bool:
         return coincide_con_filtro(fila, self._buscar_entry.get_text(), self._estado_filtro)
