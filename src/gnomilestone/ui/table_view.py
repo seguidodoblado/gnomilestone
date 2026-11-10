@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gio, GLib, Gtk
 
 from gnomilestone.i18n import _
-from gnomilestone.models import Etiqueta, Recurso, Tarea
+from gnomilestone.models import Dependencia, Etiqueta, Recurso, Tarea
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
 from gnomilestone.ui.kanban_view import colores_de_estados
@@ -64,17 +64,36 @@ def _titulo_factory() -> Gtk.SignalListItemFactory:
     factory = Gtk.SignalListItemFactory()
 
     def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
-        label = Gtk.Label(xalign=0, height_request=ALTURA_FILA)
+        caja = Gtk.Box(spacing=4, height_request=ALTURA_FILA, valign=Gtk.Align.CENTER)
+        prefijo = Gtk.Label(xalign=0)
+        prefijo.add_css_class("monospace")
+        label = Gtk.Label(xalign=0)
         label.add_css_class("monospace")
-        item.set_child(label)
+        icono = Gtk.Image.new_from_icon_name("insert-link-symbolic")
+        caja.append(prefijo)
+        caja.append(label)
+        caja.append(icono)
+        caja.prefijo, caja.label, caja.icono_dependencias = prefijo, label, icono
+        item.set_child(caja)
 
     def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
         fila: TareaRow = item.get_item()
-        label = item.get_child()
-        label.set_label(fila.titulo)
-        label.fila_asociada = fila
-        estado = aplicar_estilo_vencimiento(label, fila.tarea)
-        label.set_tooltip_text(texto_vencimiento(estado))
+        caja = item.get_child()
+        texto = fila.titulo
+        n_prefijo = len(texto) - len(fila.tarea.titulo) if fila.tarea else 0
+        sangria, titulo = texto[:n_prefijo], texto[n_prefijo:]
+        es_hito = bool(fila.tarea and fila.tarea.es_hito)
+        caja.prefijo.set_label(sangria + ("◆" if es_hito else ""))
+        caja.prefijo.set_visible(bool(sangria) or es_hito)
+        caja.label.set_label(titulo)
+        caja.fila_asociada = fila
+        caja.label.fila_asociada = fila
+        estado = aplicar_estilo_vencimiento(caja.label, fila.tarea)
+        caja.label.set_tooltip_text(texto_vencimiento(estado))
+        caja.icono_dependencias.set_visible(bool(fila.depende_de))
+        caja.icono_dependencias.set_tooltip_text(
+            _("Depende de") + ":\n" + "\n".join(fila.depende_de) if fila.depende_de else None
+        )
 
     factory.connect("setup", _setup)
     factory.connect("bind", _bind)
@@ -201,8 +220,14 @@ class TableView(Gtk.Box):
         estados_por_id: dict[int, str],
         recursos_por_tarea: dict[int, list[Recurso]] | None = None,
         etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
+        dependencias: list[Dependencia] | None = None,
     ) -> None:
         recursos_por_tarea = recursos_por_tarea or {}
+        titulos = {t.id: t.titulo for t in tareas}
+        depende_de: dict[int, list[str]] = {}
+        for d in dependencias or []:
+            if d.tarea_origen_id in titulos:
+                depende_de.setdefault(d.tarea_destino_id, []).append(titulos[d.tarea_origen_id])
         etiquetas_por_tarea = etiquetas_por_tarea or {}
         etiquetas = [_("Todas las columnas")] + [estado.nombre for estado in estados]
         self._ids_estado = [None] + [estado.id for estado in estados]
@@ -232,6 +257,7 @@ class TableView(Gtk.Box):
                     estado_color=color_estado,
                     recursos=recursos_por_tarea.get(tarea.id, []),
                     etiquetas=etiquetas_por_tarea.get(tarea.id, []),
+                    depende_de=depende_de.get(tarea.id, []),
                 )
             )
         if id_seleccionada is not None:
