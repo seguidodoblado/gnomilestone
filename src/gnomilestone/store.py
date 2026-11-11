@@ -1065,6 +1065,11 @@ class Store:
                 (numero, url, tarea_id),
             )
 
+    def vincular_item_github(self, tarea_id: int, item_id: str) -> None:
+        """Guarda solo el id del item del Project V2 (sin tocar el resto de la fila)."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE tarea SET github_item_id = ? WHERE id = ?", (item_id, tarea_id))
+
     def actualizar_tarea(self, tarea: Tarea) -> None:
         with closing(self._connect()) as db, db:
             fila_anterior = db.execute("SELECT * FROM tarea WHERE id = ?", (tarea.id,)).fetchone()
