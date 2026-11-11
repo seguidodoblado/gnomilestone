@@ -465,6 +465,19 @@ class GitHubClient:
 
         return meta, status_options, items
 
+    def anadir_item_v2(self, project_id: str, content_node_id: str) -> str:
+        """Añade un issue (por su node_id) a un Project V2 y devuelve el id del item.
+        Es idempotente: si ya estaba (p. ej. por el auto-add de GitHub), devuelve el existente."""
+        query = """
+        mutation($projectId: ID!, $contentId: ID!) {
+          addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+            item { id }
+          }
+        }
+        """
+        datos = self.graphql(query, {"projectId": project_id, "contentId": content_node_id})
+        return datos["addProjectV2ItemById"]["item"]["id"]
+
     def actualizar_status_item_v2(
         self, project_id: str, item_id: str, status_field_id: str, single_select_option_id: str
     ) -> None:

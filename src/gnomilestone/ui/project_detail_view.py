@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -72,10 +73,11 @@ class ProjectDetailView(Gtk.Box):
     """Detalle de un proyecto: rail de vistas (Lista/Tablero/Gantt/Recursos/Uso) al estilo
     Planner, barra con Nueva tarea, y el contenido de la vista activa."""
 
-    def __init__(self, store: Store) -> None:
+    def __init__(self, store: Store, on_avance_changed: Callable[[], None] | None = None) -> None:
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL)
         _asegurar_css_rail()
         self._store = store
+        self._on_avance_changed = on_avance_changed
         self._proyecto: Proyecto | None = None
         self._rail_buttons: dict[str, Gtk.ToggleButton] = {}
 
@@ -230,6 +232,8 @@ class ProjectDetailView(Gtk.Box):
     def refrescar(self) -> None:
         if self._proyecto is None:
             return
+        if self._on_avance_changed:
+            self._on_avance_changed()  # barra y % del panel lateral
         estados = self._store.listar_estados(self._proyecto.id)
         estados_por_id = {estado.id: estado.nombre for estado in estados}
         # El progreso de una tarea resumen cuenta también a sus subtareas archivadas.

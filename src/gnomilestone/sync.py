@@ -940,6 +940,24 @@ class GitHubSyncManager:
                 # Solo el vínculo: reescribir toda la fila con la copia leída al empezar el envío
                 # pisaría lo que el usuario haya editado mientras tanto.
                 self._store.vincular_issue_github(tarea.id, res.get("number"), res.get("html_url"))
+                tarea.github_issue_number = res.get("number")
+
+            # 1b. Sin item en el Project V2 no habría Status que enviar (GitHub dejaría la tarea
+            # en «No Status»): se añade el issue al proyecto (idempotente) y se guarda el item.
+            # Se reintenta en cada envío mientras la tarea no tenga item.
+            v2 = proyecto.github_project_v2_id
+            if v2 and v2.isdigit() and repo and tarea.github_issue_number and not tarea.github_item_id:
+                try:
+                    meta_v2, _o, _i = self._client.obtener_detalles_proyecto_v2(owner, int(v2))
+                    node_id = self._client.obtener_issue(
+                        owner, repo, tarea.github_issue_number
+                    ).get("node_id")
+                    if node_id:
+                        item_id = self._client.anadir_item_v2(meta_v2["id"], node_id)
+                        self._store.vincular_item_github(tarea.id, item_id)
+                        tarea.github_item_id = item_id
+                except GitHubError:
+                    log.exception("No se pudo añadir el issue %s al Project V2", tarea.github_issue_number)
 
             # 2. Si hay Project V2 y la tarea tiene item_id asociado, sincronizar estado y
             # fechas (campos "Start Date"/"Target Date", si el proyecto los tiene)

@@ -74,7 +74,9 @@ class MainWindow(Gtk.ApplicationWindow):
             hexpand=True, vexpand=True, hhomogeneous=False, vhomogeneous=False
         )
         self._detail_stack.add_named(self._build_empty_state(), "empty")
-        self._project_detail = ProjectDetailView(self._store)
+        self._project_detail = ProjectDetailView(
+            self._store, on_avance_changed=self._project_list.refresh
+        )
         self._detail_stack.add_named(self._project_detail, "detail")
         self._global_gantt = GlobalGanttView(self._store)
         self._detail_stack.add_named(self._global_gantt, "global")

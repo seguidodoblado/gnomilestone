@@ -38,6 +38,7 @@ class ProjectListView(Gtk.Box):
         self._store = store
         self._on_select = on_select
         self._selected_id: int | None = None
+        self._refrescando = False
         self._project_dialog: ProjectDialog | None = None
 
         header = Gtk.Box(spacing=6, margin_start=6, margin_end=6, margin_top=6)
@@ -68,6 +69,14 @@ class ProjectListView(Gtk.Box):
         self.refresh()
 
     def refresh(self) -> None:
+        # Reconstruir las filas reselecciona la actual: no se notifica como un cambio.
+        self._refrescando = True
+        try:
+            self._refresh()
+        finally:
+            self._refrescando = False
+
+    def _refresh(self) -> None:
         self._list_box.remove_all()
         proyectos = self._store.listar_proyectos()
         por_proyecto: dict[int, list] = {p.id: [] for p in proyectos}
@@ -181,6 +190,8 @@ class ProjectListView(Gtk.Box):
         self.crear_proyecto(nombre)
 
     def _on_row_selected(self, _list_box: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
+        if self._refrescando:
+            return
         if row is None:
             self._selected_id = None
             self._on_select(None)
