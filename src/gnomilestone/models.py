@@ -37,6 +37,23 @@ class EstadoTablero:
 
 
 @dataclass
+class Hito:
+    """Punto de control con fecha objetivo (un Milestone de GitHub). No es una tarea: no tiene
+    columna, recursos ni duración; las tareas que contribuyen a él lo apuntan con `hito_id`."""
+
+    id: int
+    proyecto_id: int
+    titulo: str
+    fecha: str | None = None  # fecha objetivo, «AAAA-MM-DD»
+    descripcion: str = ""
+    conseguido: bool = False  # marcado a mano (o cerrado en GitHub)
+    github_milestone_number: int | None = None
+    github_synced_at: str | None = None
+    creado: str = ""
+    actualizado: str = ""
+
+
+@dataclass
 class Tarea:
     id: int
     proyecto_id: int
@@ -54,8 +71,8 @@ class Tarea:
     archivada: bool = False  # fuera de todas las vistas hasta que se desarchive
     porcentaje_previo: int | None = None  # % antes de completarse al entrar en la columna final
     orden: int = 0
-    es_hito: bool = False
-    prioridad: int = 0  # 0 ninguna, 1 baja, 2 media, 3 alta (ver prioridad.py)
+    hito_id: int | None = None  # Hito (Milestone de GitHub) al que contribuye la tarea
+    prioridad: int = 0  # 0 ninguna, 1 baja, 2 media, 3 alta, 4 urgente (ver prioridad.py)
     github_issue_number: int | None = None
     github_issue_id: str | None = None
     github_item_id: str | None = None

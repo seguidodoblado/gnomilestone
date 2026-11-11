@@ -9,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from gnomilestone import settings
 
@@ -133,6 +133,7 @@ class GitHubClient:
         endpoint_or_url: str,
         method: str = "GET",
         data: dict[str, Any] | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> Any:
         url = (
             endpoint_or_url
@@ -145,6 +146,7 @@ class GitHubClient:
             "Accept": "application/vnd.github+json",
             "User-Agent": "GnoMilestone/0.1.0",
             "X-GitHub-Api-Version": "2022-11-28",
+            **(extra_headers or {}),
         }
         body_bytes = None
         if data is not None:
@@ -190,11 +192,18 @@ class GitHubClient:
             raise GitHubNotFoundError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
         raise GitHubError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
 
-    def graphql(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def graphql(
+        self,
+        query: str,
+        variables: dict[str, Any] | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
-        resp = self._request(GITHUB_GRAPHQL_URL, method="POST", data=payload)
+        resp = self._request(
+            GITHUB_GRAPHQL_URL, method="POST", data=payload, extra_headers=extra_headers
+        )
         if not resp:
             raise GitHubError("Respuesta vacía de GraphQL")
         if resp.get("errors"):
@@ -390,7 +399,7 @@ class GitHubClient:
             fname = field.get("name")
             fid = field.get("id")
             meta["fields"][fname] = fid
-            if fname == "Status" and "options" in field:
+            if (fname or "").casefold() == "status" and "options" in field:
                 meta["status_field_id"] = fid
                 for opt in field["options"]:
                     status_options.append(
@@ -431,14 +440,14 @@ class GitHubClient:
             for fval in item_node.get("fieldValues", {}).get("nodes", []):
                 field_info = fval.get("field") or {}
                 fname = field_info.get("name")
-                if fname == "Status":
+                if (fname or "").casefold() == "status":
                     status_name = fval.get("name")
                     status_option_id = fval.get("optionId")
                 elif (fname or "").casefold() in ("priority", "prioridad"):
                     priority_name = fval.get("name")
-                elif fname == "Start Date":
+                elif (fname or "").casefold() == "start date":
                     start_date = fval.get("date")
-                elif fname == "Target Date":
+                elif (fname or "").casefold() == "target date":
                     target_date = fval.get("date")
 
             items.append(
@@ -464,6 +473,59 @@ class GitHubClient:
             )
 
         return meta, status_options, items
+
+    # -- Campos de issue (Priority, Effort, Start date, Target date) -----------
+    # Son campos del issue, no del Project V2, y su API de GraphQL exige esta cabecera.
+    _CABECERA_CAMPOS_ISSUE: ClassVar[dict[str, str]] = {"GraphQL-Features": "issue_fields"}
+
+    def listar_campos_issue(self, owner: str, repo: str) -> dict[str, dict[str, Any]]:
+        """Campos de issue del repositorio, por nombre en minúsculas:
+        {"priority": {"id": ..., "name": "Priority", "options": {"Urgent": id, ...}}, ...}.
+        Vacío si el repositorio no los tiene (o la cuenta no los ha activado)."""
+        data = self.graphql(
+            """
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                issueFields(first: 50) {
+                  nodes {
+                    __typename
+                    ... on IssueFieldSingleSelect { id name options { id name } }
+                    ... on IssueFieldDate { id name }
+                  }
+                }
+              }
+            }
+            """,
+            {"owner": owner, "repo": repo},
+            extra_headers=self._CABECERA_CAMPOS_ISSUE,
+        )
+        nodos = ((data.get("repository") or {}).get("issueFields") or {}).get("nodes") or []
+        campos: dict[str, dict[str, Any]] = {}
+        for nodo in nodos:
+            if not nodo or not nodo.get("name"):
+                continue
+            campos[nodo["name"].casefold()] = {
+                "id": nodo["id"],
+                "name": nodo["name"],
+                "tipo": nodo.get("__typename"),
+                "options": {o["name"]: o["id"] for o in nodo.get("options") or []},
+            }
+        return campos
+
+    def establecer_campos_issue(self, issue_node_id: str, valores: list[dict[str, Any]]) -> None:
+        """Escribe campos de issue. Cada valor lleva `fieldId` y uno de `singleSelectOptionId`
+        o `dateValue` ("YYYY-MM-DD")."""
+        self.graphql(
+            """
+            mutation($issueId: ID!, $fields: [IssueFieldCreateOrUpdateInput!]!) {
+              setIssueFieldValue(input: {issueId: $issueId, issueFields: $fields}) {
+                issue { id }
+              }
+            }
+            """,
+            {"issueId": issue_node_id, "fields": valores},
+            extra_headers=self._CABECERA_CAMPOS_ISSUE,
+        )
 
     def anadir_item_v2(self, project_id: str, content_node_id: str) -> str:
         """Añade un issue (por su node_id) a un Project V2 y devuelve el id del item.
@@ -513,7 +575,7 @@ class GitHubClient:
     def actualizar_fecha_item_v2(
         self, project_id: str, item_id: str, field_id: str, fecha_iso: str
     ) -> None:
-        """Cambia un campo de fecha (p.ej. "Start Date"/"Target Date") de un item de
+        """Cambia un campo de fecha (p.ej. "Start date"/"Target date") de un item de
         Project V2 en GitHub. `fecha_iso` en formato "YYYY-MM-DD"."""
         query = """
         mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
@@ -576,8 +638,11 @@ class GitHubClient:
         state: str | None = None,
         assignees: list[str] | None = None,
         labels: list[str] | None = None,
+        milestone: int | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {}
+        if milestone is not None:
+            data["milestone"] = milestone
         if titulo is not None:
             data["title"] = titulo
         if body is not None:
@@ -589,6 +654,86 @@ class GitHubClient:
         if labels is not None:
             data["labels"] = labels
         return self._request(f"repos/{owner}/{repo}/issues/{number}", method="PATCH", data=data)
+
+    def vincular_subissue(
+        self, owner: str, repo: str, numero_padre: int, sub_issue_id: int
+    ) -> None:
+        """Hace que el issue `sub_issue_id` (id numérico, no número) sea subissue del
+        `numero_padre`, quitándolo de su padre anterior si lo tenía."""
+        self._request(
+            f"repos/{owner}/{repo}/issues/{numero_padre}/sub_issues",
+            method="POST",
+            data={"sub_issue_id": sub_issue_id, "replace_parent": True},
+        )
+
+    # -- Milestones (el equivalente remoto de un Hito local) -------------------------
+
+    @staticmethod
+    def _datos_milestone(
+        titulo: str, fecha: str | None, descripcion: str, cerrado: bool
+    ) -> dict[str, Any]:
+        datos: dict[str, Any] = {
+            "title": titulo,
+            "description": descripcion,
+            "state": "closed" if cerrado else "open",
+        }
+        if fecha:
+            datos["due_on"] = f"{fecha[:10]}T00:00:00Z"
+        return datos
+
+    def crear_milestone(
+        self,
+        owner: str,
+        repo: str,
+        titulo: str,
+        fecha: str | None = None,
+        descripcion: str = "",
+        cerrado: bool = False,
+    ) -> dict[str, Any]:
+        return self._request(
+            f"repos/{owner}/{repo}/milestones",
+            method="POST",
+            data=self._datos_milestone(titulo, fecha, descripcion, cerrado),
+        )
+
+    def actualizar_milestone(
+        self,
+        owner: str,
+        repo: str,
+        numero: int,
+        titulo: str,
+        fecha: str | None = None,
+        descripcion: str = "",
+        cerrado: bool = False,
+    ) -> dict[str, Any]:
+        return self._request(
+            f"repos/{owner}/{repo}/milestones/{numero}",
+            method="PATCH",
+            data=self._datos_milestone(titulo, fecha, descripcion, cerrado),
+        )
+
+    def listar_milestones(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Todos los Milestones del repositorio (abiertos y cerrados)."""
+        resultado: list[dict[str, Any]] = []
+        pagina = 1
+        while True:
+            lote = self._request(
+                f"repos/{owner}/{repo}/milestones?state=all&per_page=100&page={pagina}"
+            )
+            if not lote:
+                break
+            resultado.extend(lote)
+            if len(lote) < 100:
+                break
+            pagina += 1
+        return resultado
+
+    def eliminar_milestone(self, owner: str, repo: str, numero: int) -> None:
+        self._request(f"repos/{owner}/{repo}/milestones/{numero}", method="DELETE")
+
+    def quitar_milestone_issue(self, owner: str, repo: str, number: int) -> None:
+        """Saca el issue de su Milestone."""
+        self._request(f"repos/{owner}/{repo}/issues/{number}", method="PATCH", data={"milestone": None})
 
     def obtener_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
         return self._request(f"repos/{owner}/{repo}/issues/{number}")

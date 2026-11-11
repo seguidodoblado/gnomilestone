@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 
 from gnomilestone.diagrama import Diagrama
 from gnomilestone.enlaces import normalizar
-from gnomilestone.models import DiagramaDocumentacion, NotaDocumentacion, Tarea
+from gnomilestone.hitos import esta_conseguido, tareas_por_hito
+from gnomilestone.models import DiagramaDocumentacion, Hito, NotaDocumentacion, Tarea
 
 
 def fecha_completada(tarea: Tarea) -> str | None:
@@ -36,34 +38,49 @@ def historial_realizado(tareas: list[Tarea]) -> list[tuple[str, list[Tarea]]]:
     ]
 
 
-def hitos_del_proyecto(tareas: list[Tarea]) -> list[Tarea]:
-    """Hitos por fecha límite (los que no la tienen, al final)."""
-    hitos = [t for t in tareas if t.es_hito]
-    return sorted(hitos, key=lambda t: (t.fecha_limite is None, t.fecha_limite or "", t.id))
+def hitos_del_proyecto(hitos: list[Hito]) -> list[Hito]:
+    """Hitos por fecha objetivo (los que no la tienen, al final)."""
+    return sorted(hitos, key=lambda h: (h.fecha is None, h.fecha or "", h.id))
 
 
 @dataclass(frozen=True)
 class EventoRoadmap:
-    tarea: Tarea
+    id: int
+    titulo: str
     fecha: str  # ISO (AAAA-MM-DD)
     es_hito: bool
     completado: bool
 
 
-def eventos_roadmap(tareas: list[Tarea]) -> list[EventoRoadmap]:
-    """Eventos del Roadmap en orden cronológico: los hitos y las tareas de primer nivel
-    que tienen fecha. Se sitúan en su fecha límite (o, si no la tienen, en su inicio)."""
-    eventos = []
+def eventos_roadmap(tareas: list[Tarea], hitos: list[Hito] | None = None) -> list[EventoRoadmap]:
+    """Eventos del Roadmap en orden cronológico: los Hitos con fecha y las tareas de primer
+    nivel con fecha (en su fecha límite o, si no la tienen, en su inicio)."""
+    por_hito = tareas_por_hito(tareas)
+    eventos = [
+        EventoRoadmap(
+            h.id, h.titulo, h.fecha[:10], True, esta_conseguido(h, por_hito.get(h.id, []))
+        )
+        for h in hitos or []
+        if h.fecha
+    ]
     for tarea in tareas:
-        if not (tarea.es_hito or tarea.padre_id is None):
+        if tarea.padre_id is not None:
             continue
         fecha = tarea.fecha_limite or tarea.fecha_inicio
-        if not fecha:
-            continue
-        eventos.append(
-            EventoRoadmap(tarea, fecha[:10], tarea.es_hito, tarea.porcentaje_completado >= 100)
-        )
-    return sorted(eventos, key=lambda e: (e.fecha, e.tarea.id))
+        if fecha:
+            eventos.append(
+                EventoRoadmap(
+                    tarea.id, tarea.titulo, fecha[:10], False, tarea.porcentaje_completado >= 100
+                )
+            )
+    # A igual fecha, el Hito primero.
+    return sorted(eventos, key=lambda e: (e.fecha, not e.es_hito, e.id))
+
+
+def eventos_pasados(eventos: list[EventoRoadmap], hoy: date) -> int:
+    """Cuántos eventos (ordenados por fecha) quedan antes de `hoy`: la marca «Hoy» del Roadmap
+    se coloca justo después del último. Los de hoy mismo cuentan como presentes, no pasados."""
+    return sum(1 for e in eventos if e.fecha < hoy.isoformat())
 
 
 @dataclass(frozen=True)

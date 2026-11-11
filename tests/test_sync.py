@@ -1,7 +1,7 @@
 from contextlib import closing
 from unittest.mock import MagicMock
 
-from gnomilestone.github import GitHubClient, GitHubItem, GitHubStatusOption
+from gnomilestone.github import GitHubClient, GitHubError, GitHubItem, GitHubStatusOption
 from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
 
@@ -715,3 +715,292 @@ def test_pull_sin_repositorio_no_busca_ficheros_de_contexto(tmp_path):
     client = MagicMock(spec=GitHubClient)
     GitHubSyncManager(store, client).pull_proyecto(p.id)
     client.obtener_fichero_repo.assert_not_called()
+
+
+def test_push_envia_prioridad_y_fechas_a_los_campos_de_issue(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("Bloguero", github_repo_owner="testuser", github_repo_name="bloguero")
+    t = store.crear_tarea(p.id, "Tarea", fecha_inicio="2026-11-01", prioridad=4)
+    t.github_issue_number = 105
+    store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "node_id": "ISSUE_NODE"}
+    client.listar_campos_issue.return_value = {
+        "priority": {"id": "F_PRI", "options": {"Urgent": "O_U", "High": "O_H"}},
+        "start date": {"id": "F_START", "options": {}},
+    }
+
+    assert GitHubSyncManager(store, client).push_tarea(t.id) is True
+
+    client.establecer_campos_issue.assert_called_once_with(
+        "ISSUE_NODE",
+        [
+            {"fieldId": "F_PRI", "singleSelectOptionId": "O_U"},
+            {"fieldId": "F_START", "dateValue": "2026-11-01"},
+        ],
+    )
+
+
+def test_push_ignora_el_rechazo_de_fechas_que_son_campos_de_issue(tmp_path):
+    from gnomilestone.github import GitHubError
+
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "B", github_repo_owner="u", github_repo_name="b", github_project_v2_id="11"
+    )
+    t = store.crear_tarea(p.id, "T", fecha_inicio="2026-11-01")
+    t.github_issue_number = 5
+    t.github_item_id = "ITEM"
+    store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "node_id": "N"}
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT", "fields": {"Start date": "F_S"}},
+        [],
+        [],
+    )
+    client.actualizar_fecha_item_v2.side_effect = GitHubError(
+        "GraphQL error: Issue field values cannot be updated using the updateProjectV2ItemFieldValue mutation"
+    )
+    client.listar_campos_issue.return_value = {"start date": {"id": "IF_S", "options": {}}}
+
+    assert GitHubSyncManager(store, client).push_tarea(t.id) is True
+    client.establecer_campos_issue.assert_called_once_with(
+        "N", [{"fieldId": "IF_S", "dateValue": "2026-11-01"}]
+    )
+
+
+def test_push_vincula_la_tarea_como_subissue_de_su_padre_y_a_sus_hijas(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("B", github_repo_owner="u", github_repo_name="b")
+    padre = store.crear_tarea(p.id, "Padre")
+    medio = store.crear_tarea(p.id, "Medio", padre_id=padre.id)
+    hija = store.crear_tarea(p.id, "Hija", padre_id=medio.id)
+    for t, n in ((padre, 1), (medio, 2), (hija, 3)):
+        t.github_issue_number = n
+        store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.side_effect = lambda o, r, n: {"labels": [], "id": 1000 + n}
+    client.listar_campos_issue.return_value = {}
+
+    assert GitHubSyncManager(store, client).push_tarea(medio.id) is True
+    llamadas = [c.args for c in client.vincular_subissue.call_args_list]
+    assert llamadas == [("u", "b", 1, 1002), ("u", "b", 2, 1003)]
+
+
+def _proyecto_con_repo(store):
+    return store.crear_proyecto("B", github_repo_owner="u", github_repo_name="b")
+
+
+def test_push_de_un_hito_crea_su_milestone_y_mete_en_el_a_sus_tareas(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "Release 1.0", "2026-12-01", "Notas")
+    con_issue = store.crear_tarea(p.id, "Con issue", hito_id=hito.id)
+    store.crear_tarea(p.id, "Sin issue", hito_id=hito.id)
+    con_issue.github_issue_number = 7
+    store.actualizar_tarea(con_issue)
+
+    client = MagicMock(spec=GitHubClient)
+    client.crear_milestone.return_value = {"number": 3}
+
+    assert GitHubSyncManager(store, client).push_hito(hito.id) is True
+
+    client.crear_milestone.assert_called_once_with("u", "b", "Release 1.0", "2026-12-01", "Notas", False)
+    assert store.obtener_hito(hito.id).github_milestone_number == 3
+    client.actualizar_issue.assert_called_once_with("u", "b", 7, milestone=3)
+    client.crear_issue.assert_not_called()  # un Hito no es un issue
+
+
+def test_push_de_un_hito_ya_vinculado_lo_actualiza_y_lo_cierra_si_esta_conseguido(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "R", "2026-12-01", github_milestone_number=4)
+    store.crear_tarea(p.id, "T", hito_id=hito.id, porcentaje_completado=100)
+
+    client = MagicMock(spec=GitHubClient)
+    assert GitHubSyncManager(store, client).push_hito(hito.id) is True
+    client.actualizar_milestone.assert_called_once_with("u", "b", 4, "R", "2026-12-01", "", True)
+    client.crear_milestone.assert_not_called()
+
+
+def test_hito_de_proyecto_sin_repo_no_envia_nada(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("Local")
+    hito = store.crear_hito(p.id, "H")
+    client = MagicMock(spec=GitHubClient)
+    assert GitHubSyncManager(store, client).push_hito(hito.id) is True
+    client.crear_milestone.assert_not_called()
+
+
+def test_push_de_una_tarea_la_mete_en_el_milestone_de_su_hito(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "R", github_milestone_number=9)
+    tarea = store.crear_tarea(p.id, "T", hito_id=hito.id)
+    tarea.github_issue_number = 12
+    store.actualizar_tarea(tarea)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": []}
+    client.listar_campos_issue.return_value = {}
+
+    assert GitHubSyncManager(store, client).push_tarea(tarea.id) is True
+    client.actualizar_issue.assert_any_call("u", "b", 12, milestone=9)
+
+
+def test_push_de_una_tarea_crea_el_milestone_de_su_hito_si_falta(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "R", "2026-12-01")
+    tarea = store.crear_tarea(p.id, "T", hito_id=hito.id)
+    tarea.github_issue_number = 12
+    store.actualizar_tarea(tarea)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": []}
+    client.listar_campos_issue.return_value = {}
+    client.crear_milestone.return_value = {"number": 5}
+
+    assert GitHubSyncManager(store, client).push_tarea(tarea.id) is True
+    client.actualizar_issue.assert_any_call("u", "b", 12, milestone=5)
+    assert store.obtener_hito(hito.id).github_milestone_number == 5
+
+
+def test_tarea_sin_hito_sale_del_milestone_de_un_hito_local(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    store.crear_hito(p.id, "R", github_milestone_number=9)
+    suelta = store.crear_tarea(p.id, "Suelta")
+    suelta.github_issue_number = 21
+    store.actualizar_tarea(suelta)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "milestone": {"number": 9}}
+    client.listar_campos_issue.return_value = {}
+
+    assert GitHubSyncManager(store, client).push_tarea(suelta.id) is True
+    client.quitar_milestone_issue.assert_called_once_with("u", "b", 21)
+
+
+def test_no_se_saca_de_un_milestone_que_no_es_de_ningun_hito(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    suelta = store.crear_tarea(p.id, "Suelta")
+    suelta.github_issue_number = 21
+    store.actualizar_tarea(suelta)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "milestone": {"number": 77}}
+    client.listar_campos_issue.return_value = {}
+
+    assert GitHubSyncManager(store, client).push_tarea(suelta.id) is True
+    client.quitar_milestone_issue.assert_not_called()
+
+
+def test_pull_crea_un_hito_por_milestone_y_empareja_por_titulo(tmp_path):
+    from gnomilestone.sync import SyncResult
+
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    local = store.crear_hito(p.id, "Distribución")  # aún sin Milestone
+    vinculado = store.crear_hito(p.id, "Viejo título", github_milestone_number=2)
+    store.marcar_hito_sincronizado(vinculado.id)
+
+    client = MagicMock(spec=GitHubClient)
+    client.listar_milestones.return_value = [
+        {"number": 1, "title": "distribución", "due_on": "2026-11-24T00:00:00Z", "state": "open"},
+        {"number": 2, "title": "Nuevo título", "due_on": None, "state": "closed"},
+        {"number": 3, "title": "v1.0", "due_on": "2026-12-01T00:00:00Z", "state": "open",
+         "description": "Notas"},
+    ]
+    resultado = SyncResult()
+    GitHubSyncManager(store, client)._pull_milestones(p.id, "u", "b", resultado)
+
+    assert resultado.errores == []
+    hitos = {h.github_milestone_number: h for h in store.listar_hitos(p.id)}
+    assert hitos[1].id == local.id and hitos[1].fecha == "2026-11-24"  # emparejado, sin duplicar
+    assert hitos[2].titulo == "Nuevo título" and hitos[2].conseguido is True
+    assert (hitos[3].titulo, hitos[3].fecha, hitos[3].descripcion) == ("v1.0", "2026-12-01", "Notas")
+    assert len(hitos) == 3
+
+
+def test_pull_no_pisa_un_hito_editado_en_local_despues_del_ultimo_sync(tmp_path):
+    from gnomilestone.sync import SyncResult
+
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "Mi título", github_milestone_number=2)
+    with store._connect() as db:  # editado (actualizado) después del último sync
+        db.execute(
+            "UPDATE hito SET github_synced_at = '2000-01-01 00:00:00', "
+            "actualizado = '2000-01-02 00:00:00' WHERE id = ?",
+            (hito.id,),
+        )
+    client = MagicMock(spec=GitHubClient)
+    client.listar_milestones.return_value = [{"number": 2, "title": "Remoto", "state": "open"}]
+    GitHubSyncManager(store, client)._pull_milestones(p.id, "u", "b", SyncResult())
+    assert store.obtener_hito(hito.id).titulo == "Mi título"
+
+
+def test_eliminar_hito_borra_tambien_su_milestone(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "R", github_milestone_number=6)
+    tarea = store.crear_tarea(p.id, "T", hito_id=hito.id)
+
+    client = MagicMock(spec=GitHubClient)
+    GitHubSyncManager(store, client).eliminar_hito(hito.id, en_segundo_plano=False)
+
+    client.eliminar_milestone.assert_called_once_with("u", "b", 6)
+    assert store.obtener_hito(hito.id) is None
+    assert store.obtener_tarea(tarea.id).hito_id is None
+
+
+def test_enlazar_hito_une_la_tarea_con_el_hito_de_su_milestone(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "Release", github_milestone_number=4)
+    tarea = store.crear_tarea(p.id, "T")
+    sync = GitHubSyncManager(store, MagicMock(spec=GitHubClient))
+    hitos = {4: hito.id, "release": hito.id}
+
+    sync._enlazar_hito(tarea.id, hitos, 4, "Release", False)
+    assert store.obtener_tarea(tarea.id).hito_id == hito.id
+    sync._enlazar_hito(tarea.id, hitos, None, None, True)  # editada en local: no se toca
+    assert store.obtener_tarea(tarea.id).hito_id == hito.id
+    sync._enlazar_hito(tarea.id, hitos, None, None, False)  # el issue ya no está en un Milestone
+    assert store.obtener_tarea(tarea.id).hito_id is None
+
+
+def test_push_de_un_hito_se_vincula_al_milestone_que_ya_existia_con_ese_titulo(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "Distribución", "2026-11-24")
+
+    client = MagicMock(spec=GitHubClient)
+    client.crear_milestone.side_effect = GitHubError(
+        'Error de GitHub API (HTTP 422): {"errors":[{"code":"already_exists","field":"title"}]}'
+    )
+    client.listar_milestones.return_value = [
+        {"number": 1, "title": "Otro"}, {"number": 5, "title": "distribución"},
+    ]
+
+    assert GitHubSyncManager(store, client).push_hito(hito.id) is True
+    assert store.obtener_hito(hito.id).github_milestone_number == 5
+    client.actualizar_milestone.assert_called_once_with(
+        "u", "b", 5, "Distribución", "2026-11-24", "", False
+    )
+
+
+def test_un_error_de_github_distinto_no_se_confunde_con_milestone_existente(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = _proyecto_con_repo(store)
+    hito = store.crear_hito(p.id, "H")
+    client = MagicMock(spec=GitHubClient)
+    client.crear_milestone.side_effect = GitHubError("HTTP 500")
+    assert GitHubSyncManager(store, client).push_hito(hito.id) is False
+    client.listar_milestones.assert_not_called()

@@ -4,11 +4,15 @@ from gnomilestone.documentacion import (
     historial_realizado,
     hitos_del_proyecto,
 )
-from gnomilestone.models import Tarea
+from gnomilestone.models import Hito, Tarea
 
 
 def t(i, **kw):
     return Tarea(i, 1, f"T{i}", **kw)
+
+
+def h(i, **kw):
+    return Hito(i, 1, f"H{i}", **kw)
 
 
 def test_historial_agrupa_completadas_por_dia_antiguo_primero():
@@ -24,28 +28,30 @@ def test_historial_agrupa_completadas_por_dia_antiguo_primero():
 
 
 def test_hitos_ordenados_con_los_sin_fecha_al_final():
-    tareas = [
-        t(1, es_hito=True),
-        t(2, es_hito=True, fecha_limite="2026-12-01"),
-        t(3, es_hito=True, fecha_limite="2026-11-01"),
-        t(4),
-    ]
-    assert [x.id for x in hitos_del_proyecto(tareas)] == [3, 2, 1]
+    hitos = [h(1), h(2, fecha="2026-12-01"), h(3, fecha="2026-11-01")]
+    assert [x.id for x in hitos_del_proyecto(hitos)] == [3, 2, 1]
 
 
 def test_roadmap_incluye_hitos_y_tareas_de_primer_nivel_con_fecha():
     tareas = [
         t(1, fecha_inicio="2026-11-10"),
         t(2, padre_id=1, fecha_inicio="2026-11-01"),  # subtarea: fuera
-        t(3, padre_id=1, es_hito=True, fecha_limite="2026-11-05"),  # hito: dentro
         t(4),  # sin fecha: fuera
         t(5, fecha_inicio="2026-11-01", fecha_limite="2026-11-20", porcentaje_completado=100),
     ]
-    eventos = eventos_roadmap(tareas)
-    assert [(e.tarea.id, e.fecha) for e in eventos] == [
-        (3, "2026-11-05"), (1, "2026-11-10"), (5, "2026-11-20"),
+    hitos = [h(7, fecha="2026-11-05"), h(8)]  # el Hito sin fecha no sale
+    eventos = eventos_roadmap(tareas, hitos)
+    assert [(e.id, e.fecha, e.es_hito) for e in eventos] == [
+        (7, "2026-11-05", True), (1, "2026-11-10", False), (5, "2026-11-20", False),
     ]
-    assert eventos[0].es_hito and eventos[2].completado
+    assert eventos[2].completado
+
+
+def test_roadmap_marca_un_hito_conseguido_cuando_todas_sus_tareas_estan_completas():
+    tareas = [t(1, hito_id=7, porcentaje_completado=100), t(2, hito_id=7, porcentaje_completado=100)]
+    assert eventos_roadmap(tareas, [h(7, fecha="2026-11-05")])[0].completado is True
+    tareas[1].porcentaje_completado = 50
+    assert eventos_roadmap(tareas, [h(7, fecha="2026-11-05")])[0].completado is False
 
 
 def test_secciones_por_titulo_ignora_titulos_dentro_de_codigo():
@@ -109,3 +115,18 @@ def test_el_historial_usa_la_fecha_de_fin_real_y_no_la_de_alta():
 def test_fecha_completada_es_none_si_la_tarea_no_esta_al_cien_por_cien():
     assert fecha_completada(t(1, porcentaje_completado=99, fecha_fin_real="2026-10-01")) is None
     assert fecha_completada(t(2, porcentaje_completado=100, fecha_fin_real="2026-10-01")) == "2026-10-01"
+
+
+def test_eventos_pasados_cuenta_los_anteriores_a_hoy():
+    from datetime import date
+
+    from gnomilestone.documentacion import EventoRoadmap, eventos_pasados
+
+    def e(fecha):
+        return EventoRoadmap(1, "x", fecha, False, False)
+
+    eventos = [e("2026-11-01"), e("2026-11-10"), e("2026-11-12"), e("2026-12-01")]
+    assert eventos_pasados(eventos, date(2026, 11, 12)) == 2  # el de hoy no es pasado
+    assert eventos_pasados(eventos, date(2026, 10, 1)) == 0
+    assert eventos_pasados(eventos, date(2027, 1, 1)) == 4
+    assert eventos_pasados([], date(2026, 11, 12)) == 0

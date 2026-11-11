@@ -1,4 +1,4 @@
-from gnomilestone.prioridad import ALTA, BAJA, MEDIA, nivel_desde_opcion, opcion_para_nivel
+from gnomilestone.prioridad import ALTA, BAJA, MEDIA, URGENTE, nivel_desde_opcion, opcion_para_nivel
 
 
 def test_nivel_desde_opcion_reconoce_nombres_habituales():
@@ -22,3 +22,15 @@ def test_opcion_para_nivel():
     assert opcion_para_nivel(BAJA, opciones) == "c"
     assert opcion_para_nivel(0, opciones) is None
     assert opcion_para_nivel(ALTA, {"Sprint": "x"}) is None
+
+
+def test_urgente_es_un_nivel_propio():
+    assert nivel_desde_opcion("Urgent") == URGENTE
+    assert nivel_desde_opcion("High") == ALTA
+    opciones = {"Urgent": "u", "High": "h", "Medium": "m", "Low": "l"}
+    assert opcion_para_nivel(URGENTE, opciones) == "u"
+    assert opcion_para_nivel(ALTA, opciones) == "h"
+
+
+def test_urgente_sin_opcion_urgent_cae_en_high():
+    assert opcion_para_nivel(URGENTE, {"High": "h", "Low": "l"}) == "h"

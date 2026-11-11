@@ -12,7 +12,7 @@ def test_tarea_valores_por_defecto():
     assert tarea.padre_id is None
     assert tarea.duracion_dias == 1
     assert tarea.porcentaje_completado == 0
-    assert tarea.es_hito is False
+    assert tarea.hito_id is None
 
 
 def test_dependencia_tipo_por_defecto():

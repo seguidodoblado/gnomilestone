@@ -14,6 +14,7 @@ from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import completado, ganttcalc
 from gnomilestone.filtros import ocultar_completadas
+from gnomilestone.hitos import hitos_con_estado
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto, Tarea
 from gnomilestone.report_metrics import eventos_con_fecha_de_finalizacion
@@ -21,9 +22,11 @@ from gnomilestone.resource_usage import construir_filas_uso
 from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.archived_dialog import ArchivedTasksDialog
+from gnomilestone.ui.asignar_hito import crear_asignacion
 from gnomilestone.ui.board_settings_dialog import BoardSettingsDialog
 from gnomilestone.ui.documentation_view import DocumentationView
 from gnomilestone.ui.gantt_view import GanttView
+from gnomilestone.ui.hito_dialog import HitoDialog
 from gnomilestone.ui.kanban_view import KanbanView, colores_de_estados
 from gnomilestone.ui.labels_dialog import LabelsDialog
 from gnomilestone.ui.report_view import ReportView
@@ -139,10 +142,12 @@ class ProjectDetailView(Gtk.Box):
 
         contenido.append(toolbar)
 
+        asignacion_hito = crear_asignacion(store, self.refrescar)
         self._tabla = TableView(
             on_editar_tarea=self._on_editar_tarea,
             on_eliminar_tarea=self._on_eliminar_tarea,
             on_archivar_tarea=self._on_archivar_tarea,
+            asignacion_hito=asignacion_hito,
         )
         self._vista_stack.add_named(self._tabla, "tabla")
 
@@ -162,6 +167,9 @@ class ProjectDetailView(Gtk.Box):
             on_eliminar_tarea=self._on_eliminar_tarea,
             on_tarea_arrastrada=self._on_tarea_arrastrada,
             on_archivar_tarea=self._on_archivar_tarea,
+            on_editar_hito=self._on_editar_hito,
+            on_nuevo_hito=self._on_nuevo_hito,
+            asignacion_hito=asignacion_hito,
         )
         self._vista_stack.add_named(self._gantt, "gantt")
 
@@ -175,7 +183,9 @@ class ProjectDetailView(Gtk.Box):
         self._vista_stack.add_named(self._uso, "uso")
         self._informes = ReportView()
         self._vista_stack.add_named(self._informes, "informes")
-        self._documentacion = DocumentationView(store, self._on_abrir_tarea_por_id)
+        self._documentacion = DocumentationView(
+            store, self._on_abrir_tarea_por_id, self.refrescar
+        )
         self._vista_stack.add_named(self._documentacion, "documentacion")
 
         contenido.append(self._vista_stack)
@@ -260,7 +270,10 @@ class ProjectDetailView(Gtk.Box):
             colores_de_estados(estados),
         )
         self._gantt.set_filas(
-            filas_arbol, dependencias, ganttcalc.progreso_resumen(tareas_con_archivadas)
+            filas_arbol,
+            dependencias,
+            ganttcalc.progreso_resumen(tareas_con_archivadas),
+            hitos_con_estado(self._store.listar_hitos(self._proyecto.id), tareas_visibles),
         )
 
         self._tablero.mostrar_proyecto(self._proyecto.id, self._mostrar_completadas)
@@ -441,6 +454,15 @@ class ProjectDetailView(Gtk.Box):
         TaskDialog(
             self.get_root(), self._store, self._proyecto.id, on_saved=self.refrescar
         ).present()
+
+    def _on_nuevo_hito(self) -> None:
+        if self._proyecto is not None:
+            HitoDialog(
+                self.get_root(), self._store, self._proyecto.id, None, self.refrescar
+            ).present()
+
+    def _on_editar_hito(self, hito) -> None:
+        HitoDialog(self.get_root(), self._store, hito.proyecto_id, hito, self.refrescar).present()
 
     def _on_abrir_tarea_por_id(self, tarea_id: int) -> None:
         tarea = self._store.obtener_tarea(tarea_id)

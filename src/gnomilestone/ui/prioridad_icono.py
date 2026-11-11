@@ -9,16 +9,22 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk
 
 from gnomilestone.i18n import _
-from gnomilestone.prioridad import ALTA, BAJA, MEDIA
+from gnomilestone.prioridad import ALTA, BAJA, MEDIA, URGENTE
 
 # nivel -> (icono, clase CSS con el color, texto del tooltip). Los iconos viven en
 # assets/icons (ver app.py); el color de un icono simbólico es la propiedad CSS `color`.
 _ICONOS = {
+    URGENTE: (
+        "prioridad-urgente-symbolic",
+        "gnomilestone-prioridad-urgente",
+        _("Prioridad urgente"),
+    ),
     ALTA: ("prioridad-alta-symbolic", "gnomilestone-prioridad-alta", _("Prioridad alta")),
     MEDIA: ("prioridad-media-symbolic", "gnomilestone-prioridad-media", _("Prioridad media")),
     BAJA: ("prioridad-baja-symbolic", "gnomilestone-prioridad-baja", _("Prioridad baja")),
 }
 _CSS = """
+.gnomilestone-prioridad-urgente { color: #a51d2d; }
 .gnomilestone-prioridad-alta { color: #e01b24; }
 .gnomilestone-prioridad-media { color: #e66100; }
 .gnomilestone-prioridad-baja { color: #3584e4; }

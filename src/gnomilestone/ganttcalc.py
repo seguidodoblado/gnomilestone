@@ -219,7 +219,7 @@ def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
     def _peso_y_suma(tarea: Tarea) -> tuple[int, int]:
         hijos = hijos_por_padre.get(tarea.id, [])
         if not hijos:
-            peso = 1 if tarea.es_hito else max(tarea.duracion_dias, 1)
+            peso = max(tarea.duracion_dias, 1)
             return peso, peso * tarea.porcentaje_completado
 
         peso_total = 0

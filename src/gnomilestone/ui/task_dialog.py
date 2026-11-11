@@ -13,7 +13,7 @@ from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import completado
 from gnomilestone.etiquetas import color_automatico, color_de_texto
-from gnomilestone.i18n import _
+from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
 from gnomilestone.store import CicloDependenciaError, Store
@@ -69,6 +69,26 @@ def _descendientes(tareas: list[Tarea], raiz_id: int) -> set[int]:
 
 def _fecha_a_iso(fecha: GLib.DateTime) -> str:
     return f"{fecha.get_year():04d}-{fecha.get_month():02d}-{fecha.get_day_of_month():02d}"
+
+
+_COLOR_HITO = "#f2a61f"  # ámbar, el mismo de los hitos del Gantt y el Tablero
+_ANCHO_INICIAL = 720
+_ALTO_INICIAL = 860
+_ALTO_MINIMO = 640
+
+
+def _alto_inicial(parent: Gtk.Window | None) -> int:
+    """Alto con el que se abre el diálogo: el que cabe sin scroll en lo posible, pero sin pasarse
+    del 90 % del alto de la pantalla donde está la ventana principal."""
+    try:
+        display = Gdk.Display.get_default()
+        superficie = parent.get_surface() if parent is not None else None
+        monitor = display.get_monitor_at_surface(superficie) if superficie else None
+        if monitor is None:
+            monitor = display.get_monitors().get_item(0)
+        return max(_ALTO_MINIMO, min(_ALTO_INICIAL, int(monitor.get_geometry().height * 0.9)))
+    except (AttributeError, TypeError, GLib.Error):
+        return _ALTO_MINIMO
 
 
 class _SelectorFecha:
@@ -255,8 +275,8 @@ class TaskDialog(Gtk.Window):
     ) -> None:
         super().__init__(
             title=_("Editar tarea") if tarea else _("Nueva tarea"),
-            default_width=560,
-            default_height=640,
+            default_width=_ANCHO_INICIAL,
+            default_height=_alto_inicial(parent),
         )
         self.set_resizable(True)
         # Ni modal ni «transient»: Mutter no deja maximizar los diálogos con ventana madre;
@@ -364,7 +384,6 @@ class TaskDialog(Gtk.Window):
         acciones.append(save_button)
         root.append(acciones)
 
-        self._ajustar_visibilidad_hito()
         self._estado_inicial = self._capturar_estado()
         self.connect("close-request", self._on_close_request)
 
@@ -406,6 +425,24 @@ class TaskDialog(Gtk.Window):
         box.append(Gtk.Label(label=_("Columna"), xalign=0))
         self._estado_dropdown = self._crear_selector_columnas(tarea)
         box.append(self._estado_dropdown)
+
+        # Hito (Milestone de GitHub) al que contribuye la tarea.
+        etiqueta_hito = Gtk.Label(xalign=0, use_markup=True)
+        etiqueta_hito.set_markup(f'<span foreground="{_COLOR_HITO}">◆</span> {_("Hito")}')
+        box.append(etiqueta_hito)
+        self._hitos = self._store.listar_hitos(self._proyecto_id)
+        self._hito_dropdown = Gtk.DropDown.new_from_strings(
+            [_("Sin hito")]
+            + [
+                f"{h.titulo} · {formatear_fecha_local(h.fecha)}" if h.fecha else h.titulo
+                for h in self._hitos
+            ]
+        )
+        if tarea and tarea.hito_id is not None:
+            ids = [h.id for h in self._hitos]
+            if tarea.hito_id in ids:
+                self._hito_dropdown.set_selected(ids.index(tarea.hito_id) + 1)
+        box.append(self._hito_dropdown)
 
         box.append(Gtk.Label(label=_("Prioridad"), xalign=0))
         self._prioridad_dropdown = self._crear_selector_prioridad(tarea)
@@ -458,10 +495,10 @@ class TaskDialog(Gtk.Window):
         return dropdown
 
     def _crear_selector_prioridad(self, tarea: Tarea | None) -> Gtk.DropDown:
-        # El orden de la lista es el del nivel (0 ninguna … 3 alta): el índice seleccionado
+        # El orden de la lista es el del nivel (0 ninguna … 4 urgente): el índice seleccionado
         # es directamente el valor que se guarda.
         dropdown = Gtk.DropDown.new_from_strings(
-            [_("Sin prioridad"), _("Baja"), _("Media"), _("Alta")]
+            [_("Sin prioridad"), _("Baja"), _("Media"), _("Alta"), _("Urgente")]
         )
 
         def _preparar(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
@@ -554,7 +591,6 @@ class TaskDialog(Gtk.Window):
         ayuda_dias = _("Se cuentan el día de inicio y el final: del 11 al 15 son 5 días.")
         for widget in (fin_label, self._fin.widget, duracion_label, self._duracion_spin):
             widget.set_tooltip_text(ayuda_dias)
-        self._filas_no_hito = [fin_label, self._fin.widget, duracion_label, self._duracion_spin]
 
         box.append(Gtk.Label(label=_("Límite"), xalign=0))
         self._limite = _SelectorFecha(tarea.fecha_limite if tarea else None, lambda: None)
@@ -581,10 +617,6 @@ class TaskDialog(Gtk.Window):
             rapidos.append(boton)
         box.append(rapidos)
 
-        self._hito_check = Gtk.CheckButton(label=_("Es un hito"))
-        self._hito_check.set_active(bool(tarea and tarea.es_hito))
-        self._hito_check.connect("toggled", lambda _c: self._ajustar_visibilidad_hito())
-        box.append(self._hito_check)
 
     def _construir_asignaciones(self, tarea: Tarea | None) -> None:
         box = self._pagina_asignaciones
@@ -831,12 +863,6 @@ class TaskDialog(Gtk.Window):
                 break
         self._on_save(_button)
 
-    def _ajustar_visibilidad_hito(self) -> None:
-        # Un hito es puntual: final y duración no tienen sentido.
-        es_hito = self._hito_check.get_active()
-        for widget in self._filas_no_hito:
-            widget.set_visible(not es_hito)
-
     @staticmethod
     def _duracion_entre(inicio: str, fin: str) -> int:
         return max((date.fromisoformat(fin) - date.fromisoformat(inicio)).days + 1, 1)
@@ -882,7 +908,7 @@ class TaskDialog(Gtk.Window):
             int(self._duracion_spin.get_value()),
             self._limite.valor,
             round(self._porcentaje_scale.get_value()),
-            self._hito_check.get_active(),
+            self._hito_dropdown.get_selected(),
             tuple(sorted((r.id, self._dedicaciones.get(r.id, 100)) for r in self._asignados)),
             frozenset(i for i, check in self._dependencia_checks if check.get_active()),
         )
@@ -999,20 +1025,11 @@ class TaskDialog(Gtk.Window):
             )
             return False
 
-        es_hito = self._hito_check.get_active()
         fecha = self._inicio.valor
         fecha_limite = self._limite.valor
-        if es_hito:
-            if not fecha:
-                self._mostrar_error(
-                    _("Un hito necesita una fecha: no se puede situar en el Gantt sin ella."),
-                    self._inicio.widget,
-                    self._pagina_fechas,
-                )
-                return False
-            fecha_fin = fecha
-        else:
-            fecha_fin = self._fin.valor or fecha
+        fecha_fin = self._fin.valor or fecha
+        hito_indice = self._hito_dropdown.get_selected()
+        hito_id = self._hitos[hito_indice - 1].id if hito_indice > 0 else None
         if fecha_fin and not fecha:
             self._mostrar_error(
                 _("El final planificado necesita una fecha de inicio."),
@@ -1041,9 +1058,7 @@ class TaskDialog(Gtk.Window):
             self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
         )
         descripcion = self._descripcion_editor.obtener_texto().strip()
-        if es_hito:
-            duracion = 1
-        elif fecha and fecha_fin:
+        if fecha and fecha_fin:
             duracion = self._duracion_entre(fecha, fecha_fin)
         else:
             duracion = int(self._duracion_spin.get_value())
@@ -1072,7 +1087,7 @@ class TaskDialog(Gtk.Window):
                 fecha_fin_real=fecha_fin_real,
                 duracion_dias=duracion,
                 porcentaje_completado=porcentaje,
-                es_hito=es_hito,
+                hito_id=hito_id,
             )
         else:
             tarea = self._tarea
@@ -1093,7 +1108,7 @@ class TaskDialog(Gtk.Window):
             tarea.fecha_fin_real = fecha_fin_real
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
-            tarea.es_hito = es_hito
+            tarea.hito_id = hito_id
             self._store.actualizar_tarea(tarea)
             if estado_anterior_id is not None and estado_anterior_id != estado_id:
                 self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)

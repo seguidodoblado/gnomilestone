@@ -11,14 +11,17 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Pango, PangoCairo
 
 from gnomilestone import ganttcalc, settings, theme
-from gnomilestone.models import Dependencia, Tarea
+from gnomilestone.i18n import _, formatear_fecha_local
+from gnomilestone.models import Dependencia, Hito, Tarea
 from gnomilestone.ui import limite_dibujo
 from gnomilestone.ui.task_tree_view import ALTURA_FILA, TareaRow
 
 _MARGEN_DIAS = 3
 _ALTURA_REGLA = 28
+_RADIO_ROMBO_REGLA = 6
 _ANCHO_ASA_REDIMENSIONAR = 8  # franja en píxeles junto al borde derecho de la barra
 _COLOR_ACENTO_RESPALDO = (0.0, 0.47, 0.84)  # azul, si el tema no expone "accent_color"
+_COLOR_HITO = (0.95, 0.65, 0.12)  # ámbar, el mismo de los hitos del Tablero e Informes
 _COLOR_HOY = (0.86, 0.2, 0.2)  # rojo fijo (no depende del tema): línea del día actual
 
 # Estilos disponibles para la barra de tarea resumen (Preferencias), con su vista previa
@@ -154,6 +157,24 @@ def dibujar_resumen_corchetes(
         cr.fill()
 
 
+def dibujar_rombo_hito(cr, x: float, y: float, radio: float, conseguido: bool) -> None:
+    """Rombo ámbar de un Hito: hueco mientras está por conseguir, relleno cuando se cumple."""
+    cr.move_to(x, y - radio)
+    cr.line_to(x + radio, y)
+    cr.line_to(x, y + radio)
+    cr.line_to(x - radio, y)
+    cr.close_path()
+    if conseguido:
+        cr.set_source_rgba(*_COLOR_HITO, 1.0)
+        cr.fill()
+        return
+    cr.set_source_rgba(*_COLOR_HITO, 0.25)
+    cr.fill_preserve()
+    cr.set_source_rgba(*_COLOR_HITO, 1.0)
+    cr.set_line_width(1.8)
+    cr.stroke()
+
+
 class _ReglaFechas(Gtk.DrawingArea):
     """Cabecera con las fechas, sincronizada en zoom y desplazamiento con el Gantt."""
 
@@ -161,7 +182,42 @@ class _ReglaFechas(Gtk.DrawingArea):
         super().__init__(content_height=_ALTURA_REGLA)
         self.fecha_origen = date.today()
         self.px_por_dia = 24.0
+        self.hitos: list[tuple[Hito, bool]] = []  # (Hito, conseguido)
+        self.on_editar_hito: Callable[[Hito], None] | None = None
         self.set_draw_func(self._draw)
+        self.set_has_tooltip(True)
+        self.connect("query-tooltip", self._on_tooltip)
+        doble_clic = Gtk.GestureClick(button=1)
+        doble_clic.connect("pressed", self._on_clic)
+        self.add_controller(doble_clic)
+
+    def _hito_en(self, x: float, y: float) -> tuple[Hito, bool] | None:
+        if y > _RADIO_ROMBO_REGLA * 2 + 6:
+            return None
+        for hito, conseguido in self.hitos:
+            if not hito.fecha:
+                continue
+            x_hito = ganttcalc.fecha_a_x(
+                ganttcalc.parse_fecha(hito.fecha), self.fecha_origen, self.px_por_dia
+            )
+            if abs(x - x_hito) <= _RADIO_ROMBO_REGLA + 3:
+                return hito, conseguido
+        return None
+
+    def _on_tooltip(self, _w, x, y, _teclado, tooltip) -> bool:
+        encontrado = self._hito_en(x, y)
+        if encontrado is None:
+            return False
+        hito, conseguido = encontrado
+        estado = _("Conseguido") if conseguido else _("Por conseguir")
+        tooltip.set_text(f"◆ {hito.titulo}\n{formatear_fecha_local(hito.fecha)} · {estado}")
+        return True
+
+    def _on_clic(self, _gesto, n_press: int, x: float, y: float) -> None:
+        if n_press == 2 and self.on_editar_hito is not None:
+            encontrado = self._hito_en(x, y)
+            if encontrado is not None:
+                self.on_editar_hito(encontrado[0])
 
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, _height: int) -> None:
         color_marca = _color_texto(self)
@@ -188,6 +244,13 @@ class _ReglaFechas(Gtk.DrawingArea):
             cr.line_to(x_hoy, _ALTURA_REGLA)
             cr.stroke()
 
+        for hito, conseguido in self.hitos:
+            if hito.fecha:
+                x_hito = ganttcalc.fecha_a_x(
+                    ganttcalc.parse_fecha(hito.fecha), self.fecha_origen, self.px_por_dia
+                )
+                dibujar_rombo_hito(cr, x_hito, _RADIO_ROMBO_REGLA + 1, _RADIO_ROMBO_REGLA, conseguido)
+
 
 class GanttDrawingArea(Gtk.DrawingArea):
     """Dibuja las barras (con relleno de progreso), hitos y flechas de dependencia.
@@ -207,6 +270,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
         self._filas: list[tuple[TareaRow, int]] = []
         self._dependencias: list[Dependencia] = []
         self._progreso_resumen: dict[int, int] = {}
+        self._hitos: list[tuple[Hito, bool]] = []
         self._estilo_resumen = settings.read_settings().get(
             "estilo_barra_resumen", ESTILO_RESUMEN_PROGRESO
         )
@@ -251,10 +315,13 @@ class GanttDrawingArea(Gtk.DrawingArea):
         filas: list[tuple[TareaRow, int]],
         dependencias: list[Dependencia],
         progreso_resumen: dict[int, int] | None = None,
+        hitos: list[tuple[Hito, bool]] | None = None,
     ) -> None:
         self._filas = filas
         self._dependencias = dependencias
         self._progreso_resumen = progreso_resumen or {}
+        self._hitos = hitos or []
+        self.ruler.hitos = self._hitos
         fechas_origen = [
             ganttcalc.parse_fecha(fila.tarea.fecha_inicio)
             for fila, _profundidad in filas
@@ -267,6 +334,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             for fila, _profundidad in filas
             if fila.tarea and fila.tarea.fecha_inicio and fila.tarea.fecha_limite
         )
+        fechas_origen.extend(ganttcalc.parse_fecha(h.fecha) for h, _c in self._hitos if h.fecha)
         self.fecha_origen = (
             min(fechas_origen) - timedelta(days=_MARGEN_DIAS) if fechas_origen else date.today()
         )
@@ -290,6 +358,9 @@ class GanttDrawingArea(Gtk.DrawingArea):
                 fechas_fin.append(
                     ganttcalc.parse_fecha(fila.tarea.fecha_limite) + timedelta(days=1)
                 )
+        fechas_fin.extend(
+            ganttcalc.parse_fecha(h.fecha) + timedelta(days=1) for h, _c in self._hitos if h.fecha
+        )
         base = max(fechas_fin) if fechas_fin else self.fecha_origen + timedelta(days=30)
         return base + timedelta(days=_MARGEN_DIAS)
 
@@ -321,9 +392,6 @@ class GanttDrawingArea(Gtk.DrawingArea):
             return None
         fecha_inicio, duracion_dias = self._valores_mostrados(tarea)
         x_tarea = ganttcalc.fecha_a_x(fecha_inicio, self.fecha_origen, self.px_por_dia)
-        if tarea.es_hito:
-            radio = ALTURA_FILA * 0.3
-            return (tarea, indice) if x_tarea - radio <= x <= x_tarea + radio else None
         ancho_barra = ganttcalc.ancho_duracion(duracion_dias, self.px_por_dia)
         return (tarea, indice) if x_tarea <= x <= x_tarea + ancho_barra else None
 
@@ -336,7 +404,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
         fecha_inicio, duracion_dias = self._valores_mostrados(tarea)
         x_tarea = ganttcalc.fecha_a_x(fecha_inicio, self.fecha_origen, self.px_por_dia)
         ancho_barra = ganttcalc.ancho_duracion(duracion_dias, self.px_por_dia)
-        en_borde = not tarea.es_hito and x >= x_tarea + ancho_barra - _ANCHO_ASA_REDIMENSIONAR
+        en_borde = x >= x_tarea + ancho_barra - _ANCHO_ASA_REDIMENSIONAR
         return tarea, "redimensionar" if en_borde else "mover"
 
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
@@ -564,6 +632,23 @@ class GanttDrawingArea(Gtk.DrawingArea):
             cr.line_to(x_hoy, alto_total)
             cr.stroke()
 
+        # Línea de meta de cada Hito pendiente: cruza todas las filas y deja ver que es algo
+        # «a conseguir» hacia lo que apuntan las tareas.
+        cr.save()
+        cr.set_source_rgba(*_COLOR_HITO, 0.45)
+        cr.set_line_width(1.5)
+        cr.set_dash([5.0, 4.0])
+        for hito, conseguido in self._hitos:
+            if conseguido or not hito.fecha:
+                continue
+            x_meta = ganttcalc.fecha_a_x(
+                ganttcalc.parse_fecha(hito.fecha), self.fecha_origen, self.px_por_dia
+            )
+            cr.move_to(x_meta, 0)
+            cr.line_to(x_meta, alto_total)
+        cr.stroke()
+        cr.restore()
+
         ids_con_hijos = {
             fila.tarea.padre_id
             for fila, _profundidad in self._filas
@@ -578,12 +663,6 @@ class GanttDrawingArea(Gtk.DrawingArea):
             centro_y = y + ALTURA_FILA / 2
             fecha_mostrada, duracion_mostrada = self._valores_mostrados(tarea)
             x = ganttcalc.fecha_a_x(fecha_mostrada, self.fecha_origen, self.px_por_dia)
-            if tarea.es_hito:
-                self._dibujar_hito(cr, x, centro_y, color_acento)
-                posiciones[tarea.id] = (x, x, centro_y)
-                self._anotar_limite(limites, tarea, x, centro_y)
-                continue
-
             ancho_barra = ganttcalc.ancho_duracion(duracion_mostrada, self.px_por_dia)
             if tarea.id in ids_con_hijos:
                 # Tarea resumen (tiene subtareas): una fila fina arriba de la fila normal,
@@ -684,16 +763,6 @@ class GanttDrawingArea(Gtk.DrawingArea):
         color: tuple[float, float, float, float],
     ) -> None:
         limite_dibujo.dibujar_limite(cr, x_barra_fin, x_limite, y_linea, color)
-
-    def _dibujar_hito(self, cr, x: float, centro_y: float, color: tuple[float, float, float]) -> None:
-        radio = ALTURA_FILA * 0.3
-        cr.set_source_rgba(*color, 0.9)
-        cr.move_to(x, centro_y - radio)
-        cr.line_to(x + radio, centro_y)
-        cr.line_to(x, centro_y + radio)
-        cr.line_to(x - radio, centro_y)
-        cr.close_path()
-        cr.fill()
 
     def _dibujar_flecha(
         self, cr, x_origen: float, y_origen: float, x_destino: float, y_destino: float

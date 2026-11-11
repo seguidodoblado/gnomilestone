@@ -1217,8 +1217,7 @@ class ReportView(Gtk.Box):
             xx = max(x + 5, min(x + width - 5, x + width * dia / 6 + desplazamiento))
             critico = tarea.id in criticos
             expandido = (critico and tarea.id not in self._criticos_colapsados) or tarea.id in self._tareas_expandidas
-            es_hito = tarea.es_hito
-            color = (0.95, 0.65, 0.12) if es_hito else ((0.88, 0.20, 0.14) if critico else (0.22, 0.47, 0.84))
+            color = (0.88, 0.20, 0.14) if critico else (0.22, 0.47, 0.84)
             alternar = (lambda tarea_id=tarea.id: self._alternar_tarea(tarea_id))
             if not expandido:
                 cr.set_source_rgb(*color)
@@ -1233,9 +1232,7 @@ class ReportView(Gtk.Box):
             popup_y = eje_y - (68 if banda == 0 else 112) if encima else eje_y + (18 if banda == 1 else 62)
             popup_x = max(x, min(x + width - popup_w, xx - popup_w / 2))
             self._rounded_rectangle(cr, popup_x, popup_y, popup_w, popup_h, 7)
-            if es_hito:
-                oscuro, claro = (0.78, 0.38, 0.04), (1.0, 0.78, 0.24)
-            elif critico:
+            if critico:
                 oscuro, claro = (0.68, 0.08, 0.10), (0.96, 0.25, 0.20)
             else:
                 oscuro, claro = (0.12, 0.34, 0.68), (0.28, 0.62, 0.95)

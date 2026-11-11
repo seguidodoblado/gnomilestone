@@ -44,8 +44,8 @@ class FilaUso:
 
 
 def duracion_efectiva(tarea: Tarea) -> int:
-    """Días que ocupa en el calendario (hitos y duraciones 0 cuentan un día)."""
-    return 1 if tarea.es_hito else max(tarea.duracion_dias, 1)
+    """Días que ocupa en el calendario (una duración de 0 cuenta un día)."""
+    return max(tarea.duracion_dias, 1)
 
 
 def carga_por_dia(segmentos: list[SegmentoUso] | tuple[SegmentoUso, ...]) -> dict[date, int]:

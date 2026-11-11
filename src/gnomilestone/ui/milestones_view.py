@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from collections.abc import Callable
+from datetime import date
 
 import gi
 
@@ -8,8 +9,9 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, Gtk, Pango
 
 from gnomilestone.documentacion import hitos_del_proyecto
+from gnomilestone.hitos import avance_hito, esta_conseguido, esta_vencido, tareas_por_hito
 from gnomilestone.i18n import _
-from gnomilestone.models import Dependencia, Tarea
+from gnomilestone.models import Hito, Tarea
 
 _css_aplicado = False
 
@@ -40,6 +42,12 @@ def _asegurar_css() -> None:
         " background-color: alpha(black, 0.25); }\n"
         ".gnomilestone-hito-tarjeta progressbar progress { min-height: 6px;"
         " background-color: white; }\n"
+        ".gnomilestone-hito-anadir { background-image: linear-gradient(to bottom,"
+        " alpha(#fff3d6, 0.42), alpha(#fff3d6, 0.12)); color: #29200f; font-weight: 700;"
+        " border: 1px solid alpha(#7a3200, 0.35); border-radius: 999px;"
+        " padding: 3px 16px; box-shadow: 0 1px 2px alpha(black, 0.25); }\n"
+        ".gnomilestone-hito-anadir:hover { background-image: linear-gradient(to bottom,"
+        " alpha(#fff3d6, 0.6), alpha(#fff3d6, 0.22)); }\n"
         ".gnomilestone-hito-previa { background-image: linear-gradient(to bottom, #479ef2,"
         " #1f57ad); color: #f5faff; border-radius: 12px; padding: 6px 14px; }\n"
         ".gnomilestone-hito-previa.hecha { background-image: linear-gradient(to bottom,"
@@ -51,67 +59,74 @@ def _asegurar_css() -> None:
     _css_aplicado = True
 
 
-class MilestonesView(Gtk.ScrolledWindow):
+class MilestonesView(Gtk.Box):
     """Hitos del proyecto como una línea de tiempo vertical de tarjetas: fecha a la
-    izquierda y, en la tarjeta, estado, avance y (al desplegar) las tareas previas de las
-    que depende el hito con sus subtareas."""
+    izquierda y, en la tarjeta, estado, avance y (al desplegar) las tareas que contribuyen
+    al hito con sus subtareas. Un Hito es un Milestone de GitHub, no una tarea."""
 
-    def __init__(self) -> None:
-        super().__init__(hscrollbar_policy=Gtk.PolicyType.NEVER, hexpand=True, vexpand=True)
+    def __init__(
+        self,
+        on_nuevo: Callable[[], None] | None = None,
+        on_editar: Callable[[Hito], None] | None = None,
+        on_anadir_tareas: Callable[[Hito], None] | None = None,
+        on_quitar_tarea: Callable[[Tarea], None] | None = None,
+    ) -> None:
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
         _asegurar_css()
+        self._on_editar = on_editar
+        self._on_anadir_tareas = on_anadir_tareas
+        self._on_quitar_tarea = on_quitar_tarea
+        self._plegadas: set[int] = set()  # tareas con las subtareas plegadas
+        barra = Gtk.Box(margin_top=8, margin_start=16, margin_end=16)
+        nuevo = Gtk.Button(label=_("Nuevo hito"))
+        nuevo.add_css_class("suggested-action")
+        nuevo.connect("clicked", lambda _b: on_nuevo() if on_nuevo else None)
+        barra.append(nuevo)
+        self.append(barra)
         self._caja = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         for margen in ("top", "bottom", "start", "end"):
             getattr(self._caja, f"set_margin_{margen}")(16)
-        self.set_child(self._caja)
+        desplazable = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER, hexpand=True, vexpand=True
+        )
+        desplazable.set_child(self._caja)
+        self.append(desplazable)
 
-    def set_datos(self, tareas: list[Tarea], dependencias: list[Dependencia]) -> None:
+    def set_datos(self, hitos: list[Hito], tareas: list[Tarea]) -> None:
         hijo = self._caja.get_first_child()
         while hijo is not None:
             siguiente = hijo.get_next_sibling()
             self._caja.remove(hijo)
             hijo = siguiente
-        hitos = hitos_del_proyecto(tareas)
+        hitos = hitos_del_proyecto(hitos)
         if not hitos:
             vacio = Gtk.Label(
-                label=_("No hay hitos. Marca una tarea como hito para verla aquí."),
+                label=_("No hay hitos. Crea uno con «Nuevo hito» o en un Milestone de GitHub."),
                 xalign=0,
                 wrap=True,
             )
             vacio.add_css_class("dim-label")
             self._caja.append(vacio)
             return
-        por_id = {t.id: t for t in tareas}
         hijos: dict[int | None, list[Tarea]] = {}
         for tarea in tareas:
             hijos.setdefault(tarea.padre_id, []).append(tarea)
+        por_hito = tareas_por_hito(tareas)
         for hito in hitos:
-            previas = [
-                por_id[d.tarea_origen_id]
-                for d in dependencias
-                if d.tarea_destino_id == hito.id and d.tarea_origen_id in por_id
-            ]
-            self._caja.append(self._fila(hito, previas, hijos))
+            self._caja.append(self._fila(hito, por_hito.get(hito.id, []), hijos))
 
     def _fila(
-        self, hito: Tarea, previas: list[Tarea], hijos: dict[int | None, list[Tarea]]
+        self, hito: Hito, previas: list[Tarea], hijos: dict[int | None, list[Tarea]]
     ) -> Gtk.Widget:
-        progreso = (
-            sum(p.porcentaje_completado for p in previas) / len(previas)
-            if previas
-            else hito.porcentaje_completado
-        )
-        completado = hito.porcentaje_completado >= 100 or (previas and progreso >= 100)
-        vencido = (
-            not completado
-            and hito.fecha_limite is not None
-            and date.fromisoformat(hito.fecha_limite[:10]) < datetime.now().astimezone().date()
-        )
+        progreso = avance_hito(hito, previas)
+        completado = esta_conseguido(hito, previas)
+        vencido = esta_vencido(hito, previas)
 
         # Columna de fecha + hilo vertical que une los hitos.
         fecha = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.START)
         fecha.add_css_class("gnomilestone-hito-fecha")
-        if hito.fecha_limite:
-            d = date.fromisoformat(hito.fecha_limite[:10])
+        if hito.fecha:
+            d = date.fromisoformat(hito.fecha[:10])
             dia = Gtk.Label(label=f"{d.day}")
             dia.add_css_class("gnomilestone-hito-dia")
             mes = Gtk.Label(label=f"{d.strftime('%b').upper()} {d.year}")
@@ -141,13 +156,18 @@ class MilestonesView(Gtk.ScrolledWindow):
         cabecera = Gtk.Box(spacing=10)
         cabecera.append(titulo)
         cabecera.append(chip)
+        editar = Gtk.Button(icon_name="document-edit-symbolic", valign=Gtk.Align.CENTER)
+        editar.add_css_class("flat")
+        editar.set_tooltip_text(_("Editar hito"))
+        editar.connect("clicked", lambda _b: self._on_editar(hito) if self._on_editar else None)
+        cabecera.append(editar)
 
         detalle = Gtk.Label(
-            label=_("{n} tareas previas · {progreso:.0f} % completado").format(
+            label=_("{n} tareas · {progreso:.0f} % completado").format(
                 n=len(previas), progreso=progreso
             )
             if previas
-            else _("Sin tareas previas · {progreso:.0f} % completado").format(progreso=progreso),
+            else _("Sin tareas · {progreso:.0f} % completado").format(progreso=progreso),
             xalign=0,
         )
         detalle.add_css_class("gnomilestone-hito-detalle")
@@ -167,22 +187,28 @@ class MilestonesView(Gtk.ScrolledWindow):
         tarjeta.append(interior)
 
         cuerpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=12)
+        anadir = Gtk.Button(label=_("Añadir tareas…"), halign=Gtk.Align.START)
+        anadir.add_css_class("gnomilestone-hito-anadir")
+        anadir.connect(
+            "clicked", lambda _b: self._on_anadir_tareas(hito) if self._on_anadir_tareas else None
+        )
+        cuerpo.append(anadir)
+        ids_miembros = {t.id for t in previas}
         for previa in previas:
-            cuerpo.append(self._pildora(previa, 0))
-            for subtarea in hijos.get(previa.id, []):
-                cuerpo.append(self._pildora(subtarea, 1))
+            if previa.padre_id in ids_miembros:
+                continue  # ya cuelga, como subtarea, de otra tarea del hito
+            cuerpo.append(self._rama(previa, 0, hijos, quitable=True))
         revelador = Gtk.Revealer(child=cuerpo, reveal_child=False)
         tarjeta.append(revelador)
 
-        if previas:
-            gesto = Gtk.GestureClick()
-            gesto.connect(
-                "released",
-                lambda *_a: revelador.set_reveal_child(not revelador.get_reveal_child()),
-            )
-            interior.add_controller(gesto)
-            interior.set_cursor(Gdk.Cursor.new_from_name("pointer"))
-            chip.set_tooltip_text(_("Pulsa para ver las tareas previas"))
+        gesto = Gtk.GestureClick()
+        gesto.connect(
+            "released",
+            lambda *_a: revelador.set_reveal_child(not revelador.get_reveal_child()),
+        )
+        interior.add_controller(gesto)
+        interior.set_cursor(Gdk.Cursor.new_from_name("pointer"))
+        chip.set_tooltip_text(_("Pulsa para ver sus tareas y añadir otras"))
 
         fila = Gtk.Box(spacing=8, margin_bottom=14)
         fila.append(fecha)
@@ -190,16 +216,53 @@ class MilestonesView(Gtk.ScrolledWindow):
         fila.append(tarjeta)
         return fila
 
-    @staticmethod
-    def _pildora(tarea: Tarea, nivel: int) -> Gtk.Widget:
-        caja = Gtk.Box(spacing=8, margin_start=nivel * 24)
-        caja.add_css_class("gnomilestone-hito-previa")
+    def _rama(
+        self, tarea: Tarea, nivel: int, hijos: dict[int | None, list[Tarea]], quitable: bool
+    ) -> Gtk.Widget:
+        """La tarea y, plegables con ▾/▸, sus subtareas."""
+        subtareas = hijos.get(tarea.id, [])
+        rama = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        pildora = Gtk.Box(spacing=6, margin_start=nivel * 24)
+        pildora.add_css_class("gnomilestone-hito-previa")
         if tarea.porcentaje_completado >= 100:
-            caja.add_css_class("hecha")
-        caja.append(
+            pildora.add_css_class("hecha")
+        caja_subtareas = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        if subtareas:
+            plegada = tarea.id in self._plegadas
+            marca = Gtk.Button(label="▸" if plegada else "▾")
+            marca.add_css_class("flat")
+            marca.add_css_class("circular")
+            marca.set_tooltip_text(_("Plegar o desplegar las subtareas"))
+
+            def _alternar(_b, tarea_id=tarea.id, marca=marca, caja=caja_subtareas) -> None:
+                if tarea_id in self._plegadas:
+                    self._plegadas.discard(tarea_id)
+                else:
+                    self._plegadas.add(tarea_id)
+                abierta = tarea_id not in self._plegadas
+                marca.set_label("▾" if abierta else "▸")
+                caja.set_visible(abierta)
+
+            marca.connect("clicked", _alternar)
+            pildora.append(marca)
+            caja_subtareas.set_visible(not plegada)
+        pildora.append(
             Gtk.Label(
                 label=tarea.titulo, xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END
             )
         )
-        caja.append(Gtk.Label(label=f"{tarea.porcentaje_completado} %"))
-        return caja
+        pildora.append(Gtk.Label(label=f"{tarea.porcentaje_completado} %"))
+        if quitable:
+            quitar = Gtk.Button(icon_name="window-close-symbolic")
+            quitar.add_css_class("flat")
+            quitar.add_css_class("circular")
+            quitar.set_tooltip_text(_("Quitar del hito"))
+            quitar.connect(
+                "clicked", lambda _b: self._on_quitar_tarea(tarea) if self._on_quitar_tarea else None
+            )
+            pildora.append(quitar)
+        rama.append(pildora)
+        for subtarea in subtareas:
+            caja_subtareas.append(self._rama(subtarea, nivel + 1, hijos, quitable=False))
+        rama.append(caja_subtareas)
+        return rama
