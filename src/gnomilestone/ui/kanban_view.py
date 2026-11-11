@@ -44,6 +44,7 @@ _PALETA_COLUMNAS = (
     "#26a269",  # verde oscuro
 )
 _CLASE_COLUMNA_PREFIJO = "gnomilestone-columna-"
+_COLOR_HITO = "#f2a61f"  # ámbar, el mismo rombo de los hitos de Informes y Hoja de ruta
 
 
 def colores_de_estados(estados: list) -> dict[int, str]:
@@ -99,6 +100,14 @@ def _asegurar_css_columnas() -> None:
         ".card.gnomilestone-tarjeta:drop(active) { "
         "outline: none; box-shadow: none; }\n"
         # Chip con la tarea padre, encima del título de la subtarea.
+        # Cápsula de subtarea: barra de progreso redondeada con el título encima.
+        ".gnomilestone-capsula progressbar trough, "
+        ".gnomilestone-capsula progressbar progress { "
+        "min-height: 22px; border-radius: 11px; }\n"
+        ".gnomilestone-capsula progressbar progress { "
+        "background-color: alpha(@accent_bg_color, 0.55); }\n"
+        # Hito: borde izquierdo ámbar (la franja superior sigue siendo la de su columna).
+        f".card.gnomilestone-tarjeta.gnomilestone-hito {{ border-left: 3px solid {_COLOR_HITO}; }}\n"
         ".gnomilestone-padre { "
         "background-color: alpha(@accent_color, 0.25); color: @accent_color; "
         "border-radius: 6px; padding: 1px 6px; font-weight: bold; }\n"
@@ -144,6 +153,24 @@ class KanbanView(Gtk.Box):
         self._indicador: Gtk.Box | None = None  # línea de destino del arrastre
         self._movimiento_en_tarjeta = False  # la tarjeta ya gestionó este movimiento
         self._n_movimientos = 0
+        # Filtro activo: ids de las tareas visibles y texto de la barra (None = sin filtro).
+        self._filtro_ids: set[int] | None = None
+        self._filtro_texto = ""
+
+        # Barra del filtro por tarea padre: visible solo mientras hay filtro activo.
+        self._barra_filtro = Gtk.Box(spacing=8, margin_top=6, margin_start=12, margin_end=12)
+        self._barra_filtro.add_css_class("gnomilestone-padre")
+        self._etiqueta_filtro = Gtk.Label(xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
+        self._barra_filtro.append(self._etiqueta_filtro)
+        quitar = Gtk.Button(
+            icon_name="window-close-symbolic",
+            tooltip_text=_("Quitar filtro"),
+            has_frame=False,
+        )
+        quitar.connect("clicked", lambda _b: self._filtrar(None, ""))
+        self._barra_filtro.append(quitar)
+        self._barra_filtro.set_visible(False)
+        self.append(self._barra_filtro)
 
         if on_abrir_ajustes is not None:
             cabecera = Gtk.Box(margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
@@ -163,6 +190,8 @@ class KanbanView(Gtk.Box):
         self.append(scroller)
 
     def mostrar_proyecto(self, proyecto_id: int, mostrar_completadas: bool = True) -> None:
+        if proyecto_id != self._proyecto_id:
+            self._filtro_ids = None
         self._proyecto_id = proyecto_id
         self._mostrar_completadas = mostrar_completadas
         self.refrescar()
@@ -187,6 +216,14 @@ class KanbanView(Gtk.Box):
                 self._hijas_de.setdefault(t.padre_id, []).append(t)
         if not self._mostrar_completadas:
             tareas = ocultar_completadas(tareas)
+        if self._filtro_ids is not None:
+            self._filtro_ids &= set(self._tareas_por_id)  # descarta las ya eliminadas
+            if not self._filtro_ids:
+                self._filtro_ids = None
+        if self._filtro_ids is not None:
+            tareas = [t for t in tareas if t.id in self._filtro_ids]
+            self._etiqueta_filtro.set_text(self._filtro_texto)
+        self._barra_filtro.set_visible(self._filtro_ids is not None)
         tareas_por_estado: dict[int | None, list[Tarea]] = {}
         for tarea in tareas:
             tareas_por_estado.setdefault(tarea.estado_id, []).append(tarea)
@@ -198,6 +235,72 @@ class KanbanView(Gtk.Box):
                     estado.id, estado.nombre, tareas, indice, estado.descripcion
                 )
             )
+
+    def _ids_con_descendientes(self, raiz_id: int) -> set[int]:
+        ids = {raiz_id}
+        pendientes = [raiz_id]
+        while pendientes:
+            for hija in self._hijas_de.get(pendientes.pop(), []):
+                if hija.id not in ids:
+                    ids.add(hija.id)
+                    pendientes.append(hija.id)
+        return ids
+
+    def _filtrar(self, ids: set[int] | None, texto: str) -> None:
+        self._filtro_ids = ids
+        self._filtro_texto = texto
+        self.refrescar()
+
+    def _filtrar_por_padre(self, padre_id: int) -> None:
+        self._filtrar(
+            self._ids_con_descendientes(padre_id),
+            _("Filtrando: {titulo} y sus subtareas").format(
+                titulo=self._tareas_por_id[padre_id].titulo
+            ),
+        )
+
+    def _filtrar_por_subtarea(self, tarea_id: int) -> None:
+        self._filtrar(
+            {tarea_id},
+            _("Filtrando: {titulo}").format(titulo=self._tareas_por_id[tarea_id].titulo),
+        )
+
+    def _crear_capsula(self, hija: Tarea) -> Gtk.Widget:
+        """Cápsula de una subtarea: su título sobre una barra con su % completado.
+        Al pulsarla, el tablero muestra solo esa subtarea."""
+        capsula = Gtk.Overlay()
+        capsula.add_css_class("gnomilestone-capsula")
+        barra = Gtk.ProgressBar(fraction=min(hija.porcentaje_completado, 100) / 100)
+        capsula.set_child(barra)
+        etiqueta = Gtk.Label(
+            label=f"{'◆ ' if hija.es_hito else ''}{hija.titulo} · {hija.porcentaje_completado}%",
+            xalign=0,
+            ellipsize=Pango.EllipsizeMode.END,
+            margin_start=8,
+            margin_end=8,
+        )
+        etiqueta.add_css_class("caption")
+        capsula.add_overlay(etiqueta)
+        capsula.set_cursor_from_name("pointer")
+        capsula.set_tooltip_text(
+            f"{hija.titulo} · {hija.porcentaje_completado}%\n"
+            + _("Pulsa para ver solo esta subtarea")
+        )
+        self._al_pulsar(capsula, lambda: self._filtrar_por_subtarea(hija.id))
+        return capsula
+
+    @staticmethod
+    def _al_pulsar(widget: Gtk.Widget, accion: Callable[[], None]) -> None:
+        """Clic simple que no llega a la tarjeta (doble clic/arrastre) y, al refrescar el
+        tablero en diferido, no destruye el widget dentro de su propio manejador."""
+        gesto = Gtk.GestureClick(button=1)
+
+        def _pulsado(g: Gtk.GestureClick, *_a) -> None:
+            g.set_state(Gtk.EventSequenceState.CLAIMED)
+            GLib.idle_add(lambda: accion() or GLib.SOURCE_REMOVE)
+
+        gesto.connect("pressed", _pulsado)
+        widget.add_controller(gesto)
 
     def _construir_columna(
         self,
@@ -273,6 +376,12 @@ class KanbanView(Gtk.Box):
         recursos = self._store.listar_recursos_de_tarea(tarea.id)
 
         fila_titulo = Gtk.Box(spacing=4)
+        if tarea.es_hito:
+            tarjeta.add_css_class("gnomilestone-hito")
+            rombo = Gtk.Label(valign=Gtk.Align.START, use_markup=True)
+            rombo.set_markup(f'<span foreground="{_COLOR_HITO}">◆</span>')
+            rombo.set_tooltip_text(_("Hito"))
+            fila_titulo.append(rombo)
         icono_prioridad = crear_icono_prioridad(tarea.prioridad)
         if icono_prioridad is not None:
             icono_prioridad.set_valign(Gtk.Align.START)
@@ -316,7 +425,13 @@ class KanbanView(Gtk.Box):
                     max_width_chars=28,
                 )
             )
-            fila_padre.set_tooltip_text(_("Subtarea de: {titulo}").format(titulo=padre.titulo))
+            fila_padre.set_cursor_from_name("pointer")
+            fila_padre.set_tooltip_text(
+                _("Subtarea de: {titulo}").format(titulo=padre.titulo)
+                + "\n"
+                + _("Pulsa para filtrar solo esta tarea y sus subtareas")
+            )
+            self._al_pulsar(fila_padre, lambda pid=padre.id: self._filtrar_por_padre(pid))
             tarjeta.prepend(fila_padre)
         hijas = self._hijas_de.get(tarea.id, [])
         if hijas:
@@ -328,15 +443,19 @@ class KanbanView(Gtk.Box):
             resumen.add_css_class("caption")
             resumen.add_css_class("dim-label")
             tarjeta.append(resumen)
-            tarjeta.append(Gtk.ProgressBar(fraction=hechas / len(hijas)))
+            for hija in hijas:
+                tarjeta.append(self._crear_capsula(hija))
 
         if tarea.fecha_inicio:
             info = Gtk.Label(
                 label=(
-                    f"{formatear_fecha_local(tarea.fecha_inicio)} · "
+                    # Un hito no tiene duración: solo su fecha (y el % si no es 0).
+                    formatear_fecha_local(tarea.fecha_inicio)
+                    if tarea.es_hito
+                    else f"{formatear_fecha_local(tarea.fecha_inicio)} · "
                     f"{tarea.duracion_dias}d · {tarea.porcentaje_completado}%"
-                    + (_(" · vencida") if estado == VENCIDA else "")
-                ),
+                )
+                + (_(" · vencida") if estado == VENCIDA else ""),
                 xalign=0,
             )
             info.add_css_class("caption")

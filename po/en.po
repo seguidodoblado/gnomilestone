@@ -2968,3 +2968,23 @@ msgstr "Compared with the current version: "
 
 #~ msgid "Kanban"
 #~ msgstr "Kanban"
+
+#, python-brace-format
+msgid "Filtrando: {titulo} y sus subtareas"
+msgstr "Filtering: {titulo} and its subtasks"
+
+msgid "Quitar filtro"
+msgstr "Clear filter"
+
+msgid "Pulsa para filtrar solo esta tarea y sus subtareas"
+msgstr "Click to show only this task and its subtasks"
+
+#, python-brace-format
+msgid "Filtrando: {titulo}"
+msgstr "Filtering: {titulo}"
+
+msgid "Pulsa para ver solo esta subtarea"
+msgstr "Click to show only this subtask"
+
+msgid "Hito"
+msgstr "Milestone"

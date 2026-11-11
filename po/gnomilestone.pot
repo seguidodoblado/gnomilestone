@@ -2568,3 +2568,23 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/orca/workspaces/gnomilestone/mejorar-informes/src/gnomilestone/versiones.py:60
 msgid "Respecto a la versión actual: "
 msgstr ""
+
+#, python-brace-format
+msgid "Filtrando: {titulo} y sus subtareas"
+msgstr ""
+
+msgid "Quitar filtro"
+msgstr ""
+
+msgid "Pulsa para filtrar solo esta tarea y sus subtareas"
+msgstr ""
+
+#, python-brace-format
+msgid "Filtrando: {titulo}"
+msgstr ""
+
+msgid "Pulsa para ver solo esta subtarea"
+msgstr ""
+
+msgid "Hito"
+msgstr ""
