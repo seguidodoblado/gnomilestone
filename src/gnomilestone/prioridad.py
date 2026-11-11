@@ -1,18 +1,19 @@
 """Prioridad de una tarea y su correspondencia con el campo «Priority» de un Project V2.
 
 GitHub no tiene prioridad en los issues: solo existe si el proyecto define un campo de
-selección (p. ej. «Priority» con High/Medium/Low o P0/P1/P2). Localmente es un nivel 0-3.
+selección (p. ej. «Priority» con High/Medium/Low o P0/P1/P2). Localmente es un nivel 0-4.
 """
 
 from __future__ import annotations
 
 import re
 
-NINGUNA, BAJA, MEDIA, ALTA = 0, 1, 2, 3
-NIVELES = (NINGUNA, BAJA, MEDIA, ALTA)
+NINGUNA, BAJA, MEDIA, ALTA, URGENTE = 0, 1, 2, 3, 4
+NIVELES = (NINGUNA, BAJA, MEDIA, ALTA, URGENTE)
 
 _PALABRAS: dict[int, frozenset[str]] = {
-    ALTA: frozenset({"alta", "alto", "high", "urgent", "urgente", "critical", "critica", "p0"}),
+    URGENTE: frozenset({"urgent", "urgente", "critical", "critica"}),
+    ALTA: frozenset({"alta", "alto", "high", "p0"}),
     MEDIA: frozenset({"media", "medio", "medium", "normal", "p1"}),
     BAJA: frozenset({"baja", "bajo", "low", "minor", "p2", "p3"}),
 }
@@ -36,4 +37,6 @@ def opcion_para_nivel(nivel: int, opciones: dict[str, str]) -> str | None:
     for nombre, opcion_id in opciones.items():
         if nivel_desde_opcion(nombre) == nivel:
             return opcion_id
+    if nivel == URGENTE:  # sin opción «Urgent» en el proyecto, la más cercana es «High»
+        return opcion_para_nivel(ALTA, opciones)
     return None

@@ -32,10 +32,12 @@ from gnomilestone.models import (
 )
 from gnomilestone.plantillas import Plantilla, plantillas_para
 from gnomilestone.store import Store
+from gnomilestone.ui.asignar_hito import asignar_tareas_a_hito, diferir
 from gnomilestone.ui.diagram_canvas import MiniaturaDiagrama
 from gnomilestone.ui.diagram_window import DiagramWindow
 from gnomilestone.ui.dialogos import boton_con_icono, dato_con_icono, pedir_texto
 from gnomilestone.ui.history_view import HistorialView
+from gnomilestone.ui.hito_dialog import HitoDialog, SeleccionTareasHito
 from gnomilestone.ui.markdown_view import VistaMarkdown
 from gnomilestone.ui.milestones_view import MilestonesView
 from gnomilestone.ui.note_preview_window import NotePreviewWindow
@@ -117,12 +119,16 @@ class DocumentationView(Gtk.Box):
     contenido es propio de la app; las notas se guardan solas."""
 
     def __init__(
-        self, store: Store, al_abrir_tarea: Callable[[int], None] | None = None
+        self,
+        store: Store,
+        al_abrir_tarea: Callable[[int], None] | None = None,
+        al_cambiar_hitos: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL)
         _asegurar_css_notas()
         self._store = store
         self._al_abrir_tarea = al_abrir_tarea
+        self._al_cambiar_hitos = al_cambiar_hitos
         self._proyecto: Proyecto | None = None
         self._tareas: list[Tarea] = []
         self._dependencias: list[Dependencia] = []
@@ -190,7 +196,12 @@ class DocumentationView(Gtk.Box):
         cabecera.append(self._eliminar_sub_btn)
 
         self._historial_view = HistorialView()
-        self._hitos_view = MilestonesView()
+        self._hitos_view = MilestonesView(
+            self._on_nuevo_hito,
+            self._on_editar_hito,
+            self._on_anadir_tareas_a_hito,
+            self._on_quitar_tarea_de_hito,
+        )
         self._roadmap_view = RoadmapView()
 
         self._contenido = Gtk.Stack(hexpand=True, vexpand=True)
@@ -519,9 +530,35 @@ class DocumentationView(Gtk.Box):
         if clave == "historial":
             self._historial_view.set_datos(historial_realizado(self._tareas))
         elif clave == "hitos":
-            self._hitos_view.set_datos(activas, self._dependencias)
+            self._hitos_view.set_datos(self._store.listar_hitos(self._proyecto.id), activas)
         elif clave == "roadmap":
-            self._roadmap_view.set_datos(self._proyecto.nombre, eventos_roadmap(activas))
+            hitos = self._store.listar_hitos(self._proyecto.id)
+            self._roadmap_view.set_datos(self._proyecto.nombre, eventos_roadmap(activas, hitos))
+
+    def _on_nuevo_hito(self) -> None:
+        self._abrir_dialogo_hito(None)
+
+    def _on_editar_hito(self, hito) -> None:
+        self._abrir_dialogo_hito(hito)
+
+    def _on_anadir_tareas_a_hito(self, hito) -> None:
+        activas = [t for t in self._tareas if not t.archivada]
+        SeleccionTareasHito(
+            self.get_root(), self._store, hito, activas, self._hitos_cambiados
+        ).present()
+
+    def _on_quitar_tarea_de_hito(self, tarea) -> None:
+        asignar_tareas_a_hito(self._store, [tarea.id], None)
+        self._hitos_cambiados()
+
+    def _abrir_dialogo_hito(self, hito) -> None:
+        if self._proyecto is None:
+            return
+        HitoDialog(self.get_root(), self._store, self._proyecto.id, hito, self._hitos_cambiados).present()
+
+    def _hitos_cambiados(self) -> None:
+        # Diferido: se llama desde botones de esta misma vista, que se reconstruye.
+        diferir(self._al_cambiar_hitos or self.refrescar)  # recarga el proyecto (y esta vista)
 
     def _refrescar_notas(self, subseccion_id: int) -> None:
         assert self._proyecto is not None

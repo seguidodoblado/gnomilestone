@@ -13,8 +13,9 @@ from gnomilestone.github import (
     GitHubNotFoundError,
     GitHubStatusOption,
 )
+from gnomilestone.hitos import esta_conseguido
 from gnomilestone.i18n import _
-from gnomilestone.models import Recurso, Tarea
+from gnomilestone.models import Hito, Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
 from gnomilestone.store import ESTADOS_POR_DEFECTO, Store
 
@@ -225,6 +226,15 @@ class GitHubSyncManager:
                 and tarea.actualizado > tarea.github_synced_at
             )
 
+        # Los Milestones se traen antes que las tareas para poder enlazar cada una con su Hito.
+        if repo_name:
+            self._pull_milestones(proyecto_id, owner, repo_name, resultado)
+        hitos_de = {}
+        for h in self._store.listar_hitos(proyecto_id):
+            if h.github_milestone_number:
+                hitos_de[h.github_milestone_number] = h.id
+            hitos_de[h.titulo.casefold()] = h.id
+
         # 2. Procesar items del Project V2
         procesados_issues: set[int] = set()
 
@@ -260,10 +270,6 @@ class GitHubSyncManager:
             elif not fecha_inicio and item.target_date:
                 fecha_inicio = item.target_date
 
-            es_hito = False
-            if item.milestone_title and not item.start_date and item.target_date:
-                # O si tiene etiqueta milestone
-                pass
 
             conflicto_item = False
             nivel_prioridad = nivel_desde_opcion(item.priority_name)
@@ -330,7 +336,6 @@ class GitHubSyncManager:
                     fecha_inicio=fecha_inicio,
                     fecha_fin_planificada=item.target_date or fecha_inicio,
                     duracion_dias=duracion_dias,
-                    es_hito=es_hito,
                     github_issue_number=item.issue_number,
                     github_item_id=item.id,
                     github_url=item.url,
@@ -344,6 +349,7 @@ class GitHubSyncManager:
                 self._aplicar_etiquetas(
                     proyecto_id, tarea_id, item.labels, item.label_colors or {}
                 )
+            self._enlazar_hito(tarea_id, hitos_de, None, item.milestone_title, conflicto_item)
 
             # Asignaciones (solo añade recursos nuevos, nunca quita: seguro ante conflicto)
             if item.assignees:
@@ -381,10 +387,8 @@ class GitHubSyncManager:
                     assignees = [a["login"] for a in issue.get("assignees", [])]
                     milestone = issue.get("milestone")
                     fecha_inicio = None
-                    es_hito = False
                     if milestone and milestone.get("due_on"):
                         fecha_inicio = milestone["due_on"][:10]
-                        es_hito = True
 
                     conflicto_issue = False
                     if tarea_existente:
@@ -422,8 +426,7 @@ class GitHubSyncManager:
                             estado_id=estado_id,
                             fecha_inicio=fecha_inicio,
                             fecha_fin_planificada=fecha_inicio,
-                            es_hito=es_hito,
-                            porcentaje_completado=100 if is_closed else 0,
+                                    porcentaje_completado=100 if is_closed else 0,
                             github_issue_number=num,
                             github_url=url,
                         )
@@ -431,6 +434,14 @@ class GitHubSyncManager:
                         self._store.marcar_sincronizada_github(nueva.id)
                         t_id = nueva.id
 
+                    milestone_issue = issue.get("milestone") or {}
+                    self._enlazar_hito(
+                        t_id,
+                        hitos_de,
+                        milestone_issue.get("number"),
+                        milestone_issue.get("title"),
+                        conflicto_issue,
+                    )
                     if not conflicto_issue:
                         etiquetas_issue = issue.get("labels") or []
                         self._aplicar_etiquetas(
@@ -470,6 +481,73 @@ class GitHubSyncManager:
                 self._store.purgar_estado_temporal_si_vacio(estado_temporal.id)
 
         return resultado
+
+    def _pull_milestones(
+        self, proyecto_id: int, owner: str, repo_name: str, resultado: SyncResult
+    ) -> None:
+        """Cada Milestone del repositorio es un Hito local: se crea si falta (o se empareja por
+        título con un Hito local que aún no tenía Milestone) y, si ya existe, se le traen
+        título, descripción, fecha y estado. Lo editado en local desde el último sync no se
+        pisa: el siguiente envío manda."""
+        try:
+            hitos = self._store.listar_hitos(proyecto_id)
+            por_numero = {h.github_milestone_number: h for h in hitos if h.github_milestone_number}
+            sin_vincular = {h.titulo.casefold(): h for h in hitos if not h.github_milestone_number}
+            for m in self._client.listar_milestones(owner, repo_name):
+                numero = m.get("number")
+                if not numero:
+                    continue
+                titulo = m.get("title") or f"Milestone {numero}"
+                fecha = (m.get("due_on") or "")[:10] or None
+                descripcion = m.get("description") or ""
+                cerrado = m.get("state") == "closed"
+                hito = por_numero.get(numero) or sin_vincular.pop(titulo.casefold(), None)
+                if hito is None:
+                    nuevo = self._store.crear_hito(
+                        proyecto_id, titulo, fecha, descripcion, cerrado, numero
+                    )
+                    self._store.marcar_hito_sincronizado(nuevo.id)
+                    resultado.tareas_creadas += 1
+                    continue
+                if not hito.github_milestone_number:
+                    self._store.vincular_milestone_hito(hito.id, numero)
+                if (
+                    hito.actualizado
+                    and hito.github_synced_at
+                    and hito.actualizado > hito.github_synced_at
+                ):
+                    continue  # editado en local desde el último sync
+                if (hito.titulo, hito.descripcion, hito.fecha, hito.conseguido) != (
+                    titulo, descripcion, fecha, cerrado
+                ):
+                    hito.titulo, hito.descripcion = titulo, descripcion
+                    hito.fecha, hito.conseguido = fecha, cerrado
+                    self._store.actualizar_hito(hito)
+                    resultado.tareas_actualizadas += 1
+                self._store.marcar_hito_sincronizado(hito.id)
+        except Exception as e:
+            log.exception("Error al traer los Milestones del repositorio")
+            resultado.errores.append(f"Error trayendo los Milestones de {owner}/{repo_name}: {e}")
+
+    def _enlazar_hito(
+        self,
+        tarea_id: int,
+        hitos: dict[int | str, int],
+        numero: int | None,
+        titulo: str | None,
+        en_conflicto: bool,
+    ) -> None:
+        """La tarea contribuye al Hito cuyo Milestone contiene su issue. Si el issue ya no está
+        en ningún Milestone, la tarea deja su Hito (salvo que se haya editado en local)."""
+        if en_conflicto:
+            return
+        hito_id = hitos.get(numero) if numero else None
+        if hito_id is None and titulo:
+            hito_id = hitos.get(titulo.casefold())
+        if hito_id is not None:
+            self._store.vincular_hito_tarea(tarea_id, hito_id)
+        elif not numero and not titulo:
+            self._store.vincular_hito_tarea(tarea_id, None)
 
     def _pull_contexto(self, proyecto_id: int, owner: str, repo_name: str, resultado: SyncResult) -> None:
         """Rellena las notas de «Contexto del proyecto» (README, código de conducta,
@@ -686,6 +764,187 @@ class GitHubSyncManager:
         ]
         self._store.establecer_etiquetas_de_tarea(tarea_id, ids)
         self._store.guardar_etiquetas_base_github(tarea_id, nombres)
+
+    # -- Hitos <-> Milestones de GitHub ---------------------------------------------
+
+    def _asegurar_milestone(self, owner: str, repo: str, hito: Hito) -> tuple[int | None, bool]:
+        """(número del Milestone del Hito, si ya existía en GitHub). Lo crea si el Hito aún no
+        tiene; si GitHub ya tiene uno con ese título (p. ej. creado a mano), se vincula a él."""
+        if hito.github_milestone_number:
+            return hito.github_milestone_number, True
+        tareas = [t for t in self._store.listar_tareas(hito.proyecto_id) if t.hito_id == hito.id]
+        try:
+            creado = self._client.crear_milestone(
+                owner, repo, hito.titulo, hito.fecha, hito.descripcion,
+                esta_conseguido(hito, tareas),
+            )
+            numero, existia = creado.get("number"), False
+        except GitHubError as err:
+            if "already_exists" not in str(err):
+                raise
+            existente = next(
+                (
+                    m
+                    for m in self._client.listar_milestones(owner, repo)
+                    if (m.get("title") or "").casefold() == hito.titulo.casefold()
+                ),
+                None,
+            )
+            if existente is None:
+                raise
+            numero, existia = existente.get("number"), True
+        if numero:
+            self._store.vincular_milestone_hito(hito.id, numero)
+            hito.github_milestone_number = numero
+        return numero, existia
+
+    def push_hito(self, hito_id: int) -> bool:
+        """Crea o actualiza el Milestone de un Hito y mete en él los issues de sus tareas."""
+        with _BLOQUEO_PROYECTO:
+            return self._push_hito(hito_id)
+
+    def _push_hito(self, hito_id: int) -> bool:
+        hito = self._store.obtener_hito(hito_id)
+        if hito is None:
+            return False
+        proyecto = self._store.obtener_proyecto(hito.proyecto_id)
+        if not (proyecto and proyecto.github_repo_owner and proyecto.github_repo_name):
+            return True  # proyecto solo local: no hay nada que enviar
+        owner, repo = proyecto.github_repo_owner, proyecto.github_repo_name
+        try:
+            tareas = [t for t in self._store.listar_tareas(hito.proyecto_id) if t.hito_id == hito.id]
+            numero, existia = self._asegurar_milestone(owner, repo, hito)
+            if numero and existia:
+                self._client.actualizar_milestone(
+                    owner, repo, numero, hito.titulo, hito.fecha,
+                    hito.descripcion, esta_conseguido(hito, tareas),
+                )
+            for tarea in tareas:
+                if numero and tarea.github_issue_number:
+                    self._client.actualizar_issue(
+                        owner, repo, tarea.github_issue_number, milestone=numero
+                    )
+            self._store.marcar_hito_sincronizado(hito.id)
+            return True
+        except Exception:
+            log.exception("Error al enviar el Hito %s a GitHub", hito_id)
+            return False
+
+    def eliminar_hito(self, hito_id: int, *, en_segundo_plano: bool = True) -> None:
+        """Borra el Hito en local (sus tareas se quedan, sin Hito) y su Milestone en GitHub."""
+        hito = self._store.obtener_hito(hito_id)
+        if hito is None:
+            return
+        proyecto = self._store.obtener_proyecto(hito.proyecto_id)
+        self._store.eliminar_hito(hito_id)
+        if not (
+            hito.github_milestone_number
+            and proyecto
+            and proyecto.github_repo_owner
+            and proyecto.github_repo_name
+        ):
+            return
+        self._en_remoto(
+            lambda: self._client.eliminar_milestone(
+                proyecto.github_repo_owner, proyecto.github_repo_name, hito.github_milestone_number
+            ),
+            "eliminar el Milestone",
+            en_segundo_plano,
+        )
+
+    def _enviar_milestone_de_tarea(self, owner: str, repo: str, tarea: Tarea) -> None:
+        """Mete el issue de la tarea en el Milestone de su Hito (o lo saca del de un Hito
+        local si ya no tiene). Un fallo aquí no invalida el resto del envío."""
+        if not tarea.github_issue_number:
+            return
+        try:
+            hito = self._store.obtener_hito(tarea.hito_id) if tarea.hito_id else None
+            if hito is None:
+                self._sacar_de_milestone_de_hito(owner, repo, tarea)
+                return
+            numero, _existia = self._asegurar_milestone(owner, repo, hito)
+            if numero:
+                self._client.actualizar_issue(
+                    owner, repo, tarea.github_issue_number, milestone=numero
+                )
+        except Exception:
+            log.warning(
+                "No se pudo sincronizar el Milestone de la tarea %s", tarea.id, exc_info=True
+            )
+
+    def _sacar_de_milestone_de_hito(self, owner: str, repo: str, tarea: Tarea) -> None:
+        """Una tarea sin Hito sale del Milestone de un Hito local. Los Milestones que no son de
+        ningún Hito se dejan como estén."""
+        actual = (self._client.obtener_issue(owner, repo, tarea.github_issue_number) or {}).get(
+            "milestone"
+        )
+        if not actual:
+            return
+        numeros = {
+            h.github_milestone_number
+            for h in self._store.listar_hitos(tarea.proyecto_id)
+            if h.github_milestone_number
+        }
+        if actual.get("number") in numeros:
+            self._client.quitar_milestone_issue(owner, repo, tarea.github_issue_number)
+
+    def _enviar_jerarquia(self, owner: str, repo: str, tarea: Tarea) -> None:
+        """Refleja en GitHub la jerarquía local como subissues: la tarea bajo su padre y sus
+        hijas bajo ella (si ya tienen issue). Un padre sin issue se enlazará cuando lo tenga.
+        Un fallo aquí no invalida el resto del envío."""
+        try:
+            pares: list[tuple[Tarea, Tarea]] = []  # (padre, hija)
+            if tarea.padre_id:
+                padre = self._store.obtener_tarea(tarea.padre_id)
+                if padre and padre.github_issue_number:
+                    pares.append((padre, tarea))
+            hijas = [
+                t
+                for t in self._store.listar_tareas(tarea.proyecto_id)
+                if t.padre_id == tarea.id and t.github_issue_number
+            ]
+            pares.extend((tarea, hija) for hija in hijas)
+            for padre, hija in pares:
+                id_hija = self._client.obtener_issue(owner, repo, hija.github_issue_number).get("id")
+                if id_hija:
+                    self._client.vincular_subissue(
+                        owner, repo, padre.github_issue_number, id_hija
+                    )
+        except Exception:
+            log.warning(
+                "No se pudo enviar la jerarquía de subissues de la tarea %s", tarea.id, exc_info=True
+            )
+
+    def _enviar_campos_issue(self, owner: str, repo: str, tarea: Tarea) -> None:
+        """Envía prioridad y fechas a los campos de issue (Priority, Start date, Target date)
+        si el repositorio los tiene. Un fallo aquí no invalida el resto del envío."""
+        try:
+            campos = self._client.listar_campos_issue(owner, repo)
+            if not campos:
+                return
+            valores: list[dict] = []
+            prioridad = campos.get("priority") or campos.get("prioridad")
+            if prioridad:
+                opcion = opcion_para_nivel(tarea.prioridad, prioridad["options"])
+                if opcion:
+                    valores.append({"fieldId": prioridad["id"], "singleSelectOptionId": opcion})
+            for fecha, nombre in (
+                (tarea.fecha_inicio, "start date"),
+                (tarea.fecha_fin_planificada, "target date"),
+            ):
+                if fecha and nombre in campos:
+                    valores.append({"fieldId": campos[nombre]["id"], "dateValue": fecha})
+            if not valores:
+                return
+            node_id = self._client.obtener_issue(owner, repo, tarea.github_issue_number).get(
+                "node_id"
+            )
+            if node_id:
+                self._client.establecer_campos_issue(node_id, valores)
+        except Exception:
+            log.warning(
+                "No se pudieron enviar los campos de issue de la tarea %s", tarea.id, exc_info=True
+            )
 
     def _etiquetas_para_issue(self, owner: str, repo: str, tarea: Tarea, remotas: list[str]) -> list[str]:
         """Fusión a tres bandas de las etiquetas: lo que GitHub tiene ahora, lo que tenía
@@ -960,7 +1219,7 @@ class GitHubSyncManager:
                     log.exception("No se pudo añadir el issue %s al Project V2", tarea.github_issue_number)
 
             # 2. Si hay Project V2 y la tarea tiene item_id asociado, sincronizar estado y
-            # fechas (campos "Start Date"/"Target Date", si el proyecto los tiene)
+            # fechas (campos "Start date"/"Target date", si el proyecto los tiene)
             if proyecto.github_project_v2_id and tarea.github_item_id:
                 num = (
                     int(proyecto.github_project_v2_id)
@@ -999,19 +1258,33 @@ class GitHubSyncManager:
                             single_select_option_id=opcion_prioridad,
                         )
 
-                    campos = meta.get("fields", {})
+                    campos = {(n or "").casefold(): i for n, i in meta.get("fields", {}).items()}
                     for fecha, nombre_campo in (
-                        (tarea.fecha_inicio, "Start Date"),
-                        (tarea.fecha_fin_planificada, "Target Date"),
+                        (tarea.fecha_inicio, "start date"),
+                        (tarea.fecha_fin_planificada, "target date"),
                     ):
                         field_id = campos.get(nombre_campo)
                         if fecha and field_id:
-                            self._client.actualizar_fecha_item_v2(
-                                project_id=meta["id"],
-                                item_id=tarea.github_item_id,
-                                field_id=field_id,
-                                fecha_iso=fecha,
-                            )
+                            try:
+                                self._client.actualizar_fecha_item_v2(
+                                    project_id=meta["id"],
+                                    item_id=tarea.github_item_id,
+                                    field_id=field_id,
+                                    fecha_iso=fecha,
+                                )
+                            except GitHubError as err:
+                                # Los campos de issue (Start/Target date nativos) aparecen en el
+                                # proyecto pero solo se escriben desde el issue: ya se envían en
+                                # `_enviar_campos_issue`.
+                                if "Issue field values" not in str(err):
+                                    raise
+                                log.debug("«%s» es un campo de issue; se envía por el issue", nombre_campo)
+
+            if repo:
+                self._enviar_milestone_de_tarea(owner, repo, tarea)
+            if repo and tarea.github_issue_number:
+                self._enviar_campos_issue(owner, repo, tarea)
+                self._enviar_jerarquia(owner, repo, tarea)
 
             self._store.marcar_sincronizada_github(tarea_id)
             return True

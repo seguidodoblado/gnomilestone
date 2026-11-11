@@ -20,6 +20,7 @@ from gnomilestone.ordenacion import mover_tarea
 from gnomilestone.store import Store
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.aviso_dependencias import confirmar_completar
+from gnomilestone.ui.capsula_progreso import CapsulaProgreso
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
@@ -100,15 +101,7 @@ def _asegurar_css_columnas() -> None:
         ".card.gnomilestone-tarjeta:drop(active) { "
         "outline: none; box-shadow: none; }\n"
         # Chip con la tarea padre, encima del título de la subtarea.
-        # Cápsula de subtarea: barra de progreso redondeada con el título encima.
-        ".gnomilestone-capsula progressbar trough, "
-        ".gnomilestone-capsula progressbar progress { "
-        "min-height: 22px; border-radius: 11px; }\n"
-        ".gnomilestone-capsula progressbar progress { "
-        "background-color: alpha(@accent_bg_color, 0.55); }\n"
-        # Hito: borde izquierdo ámbar (la franja superior sigue siendo la de su columna).
-        f".card.gnomilestone-tarjeta.gnomilestone-hito {{ border-left: 3px solid {_COLOR_HITO}; }}\n"
-        ".gnomilestone-padre { "
+                ".gnomilestone-padre { "
         "background-color: alpha(@accent_color, 0.25); color: @accent_color; "
         "border-radius: 6px; padding: 1px 6px; font-weight: bold; }\n"
         f"{reglas_color}"
@@ -268,19 +261,10 @@ class KanbanView(Gtk.Box):
     def _crear_capsula(self, hija: Tarea) -> Gtk.Widget:
         """Cápsula de una subtarea: su título sobre una barra con su % completado.
         Al pulsarla, el tablero muestra solo esa subtarea."""
-        capsula = Gtk.Overlay()
-        capsula.add_css_class("gnomilestone-capsula")
-        barra = Gtk.ProgressBar(fraction=min(hija.porcentaje_completado, 100) / 100)
-        capsula.set_child(barra)
-        etiqueta = Gtk.Label(
-            label=f"{'◆ ' if hija.es_hito else ''}{hija.titulo} · {hija.porcentaje_completado}%",
-            xalign=0,
-            ellipsize=Pango.EllipsizeMode.END,
-            margin_start=8,
-            margin_end=8,
+        capsula = CapsulaProgreso(
+            f"{hija.titulo} · {hija.porcentaje_completado}%",
+            min(hija.porcentaje_completado, 100) / 100,
         )
-        etiqueta.add_css_class("caption")
-        capsula.add_overlay(etiqueta)
         capsula.set_cursor_from_name("pointer")
         capsula.set_tooltip_text(
             f"{hija.titulo} · {hija.porcentaje_completado}%\n"
@@ -376,12 +360,6 @@ class KanbanView(Gtk.Box):
         recursos = self._store.listar_recursos_de_tarea(tarea.id)
 
         fila_titulo = Gtk.Box(spacing=4)
-        if tarea.es_hito:
-            tarjeta.add_css_class("gnomilestone-hito")
-            rombo = Gtk.Label(valign=Gtk.Align.START, use_markup=True)
-            rombo.set_markup(f'<span foreground="{_COLOR_HITO}">◆</span>')
-            rombo.set_tooltip_text(_("Hito"))
-            fila_titulo.append(rombo)
         icono_prioridad = crear_icono_prioridad(tarea.prioridad)
         if icono_prioridad is not None:
             icono_prioridad.set_valign(Gtk.Align.START)
@@ -446,13 +424,22 @@ class KanbanView(Gtk.Box):
             for hija in hijas:
                 tarjeta.append(self._crear_capsula(hija))
 
+        hito = self._store.obtener_hito(tarea.hito_id) if tarea.hito_id else None
+        if hito is not None:
+            etiqueta_hito = Gtk.Label(
+                xalign=0, use_markup=True, ellipsize=Pango.EllipsizeMode.END
+            )
+            etiqueta_hito.set_markup(
+                f'<span foreground="{_COLOR_HITO}">◆</span> {GLib.markup_escape_text(hito.titulo)}'
+            )
+            etiqueta_hito.add_css_class("caption")
+            etiqueta_hito.set_tooltip_text(_("Hito al que contribuye"))
+            tarjeta.append(etiqueta_hito)
+
         if tarea.fecha_inicio:
             info = Gtk.Label(
                 label=(
-                    # Un hito no tiene duración: solo su fecha (y el % si no es 0).
-                    formatear_fecha_local(tarea.fecha_inicio)
-                    if tarea.es_hito
-                    else f"{formatear_fecha_local(tarea.fecha_inicio)} · "
+                    f"{formatear_fecha_local(tarea.fecha_inicio)} · "
                     f"{tarea.duracion_dias}d · {tarea.porcentaje_completado}%"
                 )
                 + (_(" · vencida") if estado == VENCIDA else ""),

@@ -15,7 +15,6 @@ def _tarea(
     fecha_inicio: str | None,
     duracion_dias: int = 1,
     *,
-    es_hito: bool = False,
     padre_id: int | None = None,
 ) -> Tarea:
     return Tarea(
@@ -25,7 +24,6 @@ def _tarea(
         padre_id=padre_id,
         fecha_inicio=fecha_inicio,
         duracion_dias=duracion_dias,
-        es_hito=es_hito,
     )
 
 
@@ -33,8 +31,7 @@ def _recurso(id_: int, nombre: str, color: str = "#3584e4") -> Recurso:
     return Recurso(id=id_, proyecto_id=1, nombre=nombre, color_hex=color)
 
 
-def test_duracion_efectiva_hito_y_cero():
-    assert duracion_efectiva(_tarea(1, "Hito", "2026-11-01", 0, es_hito=True)) == 1
+def test_duracion_efectiva_cero_cuenta_un_dia():
     assert duracion_efectiva(_tarea(2, "Cero", "2026-11-01", 0)) == 1
     assert duracion_efectiva(_tarea(3, "Normal", "2026-11-01", 3)) == 3
 

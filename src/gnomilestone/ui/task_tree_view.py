@@ -11,6 +11,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from gnomilestone.etiquetas import marcado_chip
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Etiqueta, Recurso, Tarea
+from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.vencimiento import (
@@ -52,7 +53,7 @@ def asegurar_css_fila_fija() -> None:
 
 def nombre_prioridad(nivel: int) -> str:
     """Texto de un nivel de prioridad ("" si no tiene)."""
-    return {1: _("Baja"), 2: _("Media"), 3: _("Alta")}.get(nivel, "")
+    return {1: _("Baja"), 2: _("Media"), 3: _("Alta"), 4: _("Urgente")}.get(nivel, "")
 
 
 class TareaRow(GObject.Object):
@@ -224,26 +225,49 @@ def adjuntar_menu_contextual(
     on_editar: Callable[[Tarea], None],
     on_eliminar: Callable[[Tarea], None],
     on_archivar: Callable[[Tarea], None] | None = None,
+    asignacion_hito: AsignacionHito | None = None,
 ) -> None:
-    """Botón derecho sobre una fila con tarea real: Editar, Archivar y Eliminar tarea.
+    """Botón derecho sobre una fila con tarea real: Editar, Asignar a hito, Archivar y Eliminar.
 
     `vista` debe pintar sus celdas con `_bind_fila` (deja marcado `fila_asociada` en el
     widget), para poder resolver con `vista.pick()` sobre qué fila se ha pulsado.
     """
     estado: dict[str, Tarea | None] = {"tarea": None}
 
-    menu = Gio.Menu()
-    menu.append(_("Editar tarea"), "contextual.editar")
-    if on_archivar is not None:
-        menu.append(_("Archivar tarea"), "contextual.archivar")
-    menu.append(_("Eliminar tarea"), "contextual.eliminar")
-    popover = Gtk.PopoverMenu.new_from_model(menu)
+    def _construir_menu(tarea: Tarea) -> Gio.Menu:
+        menu = Gio.Menu()
+        menu.append(_("Editar tarea"), "contextual.editar")
+        if asignacion_hito is not None:
+            hitos = asignacion_hito.hitos_de(tarea)
+            submenu = Gio.Menu()
+            submenu.append(("✓ " if tarea.hito_id is None else "") + _("Sin hito"), "contextual.hito::")
+            for hito in hitos:
+                marca = "✓ " if tarea.hito_id == hito.id else ""
+                submenu.append(f"{marca}◆ {hito.titulo}", f"contextual.hito::{hito.id}")
+            if hitos:
+                menu.append_submenu(_("Asignar a hito"), submenu)
+        if on_archivar is not None:
+            menu.append(_("Archivar tarea"), "contextual.archivar")
+        menu.append(_("Eliminar tarea"), "contextual.eliminar")
+        return menu
+
+    popover = Gtk.PopoverMenu.new_from_model(Gio.Menu())
     popover.set_parent(vista)
 
     acciones = Gio.SimpleActionGroup()
     accion_editar = Gio.SimpleAction.new("editar", None)
     accion_editar.connect("activate", lambda *_a: estado["tarea"] and on_editar(estado["tarea"]))
     acciones.add_action(accion_editar)
+    if asignacion_hito is not None:
+        accion_hito = Gio.SimpleAction.new("hito", GLib.VariantType.new("s"))
+
+        def _asignar(_accion, parametro) -> None:
+            texto = parametro.get_string()
+            if estado["tarea"] is not None:
+                asignacion_hito.asignar(estado["tarea"], int(texto) if texto else None)
+
+        accion_hito.connect("activate", _asignar)
+        acciones.add_action(accion_hito)
     if on_archivar is not None:
         accion_archivar = Gio.SimpleAction.new("archivar", None)
         accion_archivar.connect(
@@ -267,6 +291,7 @@ def adjuntar_menu_contextual(
         # popover que se acaba de abrir se podía disparar de rebote una opción no elegida.
         gesture.set_state(Gtk.EventSequenceState.CLAIMED)
         estado["tarea"] = tarea
+        popover.set_menu_model(_construir_menu(tarea))
         # Gdk.Rectangle es un Boxed: pasarle x/y/width/height al constructor se ignora en
         # silencio (quedaba siempre en el rectángulo por defecto, de ahí que el menú
         # apareciera siempre en el mismo sitio en vez de donde se pulsaba). Hay que fijar
@@ -482,6 +507,7 @@ class TaskTreeView(Gtk.ColumnView):
         on_editar: Callable[[Tarea], None] | None = None,
         on_eliminar: Callable[[Tarea], None] | None = None,
         on_archivar: Callable[[Tarea], None] | None = None,
+        asignacion_hito: AsignacionHito | None = None,
     ) -> None:
         asegurar_css_fila_fija()
         asegurar_css_vencimientos()
@@ -535,7 +561,7 @@ class TaskTreeView(Gtk.ColumnView):
         if on_editar is not None:
             self.connect("activate", self._on_activate, on_editar)
         if on_editar is not None and on_eliminar is not None:
-            adjuntar_menu_contextual(self, on_editar, on_eliminar, on_archivar)
+            adjuntar_menu_contextual(self, on_editar, on_eliminar, on_archivar, asignacion_hito)
 
     def columnas_disponibles(self) -> list[tuple[str, str, bool]]:
         """Devuelve (clave, etiqueta, es_fija) para cada columna del árbol."""

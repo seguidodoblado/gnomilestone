@@ -19,6 +19,7 @@ from gnomilestone.models import (
     EstadoTablero,
     Etiqueta,
     HistorialTarea,
+    Hito,
     NotaDocumentacion,
     Proyecto,
     Recurso,
@@ -137,9 +138,16 @@ def _estado_de_fila(fila: sqlite3.Row) -> EstadoTablero:
     return EstadoTablero(**datos)
 
 
+def _hito_de_fila(fila: sqlite3.Row) -> Hito:
+    datos = dict(fila)
+    datos["conseguido"] = bool(datos["conseguido"])
+    return Hito(**datos)
+
+
 def _tarea_de_fila(fila: sqlite3.Row) -> Tarea:
     datos = dict(fila)
-    datos["es_hito"] = bool(datos["es_hito"])
+    datos.pop("es_hito", None)  # columna heredada: los Hitos son una entidad propia
+    datos.pop("github_milestone_number", None)
     datos["archivada"] = bool(datos.get("archivada"))
     datos.pop("github_etiquetas", None)  # base de fusión de etiquetas: no es campo del modelo
     return Tarea(**datos)
@@ -683,6 +691,149 @@ class Store:
                     "ALTER TABLE estado_tablero ADD COLUMN descripcion TEXT NOT NULL DEFAULT ''"
                 )
             db.execute("PRAGMA user_version = 31")
+            version = 31
+        if version < 32:
+            self._migrar_hitos(db)
+            db.execute("PRAGMA user_version = 32")
+
+    def _migrar_hitos(self, db: sqlite3.Connection) -> None:
+        """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
+
+        Cada tarea Hito se convierte en un Hito con su fecha objetivo (la límite, o la de inicio) y se elimina como
+        tarea. Las tareas que la precedían por una dependencia «fin a inicio», y sus hijas,
+        pasan a apuntar al Hito con `hito_id`; las hijas se reubican bajo el padre del Hito.
+        Se pierden lo que a un Hito no le corresponde: columna, recursos y dependencias que
+        salían de él. Antes de tocar nada se guarda una copia de la base junto a ella."""
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS hito ("
+            "id INTEGER PRIMARY KEY, "
+            "proyecto_id INTEGER NOT NULL REFERENCES proyecto(id) ON DELETE CASCADE, "
+            "titulo TEXT NOT NULL, fecha TEXT, descripcion TEXT NOT NULL DEFAULT '', "
+            "conseguido INTEGER NOT NULL DEFAULT 0, github_milestone_number INTEGER, "
+            "github_synced_at TEXT, "
+            "creado TEXT NOT NULL DEFAULT (datetime('now')), "
+            "actualizado TEXT NOT NULL DEFAULT (datetime('now')))"
+        )
+        columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+        if "hito_id" not in columnas:
+            db.execute(
+                "ALTER TABLE tarea ADD COLUMN hito_id INTEGER REFERENCES hito(id) ON DELETE SET NULL"
+            )
+        if "es_hito" not in columnas:
+            return
+        antiguos = db.execute(
+            "SELECT id, proyecto_id, padre_id, titulo, descripcion, "
+            "COALESCE(fecha_limite, fecha_inicio) AS fecha, "
+            "porcentaje_completado FROM tarea WHERE es_hito = 1 ORDER BY fecha, id"
+        ).fetchall()
+        if not antiguos:
+            return
+        if self.db_path.exists():
+            copia = self.db_path.with_name(self.db_path.name + ".copia-antes-de-hitos")
+            if not copia.exists():
+                destino = sqlite3.connect(copia)
+                try:
+                    db.backup(destino)
+                finally:
+                    destino.close()
+        ids_hito = {fila["id"] for fila in antiguos}
+        nuevo_de: dict[int, int] = {}
+        for fila in antiguos:
+            cursor = db.execute(
+                "INSERT INTO hito (proyecto_id, titulo, fecha, descripcion, conseguido) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    fila["proyecto_id"], fila["titulo"], fila["fecha"],
+                    fila["descripcion"], int(fila["porcentaje_completado"] >= 100),
+                ),
+            )
+            nuevo_de[fila["id"]] = cursor.lastrowid
+        for fila in antiguos:
+            hito_id = nuevo_de[fila["id"]]
+            # Las tareas que preceden al Hito (el primero por fecha, si preceden a varios).
+            for origen in db.execute(
+                "SELECT tarea_origen_id FROM dependencia WHERE tarea_destino_id = ?", (fila["id"],)
+            ).fetchall():
+                if origen[0] not in ids_hito:
+                    db.execute(
+                        "UPDATE tarea SET hito_id = ? WHERE id = ? AND hito_id IS NULL",
+                        (hito_id, origen[0]),
+                    )
+            # Las hijas suben al padre del Hito y contribuyen a él.
+            db.execute(
+                "UPDATE tarea SET hito_id = COALESCE(hito_id, ?), padre_id = ? "
+                "WHERE padre_id = ? AND es_hito = 0",
+                (hito_id, fila["padre_id"], fila["id"]),
+            )
+        db.executemany("DELETE FROM tarea WHERE id = ?", [(i,) for i in ids_hito])
+
+    # -- Hitos ---------------------------------------------------------------
+
+    def crear_hito(
+        self,
+        proyecto_id: int,
+        titulo: str,
+        fecha: str | None = None,
+        descripcion: str = "",
+        conseguido: bool = False,
+        github_milestone_number: int | None = None,
+    ) -> Hito:
+        with closing(self._connect()) as db, db:
+            cursor = db.execute(
+                "INSERT INTO hito (proyecto_id, titulo, fecha, descripcion, conseguido, "
+                "github_milestone_number) VALUES (?, ?, ?, ?, ?, ?)",
+                (proyecto_id, titulo, fecha, descripcion, int(conseguido), github_milestone_number),
+            )
+            fila = db.execute("SELECT * FROM hito WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            return _hito_de_fila(fila)
+
+    def listar_hitos(self, proyecto_id: int) -> list[Hito]:
+        return self.listar_hitos_de_proyectos([proyecto_id])
+
+    def listar_hitos_de_proyectos(self, proyecto_ids: list[int]) -> list[Hito]:
+        if not proyecto_ids:
+            return []
+        marcas = ",".join("?" * len(proyecto_ids))
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                f"SELECT * FROM hito WHERE proyecto_id IN ({marcas}) "
+                "ORDER BY fecha IS NULL, fecha, id",
+                proyecto_ids,
+            ).fetchall()
+            return [_hito_de_fila(f) for f in filas]
+
+    def obtener_hito(self, hito_id: int) -> Hito | None:
+        with closing(self._connect()) as db:
+            fila = db.execute("SELECT * FROM hito WHERE id = ?", (hito_id,)).fetchone()
+            return _hito_de_fila(fila) if fila else None
+
+    def actualizar_hito(self, hito: Hito) -> None:
+        """Guarda título, fecha, descripción y estado. El vínculo con GitHub no se toca
+        desde aquí (ver `vincular_milestone_hito`)."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE hito SET titulo = ?, fecha = ?, descripcion = ?, conseguido = ?, "
+                "actualizado = datetime('now') WHERE id = ?",
+                (hito.titulo, hito.fecha, hito.descripcion, int(hito.conseguido), hito.id),
+            )
+
+    def vincular_milestone_hito(self, hito_id: int, numero: int | None) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE hito SET github_milestone_number = ? WHERE id = ?", (numero, hito_id)
+            )
+
+    def marcar_hito_sincronizado(self, hito_id: int) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE hito SET github_synced_at = datetime('now') WHERE id = ?",
+                (hito_id,),
+            )
+
+    def eliminar_hito(self, hito_id: int) -> None:
+        """Borra el Hito; sus tareas se quedan, sin Hito."""
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM hito WHERE id = ?", (hito_id,))
 
     # -- Proyectos ---------------------------------------------------------
 
@@ -908,7 +1059,7 @@ class Store:
         fecha_fin_real: str | None = None,
         duracion_dias: int = 1,
         porcentaje_completado: int = 0,
-        es_hito: bool = False,
+        hito_id: int | None = None,
         github_issue_number: int | None = None,
         github_issue_id: str | None = None,
         github_item_id: str | None = None,
@@ -934,13 +1085,13 @@ class Store:
                 "INSERT INTO tarea (proyecto_id, padre_id, estado_id, titulo, descripcion, "
                 "fecha_inicio, fecha_fin_planificada_inicial, fecha_fin_planificada, fecha_limite, "
                 "fecha_fin_real, duracion_dias, "
-                "porcentaje_completado, orden, es_hito, "
+                "porcentaje_completado, orden, hito_id, "
                 "github_issue_number, github_issue_id, github_item_id, github_url, prioridad) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (proyecto_id, padre_id, estado_id, titulo, descripcion, fecha_inicio,
                  fecha_fin_planificada_inicial, fecha_fin_planificada, fecha_limite,
                  fecha_fin_real, duracion_dias, porcentaje_completado,
-                 siguiente_orden, int(es_hito),
+                 siguiente_orden, hito_id,
                  github_issue_number, github_issue_id, github_item_id, github_url, prioridad),
             )
             fila = db.execute("SELECT * FROM tarea WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -1065,6 +1216,11 @@ class Store:
                 (numero, url, tarea_id),
             )
 
+    def vincular_hito_tarea(self, tarea_id: int, hito_id: int | None) -> None:
+        """Cambia solo el Hito de la tarea (sin tocar el resto de la fila ni `actualizado`)."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE tarea SET hito_id = ? WHERE id = ?", (hito_id, tarea_id))
+
     def vincular_item_github(self, tarea_id: int, item_id: str) -> None:
         """Guarda solo el id del item del Project V2 (sin tocar el resto de la fila)."""
         with closing(self._connect()) as db, db:
@@ -1090,7 +1246,7 @@ class Store:
                 # El vínculo con GitHub nunca se borra desde aquí: un objeto Tarea viejo (p. ej.
                 # el de un diálogo abierto antes de que termine el primer envío) llegaría sin
                 # número de issue y lo borraría, y el siguiente envío crearía un issue duplicado.
-                "es_hito = ?, github_issue_number = COALESCE(?, github_issue_number), "
+                "hito_id = ?, github_issue_number = COALESCE(?, github_issue_number), "
                 "github_issue_id = COALESCE(?, github_issue_id), "
                 "github_item_id = COALESCE(?, github_item_id), "
                 "github_url = COALESCE(?, github_url), prioridad = ?, porcentaje_previo = ?, "
@@ -1099,7 +1255,7 @@ class Store:
                  tarea.fecha_inicio, tarea.fecha_fin_planificada_inicial,
                  tarea.fecha_fin_planificada, tarea.fecha_limite, tarea.fecha_fin_real,
                  tarea.duracion_dias, tarea.porcentaje_completado,
-                 tarea.orden, int(tarea.es_hito), tarea.github_issue_number,
+                 tarea.orden, tarea.hito_id, tarea.github_issue_number,
                  tarea.github_issue_id, tarea.github_item_id, tarea.github_url,
                  tarea.prioridad, tarea.porcentaje_previo, tarea.id),
             )

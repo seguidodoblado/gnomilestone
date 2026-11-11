@@ -11,7 +11,8 @@ from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import settings
 from gnomilestone.i18n import _
-from gnomilestone.models import Dependencia, Tarea
+from gnomilestone.models import Dependencia, Hito, Tarea
+from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
 from gnomilestone.ui.gantt_drawing_area import GanttDrawingArea
 from gnomilestone.ui.task_tree_view import TareaRow, TaskTreeView
@@ -29,6 +30,9 @@ class GanttView(Gtk.Box):
         on_eliminar_tarea: Callable[[Tarea], None] | None = None,
         on_tarea_arrastrada: Callable[[int, str, int], None] | None = None,
         on_archivar_tarea: Callable[[Tarea], None] | None = None,
+        on_editar_hito: Callable[[Hito], None] | None = None,
+        on_nuevo_hito: Callable[[], None] | None = None,
+        asignacion_hito: AsignacionHito | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._indice_zoom = _PASOS_ZOOM.index(80.0)
@@ -37,7 +41,10 @@ class GanttView(Gtk.Box):
         self._ultimo_ancho_guardado: int | None = None
 
         self._tree = TaskTreeView(
-            on_editar=on_editar_tarea, on_eliminar=on_eliminar_tarea, on_archivar=on_archivar_tarea
+            on_editar=on_editar_tarea,
+            on_eliminar=on_eliminar_tarea,
+            on_archivar=on_archivar_tarea,
+            asignacion_hito=asignacion_hito,
         )
         # Centrar el eje en «hoy» solo al cargar un proyecto, no al expandir o plegar filas
         # (eso también cambia las filas y movía el eje de fechas bajo el ratón).
@@ -58,6 +65,14 @@ class GanttView(Gtk.Box):
 
         self._btn_columnas = crear_menu_columnas(self._tree, "gantt_columnas_visibles")
         toolbar.append(self._btn_columnas)
+
+        if on_nuevo_hito is not None:
+            nuevo_hito = Gtk.Button(
+                label="◆ " + _("Nuevo hito"),
+                tooltip_text=_("Un hito es un Milestone de GitHub: una meta con fecha"),
+            )
+            nuevo_hito.connect("clicked", lambda _b: on_nuevo_hito())
+            toolbar.append(nuevo_hito)
 
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
 
@@ -105,6 +120,7 @@ class GanttView(Gtk.Box):
             on_origen_desplazado=self._on_origen_desplazado,
             on_editar_tarea=on_editar_tarea,
         )
+        self._drawing_area.ruler.on_editar_hito = on_editar_hito
         self._drawing_area.set_zoom(_PASOS_ZOOM[self._indice_zoom])
 
         ruler_scroller = Gtk.ScrolledWindow(
@@ -144,9 +160,11 @@ class GanttView(Gtk.Box):
         filas: list[TareaRow],
         dependencias: list[Dependencia],
         progreso_resumen: dict[int, int] | None = None,
+        hitos: list[tuple[Hito, bool]] | None = None,
     ) -> None:
         self._dependencias = dependencias
         self._progreso_resumen = progreso_resumen or {}
+        self._hitos = hitos or []
         self._tree.set_filas(filas)
         # set_filas() ya dispara "items-changed" (vía _on_filas_cambiadas), que repinta el Gantt.
 
@@ -171,6 +189,7 @@ class GanttView(Gtk.Box):
             self._tree.filas_visibles(),
             getattr(self, "_dependencias", []),
             getattr(self, "_progreso_resumen", {}),
+            getattr(self, "_hitos", []),
         )
         # Las tareas históricas no deben dejar la vista inicial semanas/meses atrás.
         self._pedir_centrado_si_hace_falta()

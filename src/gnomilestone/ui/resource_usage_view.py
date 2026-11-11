@@ -532,8 +532,10 @@ class ResourceUsageView(Gtk.Box):
         self._panel = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, vexpand=True, hexpand=True)
         self.append(self._panel)
 
+        # EXTERNAL (no NEVER): con NEVER la lista pide alto para todas sus filas y, con
+        # muchas, la ventana crece hacia abajo. La barra vertical la muestra el lienzo.
         lateral_scroller = Gtk.ScrolledWindow(
-            vscrollbar_policy=Gtk.PolicyType.NEVER, width_request=_ANCHO_LATERAL
+            vscrollbar_policy=Gtk.PolicyType.EXTERNAL, width_request=_ANCHO_LATERAL, vexpand=True
         )
         self._lateral = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         # Espacio bajo la regla de fechas del lienzo.
@@ -577,10 +579,16 @@ class ResourceUsageView(Gtk.Box):
             vexpand=True,
             hexpand=True,
             hscrollbar_policy=Gtk.PolicyType.ALWAYS,
-            vscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
         )
         self._canvas_scroller.set_child(self._lienzo)
-        self._canvas_scroller.set_vadjustment(lateral_scroller.get_vadjustment())
+        # Cada scroll conserva su propio ajuste (compartirlo provoca bucles de layout, como
+        # en el Gantt); solo se sincroniza la posición.
+        self._sincronizando_scroll = False
+        adj_lateral = lateral_scroller.get_vadjustment()
+        adj_lienzo = self._canvas_scroller.get_vadjustment()
+        adj_lateral.connect("value-changed", self._sincronizar_scroll, adj_lienzo)
+        adj_lienzo.connect("value-changed", self._sincronizar_scroll, adj_lateral)
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         equipo_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         canvas_box.append(self._canvas_scroller)
@@ -687,6 +695,15 @@ class ResourceUsageView(Gtk.Box):
         )
         self._lienzo.set_zoom(px_por_dia)
         self._actualizar_barra_equipo()
+
+    def _sincronizar_scroll(self, origen: Gtk.Adjustment, destino: Gtk.Adjustment) -> None:
+        if self._sincronizando_scroll:
+            return
+        self._sincronizando_scroll = True
+        try:
+            destino.set_value(origen.get_value())
+        finally:
+            self._sincronizando_scroll = False
 
     def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
         if not (controller.get_current_event_state() & Gdk.ModifierType.CONTROL_MASK):

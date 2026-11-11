@@ -9,11 +9,14 @@ from gi.repository import Gtk
 
 from gnomilestone import ganttcalc
 from gnomilestone.filtros import ocultar_completadas
+from gnomilestone.hitos import hitos_con_estado
 from gnomilestone.i18n import _
-from gnomilestone.models import Dependencia, Tarea
+from gnomilestone.models import Dependencia, Hito, Tarea
 from gnomilestone.store import Store
 from gnomilestone.sync import GitHubSyncManager
+from gnomilestone.ui.asignar_hito import crear_asignacion
 from gnomilestone.ui.gantt_view import GanttView
+from gnomilestone.ui.hito_dialog import HitoDialog
 from gnomilestone.ui.kanban_view import colores_de_estados
 from gnomilestone.ui.task_dialog import TaskDialog
 from gnomilestone.ui.task_tree_view import TareaRow, construir_filas
@@ -57,6 +60,8 @@ class GlobalGanttView(Gtk.Box):
             on_eliminar_tarea=self._on_eliminar_tarea,
             on_tarea_arrastrada=self._on_tarea_arrastrada,
             on_archivar_tarea=self._on_archivar_tarea,
+            on_editar_hito=self._on_editar_hito,
+            asignacion_hito=crear_asignacion(self._store, self._actualizar_gantt),
         )
         self._gantt.set_hexpand(True)
         self.append(self._gantt)
@@ -67,6 +72,11 @@ class GlobalGanttView(Gtk.Box):
         TaskDialog(
             self.get_root(), self._store, tarea.proyecto_id, on_saved=self._actualizar_gantt,
             tarea=tarea,
+        ).present()
+
+    def _on_editar_hito(self, hito) -> None:
+        HitoDialog(
+            self.get_root(), self._store, hito.proyecto_id, hito, self._actualizar_gantt
         ).present()
 
     def _on_archivar_tarea(self, tarea: Tarea) -> None:
@@ -149,6 +159,7 @@ class GlobalGanttView(Gtk.Box):
         filas: list[TareaRow] = []
         dependencias: list[Dependencia] = []
         progreso_resumen: dict[int, int] = {}
+        hitos: list[tuple[Hito, bool]] = []
         for proyecto_id in ids_elegidos:
             proyecto = self._store.obtener_proyecto(proyecto_id)
             if proyecto is None:
@@ -172,4 +183,5 @@ class GlobalGanttView(Gtk.Box):
             filas.append(fila_proyecto)
             dependencias.extend(self._store.listar_dependencias(proyecto_id))
             progreso_resumen.update(ganttcalc.progreso_resumen(tareas))
-        self._gantt.set_filas(filas, dependencias, progreso_resumen)
+            hitos.extend(hitos_con_estado(self._store.listar_hitos(proyecto_id), tareas))
+        self._gantt.set_filas(filas, dependencias, progreso_resumen, hitos)

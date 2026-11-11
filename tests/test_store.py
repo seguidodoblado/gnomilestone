@@ -90,15 +90,16 @@ def test_crear_tarea_y_subtarea(store):
 def test_actualizar_tarea(store):
     proyecto = store.crear_proyecto("Proyecto")
     tarea = store.crear_tarea(proyecto.id, "Tarea")
+    hito = store.crear_hito(proyecto.id, "Hito")
     tarea.porcentaje_completado = 50
-    tarea.es_hito = True
+    tarea.hito_id = hito.id
     tarea.fecha_inicio = "2026-11-07"
     tarea.fecha_fin_planificada = "2026-11-09"
     tarea.fecha_limite = "2026-11-10"
     store.actualizar_tarea(tarea)
     actualizada = store.obtener_tarea(tarea.id)
     assert actualizada.porcentaje_completado == 50
-    assert actualizada.es_hito is True
+    assert actualizada.hito_id == hito.id
     assert actualizada.fecha_fin_planificada == "2026-11-09"
     assert actualizada.fecha_limite == "2026-11-10"
 
@@ -601,3 +602,72 @@ def test_vincular_issue_no_pisa_lo_editado_durante_el_envio(store):
     store.vincular_issue_github(tarea.id, 7, "https://github.com/o/r/issues/7")
     actual = store.obtener_tarea(tarea.id)
     assert (actual.titulo, actual.github_issue_number) == ("Editada mientras se enviaba", 7)
+
+
+def test_hitos_crear_listar_actualizar_y_eliminar(store):
+    proyecto = store.crear_proyecto("Proyecto")
+    sin_fecha = store.crear_hito(proyecto.id, "Sin fecha")
+    tardio = store.crear_hito(proyecto.id, "Tardío", "2026-12-01")
+    temprano = store.crear_hito(proyecto.id, "Temprano", "2026-11-01", "Notas", True, 7)
+    assert [h.titulo for h in store.listar_hitos(proyecto.id)] == ["Temprano", "Tardío", "Sin fecha"]
+    assert temprano.conseguido is True and temprano.github_milestone_number == 7
+
+    tardio.titulo, tardio.fecha = "Tardío 2", "2026-12-15"
+    store.actualizar_hito(tardio)
+    store.vincular_milestone_hito(tardio.id, 9)
+    leido = store.obtener_hito(tardio.id)
+    assert (leido.titulo, leido.fecha, leido.github_milestone_number) == ("Tardío 2", "2026-12-15", 9)
+
+    tarea = store.crear_tarea(proyecto.id, "T", hito_id=sin_fecha.id)
+    store.eliminar_hito(sin_fecha.id)
+    assert store.obtener_hito(sin_fecha.id) is None
+    assert store.obtener_tarea(tarea.id).hito_id is None  # la tarea se queda, sin Hito
+
+
+def test_borrar_el_proyecto_borra_sus_hitos(store):
+    proyecto = store.crear_proyecto("Proyecto")
+    hito = store.crear_hito(proyecto.id, "H")
+    store.eliminar_proyecto(proyecto.id)
+    assert store.obtener_hito(hito.id) is None
+
+
+def test_migracion_convierte_las_tareas_hito_en_hitos(tmp_path):
+    import sqlite3
+
+    from gnomilestone.store import Store
+
+    ruta = tmp_path / "viejo.db"
+    Store(ruta)  # esquema completo (versión actual)
+    db = sqlite3.connect(ruta)
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("INSERT INTO proyecto (id, nombre) VALUES (1, 'P')")
+
+    def tarea(i, titulo, padre=None, hito=0, **extra):
+        columnas = ["id", "proyecto_id", "titulo", "padre_id", "es_hito", *extra]
+        db.execute(
+            f"INSERT INTO tarea ({', '.join(columnas)}) VALUES ({', '.join('?' * len(columnas))})",
+            [i, 1, titulo, padre, hito, *extra.values()],
+        )
+
+    tarea(1, "Previa A")
+    tarea(2, "Previa B")
+    tarea(3, "Hito", hito=1, fecha_inicio="2026-11-23", fecha_limite="2026-11-24",
+          porcentaje_completado=100)
+    tarea(4, "Hija del hito", padre=3)
+    tarea(5, "Suelta")
+    db.execute("INSERT INTO dependencia (tarea_origen_id, tarea_destino_id, tipo) VALUES (1, 3, 'fin_a_inicio')")
+    db.execute("INSERT INTO dependencia (tarea_origen_id, tarea_destino_id, tipo) VALUES (2, 3, 'fin_a_inicio')")
+    db.execute("PRAGMA user_version = 31")
+    db.execute("DROP TABLE hito")
+    db.commit()
+    db.close()
+
+    store = Store(ruta)
+    hitos = store.listar_hitos(1)
+    assert [(h.titulo, h.fecha, h.conseguido) for h in hitos] == [("Hito", "2026-11-24", True)]
+    por_titulo = {t.titulo: t for t in store.listar_tareas(1)}
+    assert set(por_titulo) == {"Previa A", "Previa B", "Hija del hito", "Suelta"}
+    assert {por_titulo[n].hito_id for n in ("Previa A", "Previa B", "Hija del hito")} == {hitos[0].id}
+    assert por_titulo["Suelta"].hito_id is None
+    assert por_titulo["Hija del hito"].padre_id is None  # sube al padre del Hito (ninguno)
+    assert (tmp_path / "viejo.db.copia-antes-de-hitos").exists()

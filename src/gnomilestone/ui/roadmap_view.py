@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import math
+from datetime import datetime
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Pango, PangoCairo
 
-from gnomilestone.documentacion import EventoRoadmap
+from gnomilestone.documentacion import EventoRoadmap, eventos_pasados
 from gnomilestone.i18n import _
 from gnomilestone.ui.zoom import Centrador, Zoom, factor_de_ajuste
 
+_COLOR_HOY = (0.86, 0.2, 0.2)  # el rojo de la línea de «hoy» del Gantt
 _PASO = 170  # separación horizontal entre eventos
 _CAJA_W, _CAJA_H = 140, 48
 _ALTO = 380
@@ -36,6 +38,7 @@ class RoadmapView(Gtk.Box):
     """Línea de tiempo en espina de pescado: una espina horizontal con los eventos del
     proyecto (hitos y tareas de primer nivel) como cajas alternadas arriba y abajo, y el
     proyecto como cabeza al inicio (a la izquierda). Ámbar = hito, lavanda = tarea; completados, atenuados.
+    Una marca «Hoy» separa el pasado (zona más tenue) del futuro.
     Zoom con botones o Ctrl+rueda; al abrirse queda centrada."""
 
     def __init__(self) -> None:
@@ -142,13 +145,42 @@ class RoadmapView(Gtk.Box):
         self._texto(cr, self._nombre, cabeza_x + cabeza_w / 2, eje - 10, 14,
                     cabeza_w - 16, negrita=True)
 
+        # «Dónde estás»: todo lo anterior a hoy es pasado (zona más tenue) y la marca «Hoy»
+        # se coloca entre el último evento pasado y el primero de hoy o futuro.
+        pasados = eventos_pasados(self._eventos, datetime.now().astimezone().date())
+        if pasados == 0:
+            x_hoy = (cabeza_x + cabeza_w + _INICIO_EVENTOS) / 2
+        else:
+            x_hoy = _INICIO_EVENTOS + (pasados - 0.5) * _PASO
+        cr.set_source_rgba(*texto, 0.07)
+        cr.rectangle(0, 0, x_hoy, alto)
+        cr.fill()
+        cr.set_source_rgba(*_COLOR_HOY, 0.85)
+        cr.set_line_width(2)
+        cr.set_dash([6.0, 4.0])
+        cr.move_to(x_hoy, 30)
+        cr.line_to(x_hoy, alto - 10)
+        cr.stroke()
+        cr.set_dash([])
+        _caja(cr, x_hoy - 26, 6, 52, 22, 11)
+        cr.set_source_rgb(*_COLOR_HOY)
+        cr.fill()
+        cr.set_source_rgb(1, 1, 1)
+        self._texto(cr, _("HOY"), x_hoy, 10, 11, 52, negrita=True)
+        if pasados:
+            cr.set_source_rgba(*texto, 0.55)
+            self._texto(cr, _("◀ Pasado"), x_hoy - 50, 34, 10, 90)
+        if pasados < len(self._eventos):
+            cr.set_source_rgba(*texto, 0.55)
+            self._texto(cr, _("Futuro ▶"), x_hoy + 50, 34, 10, 90)
+
         for i, evento in enumerate(self._eventos):
             x = _INICIO_EVENTOS + i * _PASO  # punto de la espina
             arriba = i % 2 == 0
             caja_x = x - _CAJA_W / 2 - 30
             caja_y = eje - 110 - _CAJA_H / 2 if arriba else eje + 110 - _CAJA_H / 2
             borde_y = caja_y + _CAJA_H if arriba else caja_y
-            alfa = 0.55 if evento.completado else 1.0
+            alfa = 0.55 if evento.completado else (0.8 if i < pasados else 1.0)
             # Rama diagonal de la espina a la caja.
             cr.set_source_rgba(*linea, alfa)
             cr.set_line_width(2)
@@ -162,5 +194,5 @@ class RoadmapView(Gtk.Box):
             cr.fill()
             cr.set_source_rgba(*((0.16, 0.12, 0.04) if evento.es_hito else texto), alfa)
             centro = caja_x + _CAJA_W / 2
-            self._texto(cr, evento.tarea.titulo, centro, caja_y + 6, 12, _CAJA_W - 12)
+            self._texto(cr, evento.titulo, centro, caja_y + 6, 12, _CAJA_W - 12)
             self._texto(cr, evento.fecha, centro, caja_y + 27, 10, _CAJA_W - 12)
