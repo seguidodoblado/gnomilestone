@@ -195,6 +195,11 @@ def estado_vencimiento(
     return None
 
 
+def progreso_medio(tareas: list[Tarea]) -> float:
+    """Porcentaje medio completado de `tareas` (0 si no hay ninguna)."""
+    return sum(t.porcentaje_completado for t in tareas) / len(tareas) if tareas else 0
+
+
 def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
     """% completado agregado de cada tarea con subtareas (resumen), para la barra fina
     del Gantt que lo muestra.

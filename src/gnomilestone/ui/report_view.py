@@ -16,6 +16,7 @@ from gnomilestone.ganttcalc import (
     VENCIDA,
     estado_vencimiento,
     parse_fecha,
+    progreso_medio,
 )
 from gnomilestone.i18n import _
 from gnomilestone.models import (
@@ -258,7 +259,7 @@ class ReportView(Gtk.Box):
         self._alertas = (vencidas, planificadas, proximas)
         total = len(tareas)
         completadas = sum(t.porcentaje_completado >= 100 for t in tareas)
-        progreso = sum(t.porcentaje_completado for t in tareas) / total if total else 0
+        progreso = progreso_medio(tareas)
         self._summary.set_text(
             _("{total} tareas · {completadas} completadas · Progreso medio: {progreso:.0f}%").format(
                 total=total, completadas=completadas, progreso=progreso
@@ -451,7 +452,7 @@ class ReportView(Gtk.Box):
         completadas = sum(t.porcentaje_completado >= 100 for t in tareas)
         en_curso = sum(0 < t.porcentaje_completado < 100 for t in tareas)
         sin_empezar = total - completadas - en_curso
-        progreso = sum(t.porcentaje_completado for t in tareas) / total if total else 0
+        progreso = progreso_medio(tareas)
         fichas = (
             (_("Total"), str(total), self._text_color),
             (_("Sin empezar"), str(sin_empezar), (0.52, 0.56, 0.63)),
