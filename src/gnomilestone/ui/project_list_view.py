@@ -9,6 +9,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Pango
 
+from gnomilestone.ganttcalc import progreso_medio
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto
 from gnomilestone.store import Store
@@ -68,7 +69,11 @@ class ProjectListView(Gtk.Box):
 
     def refresh(self) -> None:
         self._list_box.remove_all()
-        for proyecto in self._store.listar_proyectos():
+        proyectos = self._store.listar_proyectos()
+        por_proyecto: dict[int, list] = {p.id: [] for p in proyectos}
+        for tarea in self._store.listar_tareas_de_proyectos(list(por_proyecto)):
+            por_proyecto[tarea.proyecto_id].append(tarea)
+        for proyecto in proyectos:
             row = Gtk.ListBoxRow()
             row.proyecto_id = proyecto.id  # type: ignore[attr-defined]
             row.proyecto_nombre = proyecto.nombre  # type: ignore[attr-defined]
@@ -89,11 +94,15 @@ class ProjectListView(Gtk.Box):
                 "pausado": _("Pausado"),
                 "completado": _("Completado"),
             }.get(proyecto.estado, proyecto.estado)
+            progreso = progreso_medio(por_proyecto[proyecto.id])
+            estado += f" · {progreso:.0f} %"
             if proyecto.archivado:
                 estado += f" · {_('Archivado')}"
             estado_label = Gtk.Label(label=estado, xalign=0)
             estado_label.add_css_class("dim-label")
             datos.append(estado_label)
+            barra = Gtk.ProgressBar(fraction=progreso / 100, valign=Gtk.Align.CENTER)
+            datos.append(barra)
             box.append(datos)
             edit_button = Gtk.Button(
                 icon_name="document-edit-symbolic", tooltip_text=_("Editar proyecto")
