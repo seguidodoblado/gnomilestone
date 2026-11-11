@@ -51,7 +51,14 @@ class ProjectDialog(Gtk.Window):
             margin_start=16,
             margin_end=16,
         )
-        self.set_child(box)
+        # Con scroll: si la ventana queda más baja que el contenido (p. ej. al reabrirla),
+        # los campos siguen accesibles en vez de quedar recortados hasta redimensionar.
+        scroll = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            propagate_natural_height=True,
+        )
+        scroll.set_child(box)
+        self.set_child(scroll)
 
         box.append(Gtk.Label(label=_("Nombre"), xalign=0))
         self._nombre = Gtk.Entry(text=proyecto.nombre)
@@ -76,8 +83,21 @@ class ProjectDialog(Gtk.Window):
         box.append(Gtk.Label(label=_("Descripción"), xalign=0))
         self._descripcion = Gtk.TextBuffer(text=proyecto.descripcion)
         descripcion = Gtk.TextView(buffer=self._descripcion, wrap_mode=Gtk.WrapMode.WORD_CHAR)
-        descripcion.set_size_request(-1, 90)
-        box.append(descripcion)
+        descripcion.set_top_margin(6)
+        descripcion.set_bottom_margin(6)
+        descripcion.set_left_margin(6)
+        descripcion.set_right_margin(6)
+        # Un TextView con ajuste de línea fuera de un ScrolledWindow da medidas erróneas
+        # en GTK4 y el resto del formulario no llega a pintarse hasta redimensionar.
+        descripcion_scroll = Gtk.ScrolledWindow(
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            min_content_height=90,
+            max_content_height=160,
+            propagate_natural_height=True,
+        )
+        descripcion_scroll.add_css_class("card")
+        descripcion_scroll.set_child(descripcion)
+        box.append(descripcion_scroll)
 
         fechas = Gtk.Box(spacing=10)
         inicio_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
