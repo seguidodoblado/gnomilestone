@@ -125,6 +125,17 @@ class PreferencesWindow(Gtk.Window):
         )
         box.append(self._dias_alerta_spin)
 
+        box.append(Gtk.Label(label=_("Tarea estancada tras (días sin cambios)"), xalign=0))
+        ajuste_estancada = Gtk.Adjustment(
+            value=max(1, min(90, int(config.get("dias_estancada", 14)))),
+            lower=1, upper=90, step_increment=1, page_increment=7,
+        )
+        self._dias_estancada_spin = Gtk.SpinButton(adjustment=ajuste_estancada, numeric=True)
+        self._dias_estancada_spin.set_tooltip_text(
+            _("Una tarea en curso sin ningún cambio durante estos días o más cuenta como estancada en Informes")
+        )
+        box.append(self._dias_estancada_spin)
+
         box.append(Gtk.Label(label=_("Barra de tareas resumen en el Gantt"), xalign=0))
         estilo_actual = config.get(
             "estilo_barra_resumen", gantt_drawing_area.ESTILO_RESUMEN_PROGRESO
@@ -189,6 +200,7 @@ class PreferencesWindow(Gtk.Window):
         config["language"] = _LANGUAGE_CODES[self._language_dropdown.get_selected()]
         config["dark_mode"] = _THEME_VALUES[self._theme_dropdown.get_selected()]
         config["dias_alerta_vencimiento"] = self._dias_alerta_spin.get_value_as_int()
+        config["dias_estancada"] = self._dias_estancada_spin.get_value_as_int()
         config["estilo_barra_resumen"] = next(
             valor for valor, radio in self._estilo_resumen_botones.items() if radio.get_active()
         )

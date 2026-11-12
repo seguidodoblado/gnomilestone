@@ -25,6 +25,7 @@ from gnomilestone.models import (
     Recurso,
     SubseccionDocumentacion,
     Tarea,
+    Usuario,
     VersionDocumentacion,
 )
 
@@ -170,7 +171,9 @@ def _comentario_de_fila(fila: sqlite3.Row) -> Comentario:
 
 
 def _historial_de_fila(fila: sqlite3.Row) -> HistorialTarea:
-    return HistorialTarea(**dict(fila))
+    datos = dict(fila)
+    datos.pop("recurso_id", None)  # columna de una versión de desarrollo: ya no se usa
+    return HistorialTarea(**datos)
 
 
 def _etiqueta_de_fila(fila: sqlite3.Row) -> Etiqueta:
@@ -278,6 +281,8 @@ class EtiquetaDuplicadaError(Exception):
 class Store:
     def __init__(self, db_path: Path = DB_PATH) -> None:
         self.db_path = db_path
+        # Usuario de gestión activo: firma los cambios que se guardan en el historial.
+        self.usuario_actual_id: int | None = None
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self._connect()) as db, db:
             self._migrar(db)
@@ -786,6 +791,45 @@ class Store:
                 )
             db.execute("PRAGMA user_version = 36")
             version = 36
+        if version < 37:
+            # Reservada: el autor se registra con `usuario_id` (migración 39).
+            db.execute("PRAGMA user_version = 37")
+            version = 37
+        if version < 38:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "tipo" not in columnas:
+                db.execute("ALTER TABLE tarea ADD COLUMN tipo TEXT NOT NULL DEFAULT ''")
+            db.execute("PRAGMA user_version = 38")
+            version = 38
+        if version < 39:
+            # Usuarios de gestión (globales) y autor de cada cambio del historial.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS usuario ("
+                "id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE COLLATE NOCASE)"
+            )
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(historial_tarea)")}
+            if "usuario_id" not in columnas:
+                db.execute(
+                    "ALTER TABLE historial_tarea ADD COLUMN usuario_id INTEGER "
+                    "REFERENCES usuario(id) ON DELETE SET NULL"
+                )
+            if "recurso_id" in columnas:
+                # Bases creadas con la versión de desarrollo que firmaba con recursos: cada
+                # recurso firmante pasa a ser un usuario del mismo nombre.
+                for recurso_id, nombre in db.execute(
+                    "SELECT DISTINCT r.id, r.nombre FROM historial_tarea h "
+                    "JOIN recurso r ON r.id = h.recurso_id"
+                ).fetchall():
+                    db.execute("INSERT OR IGNORE INTO usuario (nombre) VALUES (?)", (nombre,))
+                    usuario_id = db.execute(
+                        "SELECT id FROM usuario WHERE nombre = ?", (nombre,)
+                    ).fetchone()[0]
+                    db.execute(
+                        "UPDATE historial_tarea SET usuario_id = ? WHERE recurso_id = ?",
+                        (usuario_id, recurso_id),
+                    )
+            db.execute("PRAGMA user_version = 39")
+            version = 39
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1156,6 +1200,7 @@ class Store:
         github_item_id: str | None = None,
         github_url: str | None = None,
         prioridad: int = 0,
+        tipo: str = "",
     ) -> Tarea:
         if fecha_fin_planificada_inicial is None:
             fecha_fin_planificada_inicial = fecha_fin_planificada
@@ -1177,13 +1222,13 @@ class Store:
                 "fecha_inicio, fecha_fin_planificada_inicial, fecha_fin_planificada, fecha_limite, "
                 "fecha_fin_real, duracion_dias, "
                 "porcentaje_completado, orden, hito_id, "
-                "github_issue_number, github_issue_id, github_item_id, github_url, prioridad) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "github_issue_number, github_issue_id, github_item_id, github_url, prioridad, tipo) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (proyecto_id, padre_id, estado_id, titulo, descripcion, fecha_inicio,
                  fecha_fin_planificada_inicial, fecha_fin_planificada, fecha_limite,
                  fecha_fin_real, duracion_dias, porcentaje_completado,
                  siguiente_orden, hito_id,
-                 github_issue_number, github_issue_id, github_item_id, github_url, prioridad),
+                 github_issue_number, github_issue_id, github_item_id, github_url, prioridad, tipo),
             )
             fila = db.execute("SELECT * FROM tarea WHERE id = ?", (cursor.lastrowid,)).fetchone()
             self._registrar_historial_db(db, cursor.lastrowid, "creacion", detalle=titulo)
@@ -1340,7 +1385,7 @@ class Store:
                 "hito_id = ?, github_issue_number = COALESCE(?, github_issue_number), "
                 "github_issue_id = COALESCE(?, github_issue_id), "
                 "github_item_id = COALESCE(?, github_item_id), "
-                "github_url = COALESCE(?, github_url), prioridad = ?, porcentaje_previo = ?, "
+                "github_url = COALESCE(?, github_url), prioridad = ?, tipo = ?, porcentaje_previo = ?, "
                 "actualizado = datetime('now') WHERE id = ?",
                 (tarea.padre_id, tarea.estado_id, tarea.titulo, tarea.descripcion,
                  tarea.fecha_inicio, tarea.fecha_fin_planificada_inicial,
@@ -1348,7 +1393,7 @@ class Store:
                  tarea.duracion_dias, tarea.porcentaje_completado,
                  tarea.orden, tarea.hito_id, tarea.github_issue_number,
                  tarea.github_issue_id, tarea.github_item_id, tarea.github_url,
-                 tarea.prioridad, tarea.porcentaje_previo, tarea.id),
+                 tarea.prioridad, tarea.tipo, tarea.porcentaje_previo, tarea.id),
             )
             if anterior:
                 cambios = (
@@ -1358,14 +1403,15 @@ class Store:
                     ("fecha_fin_planificada_inicial", anterior.fecha_fin_planificada_inicial, tarea.fecha_fin_planificada_inicial, "planificacion_base"),
                     ("fecha_fin_planificada", anterior.fecha_fin_planificada, tarea.fecha_fin_planificada, "planificacion"),
                     ("fecha_limite", anterior.fecha_limite, tarea.fecha_limite, "limite"),
+                    ("tipo", anterior.tipo, tarea.tipo, "tipo"),
                     ("fecha_fin_real", anterior.fecha_fin_real, tarea.fecha_fin_real, "fin_real"),
                 )
                 for campo, viejo, nuevo, tipo in cambios:
                     if viejo != nuevo:
                         self._registrar_historial_db(db, tarea.id, tipo, campo, viejo, nuevo)
 
-    @staticmethod
     def _registrar_historial_db(
+        self,
         db: sqlite3.Connection,
         tarea_id: int,
         tipo: str,
@@ -1374,11 +1420,75 @@ class Store:
         valor_nuevo: object | None = None,
         detalle: str = "",
     ) -> None:
+        usuario_id = self.usuario_actual_id
+        if usuario_id is not None and not db.execute(
+            "SELECT 1 FROM usuario WHERE id = ?", (usuario_id,)
+        ).fetchone():
+            usuario_id = None
         db.execute(
             "INSERT INTO historial_tarea "
-            "(tarea_id, tipo, campo, valor_anterior, valor_nuevo, detalle) VALUES (?, ?, ?, ?, ?, ?)",
-            (tarea_id, tipo, campo, valor_anterior, valor_nuevo, detalle),
+            "(tarea_id, tipo, campo, valor_anterior, valor_nuevo, detalle, usuario_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (tarea_id, tipo, campo, valor_anterior, valor_nuevo, detalle, usuario_id),
         )
+
+    # -- Usuarios de gestión ------------------------------------------------
+
+    def listar_usuarios(self) -> list[Usuario]:
+        with closing(self._connect()) as db:
+            filas = db.execute("SELECT id, nombre FROM usuario ORDER BY nombre").fetchall()
+            return [Usuario(f["id"], f["nombre"]) for f in filas]
+
+    def obtener_usuario(self, usuario_id: int | None) -> Usuario | None:
+        if usuario_id is None:
+            return None
+        with closing(self._connect()) as db:
+            fila = db.execute("SELECT id, nombre FROM usuario WHERE id = ?", (usuario_id,)).fetchone()
+            return Usuario(fila["id"], fila["nombre"]) if fila else None
+
+    def crear_usuario(self, nombre: str) -> Usuario:
+        nombre = nombre.strip()
+        if not nombre:
+            raise ValueError("El nombre del usuario no puede estar vacío")
+        with closing(self._connect()) as db, db:
+            cursor = db.execute("INSERT INTO usuario (nombre) VALUES (?)", (nombre,))
+            return Usuario(cursor.lastrowid, nombre)
+
+    def renombrar_usuario(self, usuario_id: int, nombre: str) -> None:
+        nombre = nombre.strip()
+        if not nombre:
+            raise ValueError("El nombre del usuario no puede estar vacío")
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE usuario SET nombre = ? WHERE id = ?", (nombre, usuario_id))
+
+    def eliminar_usuario(self, usuario_id: int) -> None:
+        """Borra el usuario; sus cambios del historial se quedan sin autor."""
+        with closing(self._connect()) as db, db:
+            db.execute("DELETE FROM usuario WHERE id = ?", (usuario_id,))
+        if self.usuario_actual_id == usuario_id:
+            self.usuario_actual_id = None
+
+    def atribuir_cambios_sin_autor(self, proyecto_id: int, usuario_id: int) -> int:
+        """Firma con `usuario_id` todos los cambios del proyecto que no tienen autor.
+
+        Devuelve cuántos cambios se han atribuido."""
+        with closing(self._connect()) as db, db:
+            return db.execute(
+                "UPDATE historial_tarea SET usuario_id = ? WHERE usuario_id IS NULL "
+                "AND tarea_id IN (SELECT id FROM tarea WHERE proyecto_id = ?)",
+                (usuario_id, proyecto_id),
+            ).rowcount
+
+    def listar_historial_proyecto(self, proyecto_id: int) -> list[HistorialTarea]:
+        """Todos los cambios de las tareas del proyecto (también las archivadas), del más
+        reciente al más antiguo."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT h.* FROM historial_tarea h JOIN tarea t ON t.id = h.tarea_id "
+                "WHERE t.proyecto_id = ? ORDER BY h.creado DESC, h.id DESC",
+                (proyecto_id,),
+            ).fetchall()
+            return [_historial_de_fila(fila) for fila in filas]
 
     def listar_historial_tarea(self, tarea_id: int) -> list[HistorialTarea]:
         with closing(self._connect()) as db:

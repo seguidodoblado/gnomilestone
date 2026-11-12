@@ -22,6 +22,7 @@ from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.aviso_dependencias import confirmar_completar
 from gnomilestone.ui.capsula_progreso import CapsulaProgreso
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
+from gnomilestone.ui.tipo_icono import crear_icono_tipo
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
     asegurar_css_vencimientos,
@@ -365,6 +366,11 @@ class KanbanView(Gtk.Box):
             icono_prioridad.set_valign(Gtk.Align.START)
             icono_prioridad.set_margin_top(2)
             fila_titulo.append(icono_prioridad)
+        icono_tipo = crear_icono_tipo(tarea.tipo)
+        if icono_tipo is not None:
+            icono_tipo.set_valign(Gtk.Align.START)
+            icono_tipo.set_margin_top(2)
+            fila_titulo.append(icono_tipo)
         etiqueta = Gtk.Label(label=tarea.titulo, xalign=0, wrap=True, hexpand=True)
         estado = aplicar_estilo_vencimiento(etiqueta, tarea)
         aviso = texto_vencimiento(estado)

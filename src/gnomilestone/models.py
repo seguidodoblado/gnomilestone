@@ -73,6 +73,7 @@ class Tarea:
     orden: int = 0
     hito_id: int | None = None  # Hito (Milestone de GitHub) al que contribuye la tarea
     prioridad: int = 0  # 0 ninguna, 1 baja, 2 media, 3 alta, 4 urgente (ver prioridad.py)
+    tipo: str = ""  # "", trabajo, error o funcionalidad (ver tipos.py)
     github_issue_number: int | None = None
     github_issue_id: str | None = None
     github_item_id: str | None = None
@@ -92,6 +93,16 @@ class HistorialTarea:
     valor_anterior: str | None = None
     valor_nuevo: str | None = None
     detalle: str = ""
+    usuario_id: int | None = None  # Usuario de gestión que hizo el cambio, si se conocía.
+
+
+@dataclass
+class Usuario:
+    """Persona que maneja la aplicación (no confundir con un recurso, que es quien trabaja
+    en las tareas). Es global: la misma en todos los proyectos."""
+
+    id: int
+    nombre: str
 
 
 @dataclass

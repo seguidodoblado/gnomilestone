@@ -11,8 +11,9 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
-from gnomilestone import completado
+from gnomilestone import completado, tipos
 from gnomilestone.etiquetas import color_automatico, color_de_texto
+from gnomilestone.historial import titulo_evento
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
@@ -26,6 +27,7 @@ from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 from gnomilestone.ui.markdown_editor import MarkdownEditor
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.task_tree_view import ordenar_jerarquicamente
+from gnomilestone.ui.tipo_icono import crear_icono_tipo
 
 log = logging.getLogger(__name__)
 
@@ -448,6 +450,16 @@ class TaskDialog(Gtk.Window):
         self._prioridad_dropdown = self._crear_selector_prioridad(tarea)
         box.append(self._prioridad_dropdown)
 
+        box.append(Gtk.Label(label=_("Tipo"), xalign=0))
+        self._tipo_dropdown = Gtk.DropDown.new_from_strings(
+            [tipos.nombre_tipo(tipos.NINGUNO), *(tipos.nombre_tipo(t) for t in tipos.TIPOS)]
+        )
+        self._tipo_dropdown.set_selected(
+            tipos.TIPOS.index(tarea.tipo) + 1 if tarea and tarea.tipo in tipos.TIPOS else 0
+        )
+        self._dar_iconos_a_selector_tipo(self._tipo_dropdown)
+        box.append(self._tipo_dropdown)
+
         box.append(Gtk.Label(label=_("Etiquetas"), xalign=0))
         self._colores_etiquetas = {
             e.nombre.casefold(): e.color for e in self._store.listar_etiquetas(self._proyecto_id)
@@ -493,6 +505,31 @@ class TaskDialog(Gtk.Window):
             if tarea.padre_id in ids:
                 dropdown.set_selected(ids.index(tarea.padre_id) + 1)
         return dropdown
+
+    @staticmethod
+    def _dar_iconos_a_selector_tipo(dropdown: Gtk.DropDown) -> None:
+        def _preparar(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            item.set_child(Gtk.Box(spacing=8))
+
+        def _vincular(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+            caja = item.get_child()
+            while (hijo := caja.get_first_child()) is not None:
+                caja.remove(hijo)
+            posicion = item.get_position()
+            icono = crear_icono_tipo(tipos.TIPOS[posicion - 1]) if posicion > 0 else None
+            # «Sin tipo» lleva un hueco del tamaño del icono para alinear los textos.
+            caja.append(icono if icono is not None else Gtk.Box(width_request=16))
+            caja.append(Gtk.Label(label=item.get_item().get_string(), xalign=0))
+
+        factory = Gtk.SignalListItemFactory()
+        factory.connect("setup", _preparar)
+        factory.connect("bind", _vincular)
+        dropdown.set_factory(factory)
+        dropdown.set_list_factory(factory)
+
+    def _tipo_seleccionado(self) -> str:
+        indice = self._tipo_dropdown.get_selected()
+        return tipos.TIPOS[indice - 1] if indice > 0 else tipos.NINGUNO
 
     def _crear_selector_prioridad(self, tarea: Tarea | None) -> Gtk.DropDown:
         # El orden de la lista es el del nivel (0 ninguna … 4 urgente): el índice seleccionado
@@ -713,16 +750,7 @@ class TaskDialog(Gtk.Window):
             fecha = Gtk.Label(label=evento.creado, xalign=0)
             fecha.add_css_class("dim-label")
             tarjeta.append(fecha)
-            titulo = {
-                "creacion": _("Tarea creada"),
-                "estado": _("Estado cambiado"),
-                "progreso": _("Progreso cambiado"),
-                "planificacion": _("Final planificado cambiado"),
-                "planificacion_base": _("Planificado inicial cambiado"),
-                "fin_real": _("Final real cambiado"),
-                "fecha_inicio": _("Inicio cambiado"),
-                "limite": _("Límite cambiado"),
-            }.get(evento.tipo, evento.tipo)
+            titulo = titulo_evento(evento.tipo)
             tarjeta.append(Gtk.Label(label=titulo, xalign=0))
             detalle = evento.detalle
             if evento.valor_anterior is not None or evento.valor_nuevo is not None:
@@ -902,6 +930,7 @@ class TaskDialog(Gtk.Window):
             self._padre_dropdown.get_selected(),
             self._estado_dropdown.get_selected(),
             self._prioridad_dropdown.get_selected(),
+            self._tipo_dropdown.get_selected(),
             tuple(sorted(n.casefold() for n, _c in self._etiquetas)),
             self._inicio.valor,
             self._fin.valor,
@@ -1079,6 +1108,7 @@ class TaskDialog(Gtk.Window):
                 padre_id=padre_id,
                 estado_id=estado_id,
                 prioridad=self._prioridad_dropdown.get_selected(),
+                tipo=self._tipo_seleccionado(),
                 descripcion=descripcion,
                 fecha_inicio=fecha or None,
                 fecha_fin_planificada=fecha_fin,
@@ -1099,6 +1129,7 @@ class TaskDialog(Gtk.Window):
             porcentaje = tarea.porcentaje_completado
             tarea.estado_id = estado_id
             tarea.prioridad = self._prioridad_dropdown.get_selected()
+            tarea.tipo = self._tipo_seleccionado()
             tarea.descripcion = descripcion
             tarea.fecha_inicio = fecha or None
             if tarea.fecha_fin_planificada_inicial is None or self._editar_planificacion_base.get_active():

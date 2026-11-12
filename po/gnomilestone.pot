@@ -2720,3 +2720,215 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/versiones.py:60
 msgid "Respecto a la versión actual: "
 msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Actividad por persona · últimos 30 días"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Aún no hay cambios con autor. Elige «Yo soy» arriba para firmarlos."
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Sin autor"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "{cambios} cambios"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "{abiertas} abiertas · {completadas} hechas · {vencidas} vencidas · carga {carga:.0f}%"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Yo soy:"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Los cambios que hagas en las tareas se firmarán con esta persona"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Nadie"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Atribuir cambios sin autor"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Firma con la persona elegida todos los cambios anteriores sin autor"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "¿Atribuir a {nombre} los cambios sin autor?"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con esa persona. No se puede deshacer."
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Atribuir"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Resultados y riesgo por persona"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Hechas 30 d"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Estancadas"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Urgentes"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Hechas · en curso · pendientes"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Tarea estancada tras (días sin cambios)"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Una tarea en curso sin ningún cambio durante estos días o más cuenta como estancada en Informes"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Trabajo por tipo y persona"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Abiertas"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tareas completadas en 30 días"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tareas abiertas asignadas"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Tipo"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Trabajo"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Error"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tipo"
+msgstr ""
+
+#: src/gnomilestone/tipos.py
+msgid "Tipo cambiado"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Auditoría"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Usuario activo:"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Los cambios que hagas en las tareas se firmarán con este usuario"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Nuevo…"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Renombrar…"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Firma con el usuario activo todos los cambios anteriores sin autor"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Cambios por usuario"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Registro de cambios"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Mostrar:"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Fecha"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Usuario"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Tarea"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Cambio"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Detalle"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Aún no hay cambios registrados"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Todos los usuarios"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Nuevo usuario"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Renombrar usuario"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "¿Eliminar a {nombre}?"
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Sus cambios del historial se quedarán sin autor."
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con ese usuario. No se puede deshacer."
+msgstr ""
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "{n} cambios"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Incluir archivadas"
+msgstr ""
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Cuenta también las tareas archivadas en los informes sobre las tareas. El ritmo de trabajo, el flujo acumulado y los tiempos por columna se calculan con el historial y siempre las incluyen."
+msgstr ""

@@ -3135,3 +3135,215 @@ msgstr "Compared with the current version: "
 
 #~ msgid "Kanban"
 #~ msgstr "Kanban"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Actividad por persona · últimos 30 días"
+msgstr "Activity per person · last 30 days"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Aún no hay cambios con autor. Elige «Yo soy» arriba para firmarlos."
+msgstr "No changes with an author yet. Pick “I am” above to sign them."
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Sin autor"
+msgstr "No author"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "{cambios} cambios"
+msgstr "{cambios} changes"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "{abiertas} abiertas · {completadas} hechas · {vencidas} vencidas · carga {carga:.0f}%"
+msgstr "{abiertas} open · {completadas} done · {vencidas} overdue · load {carga:.0f}%"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Yo soy:"
+msgstr "I am:"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Los cambios que hagas en las tareas se firmarán con esta persona"
+msgstr "Changes you make to tasks will be signed with this person"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Nadie"
+msgstr "Nobody"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Atribuir cambios sin autor"
+msgstr "Assign changes without author"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Firma con la persona elegida todos los cambios anteriores sin autor"
+msgstr "Signs all earlier changes without an author with the chosen person"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "¿Atribuir a {nombre} los cambios sin autor?"
+msgstr "Assign changes without author to {nombre}?"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con esa persona. No se puede deshacer."
+msgstr "All earlier changes in this project without an author will be signed with that person. This cannot be undone."
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Atribuir"
+msgstr "Assign"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Resultados y riesgo por persona"
+msgstr "Results and risk per person"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Hechas 30 d"
+msgstr "Done 30 d"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Estancadas"
+msgstr "Stalled"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Urgentes"
+msgstr "Urgent"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Hechas · en curso · pendientes"
+msgstr "Done · in progress · pending"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Tarea estancada tras (días sin cambios)"
+msgstr "Task stalled after (days without changes)"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Una tarea en curso sin ningún cambio durante estos días o más cuenta como estancada en Informes"
+msgstr "An in-progress task with no changes for this many days or more counts as stalled in Reports"
+
+#: src/gnomilestone/tipos.py
+msgid "Trabajo por tipo y persona"
+msgstr "Work by type and person"
+
+#: src/gnomilestone/tipos.py
+msgid "Abiertas"
+msgstr "Open"
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tareas completadas en 30 días"
+msgstr "No tasks completed in the last 30 days"
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tareas abiertas asignadas"
+msgstr "No open assigned tasks"
+
+#: src/gnomilestone/tipos.py
+msgid "Tipo"
+msgstr "Type"
+
+#: src/gnomilestone/tipos.py
+msgid "Trabajo"
+msgstr "Task"
+
+#: src/gnomilestone/tipos.py
+msgid "Error"
+msgstr "Bug"
+
+#: src/gnomilestone/tipos.py
+msgid "Sin tipo"
+msgstr "No type"
+
+#: src/gnomilestone/tipos.py
+msgid "Tipo cambiado"
+msgstr "Type changed"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Auditoría"
+msgstr "Audit"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Usuario activo:"
+msgstr "Active user:"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Los cambios que hagas en las tareas se firmarán con este usuario"
+msgstr "Changes you make to tasks will be signed with this user"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Nuevo…"
+msgstr "New…"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Renombrar…"
+msgstr "Rename…"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Firma con el usuario activo todos los cambios anteriores sin autor"
+msgstr "Signs all earlier changes without an author with the active user"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Cambios por usuario"
+msgstr "Changes per user"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Registro de cambios"
+msgstr "Change log"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Mostrar:"
+msgstr "Show:"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Fecha"
+msgstr "Date"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Usuario"
+msgstr "User"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Tarea"
+msgstr "Task"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Cambio"
+msgstr "Change"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Detalle"
+msgstr "Details"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Aún no hay cambios registrados"
+msgstr "No changes recorded yet"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Todos los usuarios"
+msgstr "All users"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Nuevo usuario"
+msgstr "New user"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Renombrar usuario"
+msgstr "Rename user"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "¿Eliminar a {nombre}?"
+msgstr "Delete {nombre}?"
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Sus cambios del historial se quedarán sin autor."
+msgstr "Their history changes will be left without an author."
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con ese usuario. No se puede deshacer."
+msgstr "All earlier changes in this project without an author will be signed with that user. This cannot be undone."
+
+#: src/gnomilestone/ui/auditoria_view.py
+msgid "{n} cambios"
+msgstr "{n} changes"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Incluir archivadas"
+msgstr "Include archived"
+
+#: src/gnomilestone/ui/report_view.py
+msgid "Cuenta también las tareas archivadas en los informes sobre las tareas. El ritmo de trabajo, el flujo acumulado y los tiempos por columna se calculan con el historial y siempre las incluyen."
+msgstr "Also counts archived tasks in the task-based reports. Work rhythm, cumulative flow and time per column are computed from the history and always include them."

@@ -10,7 +10,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
-from gnomilestone import settings
+from gnomilestone import settings, tipos
 from gnomilestone.ganttcalc import (
     PLANIFICADA_PASADA,
     VENCIDA,
@@ -32,10 +32,13 @@ from gnomilestone.report_metrics import (
     fechas_planificadas_reales,
     flujo_acumulado,
     reparto_por_recurso,
+    resultados_por_recurso,
     resumen_desviacion,
     ruta_critica,
     tiempo_medio_por_columna,
+    trabajo_por_tipo,
 )
+from gnomilestone.ui.auditoria_view import AuditoriaView
 from gnomilestone.ui.kanban_view import _PALETA_COLUMNAS
 
 # Margen exterior de cada pestaña y separación entre cards, en píxeles.
@@ -51,7 +54,9 @@ class ReportView(Gtk.Box):
     Equipo (reparto y carga). Ningún informe se repite entre pestañas.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, store=None, on_cambio=None, incluir_archivadas: bool = False, on_incluir_archivadas=None
+    ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self.set_margin_top(18)
         self.set_margin_start(18)
@@ -59,7 +64,23 @@ class ReportView(Gtk.Box):
         self.set_margin_bottom(18)
         self._summary = Gtk.Label(xalign=0)
         self._summary.add_css_class("title-3")
-        self.append(self._summary)
+        self._summary.set_hexpand(True)
+        cabecera = Gtk.Box(spacing=12)
+        cabecera.append(self._summary)
+        self._check_archivadas = Gtk.CheckButton(
+            label=_("Incluir archivadas"), active=incluir_archivadas,
+            tooltip_text=_(
+                "Cuenta también las tareas archivadas en los informes sobre las tareas. "
+                "El ritmo de trabajo, el flujo acumulado y los tiempos por columna se calculan "
+                "con el historial y siempre las incluyen."
+            ),
+        )
+        if on_incluir_archivadas is not None:
+            self._check_archivadas.connect(
+                "toggled", lambda check: on_incluir_archivadas(check.get_active())
+            )
+        cabecera.append(self._check_archivadas)
+        self.append(cabecera)
         self._details = Gtk.Label(xalign=0, wrap=True)
         self._details.add_css_class("dim-label")
         self.append(self._details)
@@ -74,6 +95,10 @@ class ReportView(Gtk.Box):
         self._asignaciones: list[Asignacion] = []
         self._dependencias: list[Dependencia] = []
         self._historial: list[HistorialTarea] = []
+        self._historial_bruto: list[HistorialTarea] = []
+        self._tipos_completadas = True
+        self._trabajo_tipos = []
+        self._resultados_personas = []
         self._alertas = (0, 0, 0)
         self._sin_asignar = 0
         self._reparto = []
@@ -102,6 +127,10 @@ class ReportView(Gtk.Box):
             self._notebook.append_page(
                 self._nuevo_lienzo(dibujar, alto_minimo), Gtk.Label(label=nombre)
             )
+        self._auditoria: AuditoriaView | None = None
+        if store is not None:
+            self._auditoria = AuditoriaView(store, on_cambio)
+            self._notebook.append_page(self._auditoria, Gtk.Label(label=_("Auditoría")))
         self.append(self._notebook)
 
     # ------------------------------------------------------------------
@@ -205,6 +234,10 @@ class ReportView(Gtk.Box):
     # Datos
     # ------------------------------------------------------------------
 
+    def set_auditoria(self, proyecto_id, historial, titulos_tareas, nombres_estado) -> None:
+        if self._auditoria is not None:
+            self._auditoria.set_data(proyecto_id, historial, titulos_tareas, nombres_estado)
+
     def set_data(
         self,
         tareas: list[Tarea],
@@ -213,6 +246,7 @@ class ReportView(Gtk.Box):
         asignaciones: list[Asignacion] | None = None,
         dependencias: list[Dependencia] | None = None,
         historial: list[HistorialTarea] | None = None,
+        historial_bruto: list[HistorialTarea] | None = None,
     ) -> None:
         self._tareas = tareas
         self._estados = estados
@@ -227,6 +261,19 @@ class ReportView(Gtk.Box):
         self._reparto, self._critica = reparto, critica
         self._dependencias = dependencias or []
         self._historial = historial or []
+        self._historial_bruto = historial_bruto or []
+        hoy_local = datetime.now().astimezone().date()
+        self._trabajo_tipos = trabajo_por_tipo(
+            self._recursos, tareas, self._asignaciones, self._tipos_completadas, hoy_local
+        )
+        try:
+            dias_estancada = max(1, int(settings.read_settings().get("dias_estancada", 14)))
+        except (TypeError, ValueError):
+            dias_estancada = 14
+        self._resultados_personas = resultados_por_recurso(
+            self._recursos, tareas, self._asignaciones, self._historial_bruto,
+            estados[0].id if estados else None, hoy_local, dias_estancada,
+        )
         asignadas = {a.tarea_id for a in self._asignaciones}
         self._sin_asignar = sum(t.id not in asignadas for t in tareas)
         self._tareas_semana = [
@@ -325,10 +372,16 @@ class ReportView(Gtk.Box):
         self._draw_card(cr, *reparto, _("Reparto por persona"))
         x, y, w, h = reparto
         self._draw_resource_bars(cr, x + 18, y + 70, w - 36, h - 90)
-        self._draw_card(cr, *actividad, _("Actividad por persona"))
-        self._draw_placeholder(cr, *actividad)
-        self._draw_card(cr, *carga, _("Carga y progreso por persona"))
-        self._draw_placeholder(cr, *carga)
+        self._draw_card(cr, *actividad, _("Trabajo por tipo y persona"))
+        x, y, w, h = actividad
+        self._draw_mode_selector(
+            cr, x + 18, y + 16, w - 36, (_("Hechas 30 d"), _("Abiertas")), self._tipos_completadas,
+            self._alternar_tipos,
+        )
+        self._draw_work_by_type(cr, x + 18, y + 64, w - 36, h - 78)
+        self._draw_card(cr, *carga, _("Resultados y riesgo por persona"))
+        x, y, w, h = carga
+        self._draw_load_people(cr, x + 18, y + 56, w - 36, h - 70)
 
     # ------------------------------------------------------------------
     # Elementos comunes de las cards
@@ -364,6 +417,158 @@ class ReportView(Gtk.Box):
         ext = cr.text_extents(texto)
         cr.move_to(x + (width - ext.width) / 2, y + height / 2 + 12)
         cr.show_text(texto)
+
+    def _alternar_tipos(self) -> None:
+        self._tipos_completadas = not self._tipos_completadas
+        self._trabajo_tipos = trabajo_por_tipo(
+            self._recursos, self._tareas, self._asignaciones, self._tipos_completadas,
+            datetime.now().astimezone().date(),
+        )
+        self._redibujar()
+
+    def _draw_work_by_type(self, cr, x, y, width, height) -> None:
+        """Por persona, sus tareas repartidas por tipo en una barra apilada."""
+        colores = {
+            tipos.TRABAJO: (0.85, 0.60, 0.20), tipos.ERROR: (0.88, 0.32, 0.32),
+            tipos.FUNCIONALIDAD: (0.26, 0.55, 0.90), tipos.NINGUNO: (0.45, 0.47, 0.52),
+        }
+        filas = self._trabajo_tipos[: max(1, int((height - 22) // 31))]
+        cr.set_font_size(max(12, self._font_size))
+        if not filas or not any(f.total for f in filas):
+            cr.set_source_rgb(0.55, 0.57, 0.62)
+            cr.move_to(x, y + 12)
+            cr.show_text(
+                _("Sin tareas completadas en 30 días") if self._tipos_completadas
+                else _("Sin tareas abiertas asignadas")
+            )
+            return
+        bx = x + min(110, width * 0.18)
+        bw = max(60, width - (bx - x) - 8)
+        # Leyenda de colores.
+        cr.set_font_size(max(10, self._font_size - 1))
+        lx = bx
+        for clave in (*tipos.TIPOS, tipos.NINGUNO):
+            cr.set_source_rgb(*colores[clave])
+            cr.rectangle(lx, y, 10, 10)
+            cr.fill()
+            cr.set_source_rgb(*self._text_color)
+            nombre = tipos.nombre_tipo(clave)
+            cr.move_to(lx + 14, y + 9)
+            cr.show_text(nombre)
+            lx += 14 + cr.text_extents(nombre).x_advance + 16
+        cr.set_font_size(max(12, self._font_size))
+        maximo = max(1, max(f.total for f in filas))
+        for i, fila in enumerate(filas):
+            yy = y + 22 + i * 31
+            cr.set_source_rgb(*self._text_color)
+            cr.move_to(x, yy + 14)
+            cr.show_text(fila.recurso.nombre[:14])
+            self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
+            cr.set_source_rgba(0.12, 0.22, 0.38, 0.75)
+            cr.fill()
+            cursor = bx
+            for clave in (*tipos.TIPOS, tipos.NINGUNO):
+                cantidad = fila.por_tipo.get(clave, 0)
+                if not cantidad:
+                    continue
+                ancho = bw * cantidad / maximo
+                cr.save()
+                self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
+                cr.clip()
+                cr.rectangle(cursor, yy, ancho, 20)
+                cr.set_source_rgb(*colores[clave])
+                cr.fill()
+                cr.restore()
+                if ancho > 18:
+                    cr.set_source_rgb(0.08, 0.08, 0.10)
+                    cr.move_to(cursor + ancho / 2 - 4, yy + 14)
+                    cr.show_text(str(cantidad))
+                cursor += ancho
+
+    def _draw_load_people(self, cr, x, y, width, height) -> None:
+        """Por persona: reparto por estado, ritmo reciente, plazos y riesgo."""
+        filas = self._resultados_personas[: max(1, int((height - 22) // 31))]
+        cr.set_font_size(max(12, self._font_size))
+        if not filas:
+            cr.set_source_rgb(0.55, 0.57, 0.62)
+            cr.move_to(x, y + 12)
+            cr.show_text(_("Sin recursos en el proyecto"))
+            return
+        bx = x + min(110, width * 0.18)
+        bw = max(60, width * 0.28)
+        col0 = bx + bw + 16
+        ancho_col = max(60, (x + width - col0) / 5)
+        columnas = (_("Hechas 30 d"), _("A tiempo"), _("Estancadas"), _("Urgentes"), _("Vencidas"))
+        cr.set_font_size(max(10, self._font_size - 1))
+        cr.set_source_rgb(0.55, 0.57, 0.62)
+        for k, titulo in enumerate(columnas):
+            cr.move_to(col0 + k * ancho_col, y + 10)
+            cr.show_text(titulo)
+        cr.move_to(bx, y + 10)
+        cr.show_text(_("Hechas · en curso · pendientes"))
+        cr.set_font_size(max(12, self._font_size))
+        rojo = (0.95, 0.45, 0.35)
+        for i, fila in enumerate(filas):
+            yy = y + 22 + i * 31
+            cr.set_source_rgb(*self._text_color)
+            cr.move_to(x, yy + 14)
+            cr.show_text(fila.recurso.nombre[:14])
+            total = fila.hechas + fila.en_curso + fila.pendientes
+            self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
+            cr.set_source_rgba(0.12, 0.22, 0.38, 0.75)
+            cr.fill()
+            cursor = bx
+            for cantidad, color in (
+                (fila.hechas, (0.30, 0.70, 0.45)), (fila.en_curso, (0.24, 0.52, 0.86)),
+                (fila.pendientes, (0.40, 0.44, 0.52)),
+            ):
+                if not cantidad or not total:
+                    continue
+                ancho = bw * cantidad / total
+                cr.save()
+                self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
+                cr.clip()
+                cr.rectangle(cursor, yy, ancho, 20)
+                cr.set_source_rgb(*color)
+                cr.fill()
+                cr.restore()
+                cursor += ancho
+            cr.set_source_rgb(0.96, 0.98, 1.0)
+            etiqueta = f"{fila.hechas} · {fila.en_curso} · {fila.pendientes}"
+            ext = cr.text_extents(etiqueta)
+            cr.move_to(bx + (bw - ext.width) / 2, yy + 14)
+            cr.show_text(etiqueta)
+            valores = (
+                (str(fila.hechas_30d), False),
+                ("—" if fila.a_tiempo is None else f"{fila.a_tiempo:.0f}%",
+                 fila.a_tiempo is not None and fila.a_tiempo < 50),
+                (str(fila.estancadas), fila.estancadas > 0),
+                (str(fila.urgentes), fila.urgentes > 0),
+                (str(fila.vencidas), fila.vencidas > 0),
+            )
+            for k, (texto, alerta) in enumerate(valores):
+                cr.set_source_rgb(*(rojo if alerta else self._text_color))
+                cr.move_to(col0 + k * ancho_col, yy + 14)
+                cr.show_text(texto)
+                if k == 0:
+                    self._draw_tendencia(
+                        cr, col0 + cr.text_extents(texto).x_advance + 8, yy + 9,
+                        fila.hechas_30d - fila.hechas_30d_previas,
+                    )
+
+    @staticmethod
+    def _draw_tendencia(cr, x, y, diferencia: int) -> None:
+        """Triángulo verde hacia arriba o rojo hacia abajo; nada si no hay cambio. Se dibuja
+        como trazo y no como texto porque la fuente puede no tener los glifos ▲ ▼."""
+        if diferencia == 0:
+            return
+        arriba = diferencia > 0
+        cr.move_to(x, y + (0 if arriba else 7))
+        cr.line_to(x + 4, y + (-7 if arriba else 0))
+        cr.line_to(x + 8, y + (0 if arriba else 7))
+        cr.close_path()
+        cr.set_source_rgb(*((0.30, 0.70, 0.45) if arriba else (0.95, 0.45, 0.35)))
+        cr.fill()
 
     def _draw_mode_selector(self, cr, x, y, width, opciones, primero_activo, accion, selector_w=None):
         """Selector segmentado de dos opciones; pulsarlo ejecuta `accion`."""
