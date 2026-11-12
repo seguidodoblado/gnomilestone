@@ -1408,7 +1408,27 @@ class Store:
                 )
                 for campo, viejo, nuevo, tipo in cambios:
                     if viejo != nuevo:
-                        self._registrar_historial_db(db, tarea.id, tipo, campo, viejo, nuevo)
+                        detalle = ""
+                        if tipo == "estado":
+                            # Las columnas se pueden borrar (p. ej. «No Status»): el evento
+                            # guarda también sus nombres para poder mostrarlos después.
+                            detalle = json.dumps(
+                                {
+                                    "anterior": self._nombre_estado_db(db, viejo),
+                                    "nuevo": self._nombre_estado_db(db, nuevo),
+                                },
+                                ensure_ascii=False,
+                            )
+                        self._registrar_historial_db(
+                            db, tarea.id, tipo, campo, viejo, nuevo, detalle
+                        )
+
+    @staticmethod
+    def _nombre_estado_db(db: sqlite3.Connection, estado_id: int | None) -> str | None:
+        if estado_id is None:
+            return None
+        fila = db.execute("SELECT nombre FROM estado_tablero WHERE id = ?", (estado_id,)).fetchone()
+        return fila[0] if fila else None
 
     def _registrar_historial_db(
         self,

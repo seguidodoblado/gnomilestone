@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.1.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-12 01:32+0100\n"
+"POT-Creation-Date: 2026-11-12 13:20+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,6 +16,46 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:14
+msgid "Tarea creada"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:15
+msgid "Estado cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:16
+msgid "Progreso cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:17
+msgid "Final planificado cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:18
+msgid "Planificado inicial cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:19
+msgid "Final real cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:20
+msgid "Inicio cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:21
+msgid "Límite cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:22
+msgid "Tipo cambiado"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/historial.py:38
+msgid "(columna eliminada)"
+msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:27
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:29
@@ -171,6 +211,7 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:107
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/tipos.py:48
 msgid "Funcionalidad"
 msgstr ""
 
@@ -199,7 +240,7 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:119
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:224
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:227
 msgid "Modelo de datos"
 msgstr ""
 
@@ -229,7 +270,7 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:131
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:225
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:228
 msgid "Datos de usuario"
 msgstr ""
 
@@ -257,7 +298,7 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/plantillas.py:143
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:226
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:229
 msgid "Interfaz"
 msgstr ""
 
@@ -562,56 +603,68 @@ msgid ""
 "- Negativas:\n"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:216
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:219
 msgid "Contexto del proyecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:218
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:221
 msgid "Diseño y estructura"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:219
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:222
 msgid "Stack y empaquetado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:220
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:223
 msgid "Calidad y entrega"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:221
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1010
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:224
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1014
 msgid "Diagramas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:227
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:230
 msgid "Integraciones"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:228
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:231
 msgid "Funcionalidades"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:230
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:313
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:233
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:315
 msgid "General"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:1056
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/store.py:1100
 msgid "No Status"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/sync.py:191
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/sync.py:210
 msgid ""
 "El tablero de GitHub ya no es el esquema por defecto (Todo/In Progress/"
 "Done): decide a mano, en Ajustes del tablero, qué columna completa las "
 "tareas."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/sync.py:476
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/sync.py:500
 #, python-brace-format
 msgid ""
 "{n} tareas se han quedado sin columna real de GitHub y se han agrupado en "
 "«No Status»."
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/tipos.py:48
+msgid "Trabajo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/tipos.py:48
+msgid "Error"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/tipos.py:49
+msgid "Sin tipo"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/about.py:19
@@ -631,15 +684,15 @@ msgid "Datos de terceros"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/archived_dialog.py:37
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:491
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:512
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:510
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:531
 msgid "Tareas archivadas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/archived_dialog.py:57
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:167
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:193
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:656
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:194
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:693
 msgid "Buscar tarea…"
 msgstr ""
 
@@ -662,8 +715,171 @@ msgid "No hay tareas archivadas."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/archived_dialog.py:108
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:908
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:912
 msgid "Sin resultados."
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:50
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:63
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:49
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_dialog.py:421
+msgid "Nombre"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:53
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:75
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/aviso_dependencias.py:26
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:61
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:252
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/dialogos.py:32
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1074
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/github_link_dialog.py:117
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:95
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:91
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:203
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/labels_dialog.py:219
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:92
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:223
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:377
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:554
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:581
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:132
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:211
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_dialog.py:449
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:365
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:853
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:987
+msgid "Cancelar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:54
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/dialogos.py:33
+msgid "Aceptar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:106
+msgid "Usuario activo:"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:108
+msgid "Los cambios que hagas en las tareas se firmarán con este usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:113
+msgid "Nuevo…"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:114
+msgid "Renombrar…"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:115
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:302
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:67
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:252
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1074
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:95
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:86
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/labels_dialog.py:219
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:98
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:223
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:581
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:211
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:354
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:853
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:987
+msgid "Eliminar"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:121
+msgid "Atribuir cambios sin autor"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:122
+msgid "Firma con el usuario activo todos los cambios anteriores sin autor"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:128
+msgid "Cambios por usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:134
+msgid "Registro de cambios"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:135
+msgid "Mostrar:"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:145
+msgid "Fecha"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:145
+msgid "Usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:146
+msgid "Tarea"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:146
+msgid "Cambio"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:147
+msgid "Detalle"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:156
+msgid "Aún no hay cambios registrados"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:178
+msgid "Todos los usuarios"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:178
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:201
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:223
+msgid "Sin autor"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:232
+#, python-brace-format
+msgid "{n} cambios"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:273
+msgid "Nuevo usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:287
+msgid "Renombrar usuario"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:301
+#, python-brace-format
+msgid "¿Eliminar a {nombre}?"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:302
+msgid "Sus cambios del historial se quedarán sin autor."
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:315
+#, python-brace-format
+msgid "¿Atribuir a {nombre} los cambios sin autor?"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:316
+msgid ""
+"Todos los cambios anteriores de este proyecto sin autor se firmarán con ese "
+"usuario. No se puede deshacer."
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/auditoria_view.py:318
+msgid "Atribuir"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/aviso_dependencias.py:22
@@ -680,35 +896,11 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/aviso_dependencias.py:26
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:61
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:252
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/dialogos.py:32
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1070
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/github_link_dialog.py:117
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:95
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:91
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:203
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/labels_dialog.py:219
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:92
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:223
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:358
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:535
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:562
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:132
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:211
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_dialog.py:449
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:363
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:825
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:958
-msgid "Cancelar"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/aviso_dependencias.py:26
 msgid "Completar de todos modos"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/board_settings_dialog.py:23
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:172
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:173
 msgid "Columnas del tablero"
 msgstr ""
 
@@ -770,8 +962,8 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:21
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:117
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:489
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:539
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:520
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:571
 msgid "Inicio"
 msgstr ""
 
@@ -806,24 +998,8 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:195
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:134
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_dialog.py:452
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:381
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:383
 msgid "Guardar"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:67
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:252
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1070
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:95
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:86
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/labels_dialog.py:219
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:98
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:223
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:562
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:211
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:352
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:825
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:958
-msgid "Eliminar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:67
@@ -907,7 +1083,7 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:226
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:195
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:922
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:951
 msgid "Seguir editando"
 msgstr ""
 
@@ -924,22 +1100,18 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/diagram_window.py:249
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:464
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:624
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:629
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:660
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:739
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:821
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:921
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:468
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:628
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:633
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:664
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:743
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:825
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:925
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_preview_window.py:47
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_preview_window.py:55
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:220
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/versiones_window.py:102
 msgid "Sin título"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/dialogos.py:33
-msgid "Aceptar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:53
@@ -963,7 +1135,7 @@ msgid "Decisiones técnicas"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:90
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:319
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:321
 msgid "Historial"
 msgstr ""
 
@@ -984,12 +1156,12 @@ msgid "Elige una subsección de la izquierda."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:198
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1052
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1056
 msgid "Editar subsección"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:202
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1063
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1067
 msgid "Eliminar subsección"
 msgstr ""
 
@@ -1003,7 +1175,7 @@ msgid "Empezar una nota en blanco o desde una plantilla"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:261
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:596
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:600
 msgid "Sin notas. Crea la primera con «Nueva nota»."
 msgstr ""
 
@@ -1012,76 +1184,76 @@ msgid "Sin diagramas. Crea el primero con «Nuevo diagrama»."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:360
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:453
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:124
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:457
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:125
 msgid "Desplegar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:360
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:453
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:124
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:457
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:125
 msgid "Plegar"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:367
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1031
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1035
 msgid "Nueva subsección"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:598
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:602
 msgid "Sin subpáginas. Crea la primera con «Nueva nota»."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:617
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:621
 msgid "Raíz"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:671
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:768
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:675
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:772
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_preview_window.py:62
 msgid "Última modificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:685
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:799
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:689
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:803
 msgid "Doble clic para editar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:747
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:751
 msgid "Ver la nota completa"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:757
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:761
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_window.py:85
 msgid "Nota sin contenido"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:780
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:784
 #, python-brace-format
 msgid "Subpáginas ({n})"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:780
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:784
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/note_preview_window.py:114
 msgid "Subpáginas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:782
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:786
 msgid "Ver y crear subpáginas de esta nota"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1010
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1014
 msgid "Notas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1066
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1070
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{nombre}» y todas sus notas? Esta acción no se "
 "puede deshacer."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1131
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/documentation_view.py:1135
 #, python-brace-format
 msgid ""
 "Versión actual: {n} · {m} anteriores disponibles (botón «Versiones» al "
@@ -1180,16 +1352,16 @@ msgid "Incluir en las vistas las tareas al 100 %"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:88
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:387
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:555
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:951
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:251
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:393
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:574
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:980
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:257
 msgid "Eliminar tarea"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/global_gantt_view.py:91
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:558
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:954
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:577
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:983
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{titulo}»? Sus subtareas y dependencias "
@@ -1204,8 +1376,8 @@ msgstr ""
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/milestones_view.py:137
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:231
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:246
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:133
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:166
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:135
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:168
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/versiones_window.py:99
 msgid "Sin fecha"
 msgstr ""
@@ -1222,9 +1394,9 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:49
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/markdown_editor.py:147
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:410
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:483
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:523
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:412
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:513
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:554
 msgid "Título"
 msgstr ""
 
@@ -1235,7 +1407,7 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:57
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:83
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:415
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:417
 msgid "Descripción"
 msgstr ""
 
@@ -1244,7 +1416,7 @@ msgid "También se da por conseguido cuando todas sus tareas están completas."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/hito_dialog.py:104
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1024
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1053
 msgid "El título no puede estar vacío."
 msgstr ""
 
@@ -1269,48 +1441,48 @@ msgstr ""
 msgid "Acercar (Ctrl+rueda)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:160
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:161
 msgid "Quitar filtro"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:250
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:251
 #, python-brace-format
 msgid "Filtrando: {titulo} y sus subtareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:258
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:259
 #, python-brace-format
 msgid "Filtrando: {titulo}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:271
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:272
 msgid "Pulsa para ver solo esta subtarea"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:379
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:250
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:385
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:256
 msgid "Archivar tarea"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:408
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:414
 #, python-brace-format
 msgid "Subtarea de: {titulo}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:410
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:416
 msgid "Pulsa para filtrar solo esta tarea y sus subtareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:418
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:424
 #, python-brace-format
 msgid "Subtareas: {hechas}/{total}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:436
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:442
 msgid "Hito al que contribuye"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:445
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/kanban_view.py:451
 msgid " · vencida"
 msgstr ""
 
@@ -1319,7 +1491,7 @@ msgid "Color de la etiqueta"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/labels_dialog.py:62
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:136
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:138
 msgid "Aplicar"
 msgstr ""
 
@@ -1570,7 +1742,7 @@ msgid "Sistema"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:78
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:101
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:103
 msgid "Preferencias"
 msgstr ""
 
@@ -1599,43 +1771,53 @@ msgid "La bandera roja aparece cuando faltan estos días o menos"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:128
-msgid "Barra de tareas resumen en el Gantt"
+msgid "Tarea estancada tras (días sin cambios)"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:135
+msgid ""
+"Una tarea en curso sin ningún cambio durante estos días o más cuenta como "
+"estancada en Informes"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:139
+msgid "Barra de tareas resumen en el Gantt"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:146
 msgid "Píldora con progreso"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:136
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:147
 msgid "Extremos en corchete"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:151
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:162
 msgid "Integración con GitHub"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:156
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:167
 msgid "Sesión no detectada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:160
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:171
 #, python-brace-format
 msgid "Conectado como @{login}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:162
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:173
 msgid "Token configurado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:169
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:180
 msgid "Personal Access Token (opcional si usas gh CLI)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:175
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:186
 msgid "Los cambios se aplican reiniciando la aplicación."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:182
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/preferences.py:193
 msgid "Aplicar y reiniciar"
 msgstr ""
 
@@ -1692,7 +1874,7 @@ msgid "Documentación del proyecto"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:95
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:277
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:279
 msgid "Nueva tarea"
 msgstr ""
 
@@ -1704,67 +1886,61 @@ msgstr ""
 msgid "Sincronizar con GitHub"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:321
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:340
 msgid "Nueva fecha límite"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:339
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:358
 #, python-brace-format
 msgid ""
 "La nueva fecha de finalización ({fecha}) supera la fecha límite actual. "
 "Selecciona una nueva fecha límite."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:359
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:378
 msgid "Mover y actualizar fecha"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:374
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:393
 #, python-brace-format
 msgid "La fecha límite debe ser igual o posterior al {fecha}."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:487
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:506
 msgid "Archivar completadas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:501
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:520
 msgid "Archivo de tareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:512
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:531
 #, python-brace-format
 msgid "Tareas archivadas ({n})"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:528
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:547
 msgid "Archivar tareas completadas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:531
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:550
 msgid ""
 "Las tareas completadas (con toda su rama al 100 %) dejarán de verse en todas "
 "las vistas. Podrás recuperarlas desde «Tareas archivadas»."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:535
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:356
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:554
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:358
 msgid "Archivar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:633
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_detail_view.py:652
 msgid "Sincronización con GitHub"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:37
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:117
 msgid "Editar proyecto"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:63
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:49
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_dialog.py:421
-msgid "Nombre"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:67
@@ -1782,7 +1958,7 @@ msgid "Quitar imagen"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:104
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:556
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:593
 msgid "Fecha de inicio"
 msgstr ""
 
@@ -1817,8 +1993,8 @@ msgid "No se pudo copiar la imagen seleccionada."
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_dialog.py:228
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:911
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:124
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1116
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:126
 msgid "Hoy"
 msgstr ""
 
@@ -1832,12 +2008,12 @@ msgid ""
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:56
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:158
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:160
 msgid "Crear proyecto"
 msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/project_list_view.py:102
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:459
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:664
 msgid "En curso"
 msgstr ""
 
@@ -1857,279 +2033,326 @@ msgid ""
 "columnas y recursos. Esta acción no se puede deshacer."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:96
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:71
+msgid "Incluir archivadas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:73
+msgid ""
+"Cuenta también las tareas archivadas en los informes sobre las tareas. El "
+"ritmo de trabajo, el flujo acumulado y los tiempos por columna se calculan "
+"con el historial y siempre las incluyen."
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:121
 msgid "Resumen"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:97
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:122
 msgid "Flujo de trabajo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:98
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:123
 msgid "Planificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:99
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:124
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/resource_usage_view.py:544
 msgid "Equipo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:238
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:133
+msgid "Auditoría"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:285
 #, python-brace-format
 msgid ""
 "Ruta crítica: {critica} · Recursos sin tareas: {sin_tareas} · GitHub "
 "vinculadas: {vinculadas}, locales: {locales}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:240
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:287
 msgid "sin dependencias"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:264
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:311
 #, python-brace-format
 msgid ""
 "{total} tareas · {completadas} completadas · Progreso medio: {progreso:.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:281
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:328
 msgid "Estado general"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:283
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:330
 msgid "Riesgo temporal"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:291
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:338
 msgid "Tareas por estado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:293
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:340
 msgid "Ritmo de trabajo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:296
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:343
 msgid "Anual"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:296
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:343
 msgid "Mensual"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:300
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:347
 msgid "Tiempo medio por columna"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:302
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:349
 msgid "Acumulación por columna · CFD"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:310
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:357
 msgid "Ritmo de avance"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:312
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:359
 msgid "Desviación de planificación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:314
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:361
 msgid "Fechas planificadas frente a reales"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:316
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:363
 msgid "Ruta crítica"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:325
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:372
 msgid "Reparto por persona"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:328
-msgid "Actividad por persona"
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:375
+msgid "Trabajo por tipo y persona"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:330
-msgid "Carga y progreso por persona"
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:378
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
+msgid "Hechas 30 d"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:363
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:378
+msgid "Abiertas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:382
+msgid "Resultados y riesgo por persona"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:416
 msgid "Este informe se añadirá en una próxima versión"
 msgstr ""
 
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:441
+msgid "Sin tareas completadas en 30 días"
+msgstr ""
+
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:442
+msgid "Sin tareas abiertas asignadas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:495
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1491
+msgid "Sin recursos en el proyecto"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1148
+msgid "A tiempo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
+msgid "Estancadas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
+msgid "Urgentes"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:666
+msgid "Vencidas"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:508
+msgid "Hechas · en curso · pendientes"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:647
 #, python-brace-format
 msgid "Progreso global: {value:.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:457
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:662
 msgid "Total"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:458
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:663
 msgid "Sin empezar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:460
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1103
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:665
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1308
 msgid "Completadas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:461
-msgid "Vencidas"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:462
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:667
 msgid "Progreso medio"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:498
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:703
 msgid "Alertas rojas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:499
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:704
 msgid "Planificación pasada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:500
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:705
 msgid "Próximas 7 días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:528
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:733
 #, python-brace-format
 msgid "Recursos activos: {count} · Tareas sin asignar: {sin_asignar}"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:554
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:759
 msgid "Barras"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:554
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:759
 msgid "Circular"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:703
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:908
 msgid "Menos actividad → Más actividad"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:709
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:914
 #, python-brace-format
 msgid "Actividad registrada · {eventos} eventos"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:747
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:952
 msgid "Todavía no hay tareas con historial de estados"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:773
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:978
 #, python-brace-format
 msgid "{dias:.1f} d"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:778
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:983
 msgid ""
 "Media por tarea de los días en cada columna, incluida la estancia actual"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:785
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:990
 msgid "Se necesitan al menos dos días de historial para dibujarlo"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:856
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:940
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1061
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1145
 msgid "Todavía no hay tareas con inicio y final planificado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:927
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1132
 msgid ""
 "Contorno: previsto inicial · Relleno: real (verde a tiempo, naranja con "
 "retraso, rojo vencida, azul en curso)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:929
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1134
 #, python-brace-format
 msgid "+{count} más"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:943
-msgid "A tiempo"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:944
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1149
 msgid "Adelantadas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:945
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1150
 msgid "Con retraso"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:972
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1177
 #, python-brace-format
 msgid "Retraso medio: {dias:.1f} días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:990
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1195
 #, python-brace-format
 msgid "+{dias} d"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:996
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1201
 #, python-brace-format
 msgid "{count} tareas en plazo sin terminar, aún sin desviación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1033
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1238
 msgid "Burndown"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1033
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1238
 msgid "Burnup"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1056
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1261
 msgid "Sin datos históricos todavía"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1098
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1303
 msgid "Ideal"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1103
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1308
 msgid "Pendientes"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1110
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1315
 #, python-brace-format
 msgid "Desviación: {valor:+.0f}%"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1113
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1318
 msgid "Días"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1123
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1328
 msgid "No hay dependencias críticas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1157
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1362
 msgid "Única tarea crítica"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1159
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1364
 msgid "Esta cadena puede retrasar el proyecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1268
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1473
 msgid "Ventana de 7 días centrada en el primer evento crítico · rojo = crítico"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1270
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1475
 msgid "Ventana de 7 días centrada en el primer evento relevante"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1286
-msgid "Sin recursos en el proyecto"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1310
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:1515
 #, python-brace-format
 msgid "{tareas} tareas · {progreso:.0f}%"
 msgstr ""
@@ -2284,344 +2507,318 @@ msgstr ""
 msgid "Por defecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:129
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:130
 #, python-brace-format
 msgid "· {n} subtarea"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:131
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:132
 #, python-brace-format
 msgid "· {n} subtareas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:138
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:654
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:139
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:691
 msgid "Depende de"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:199
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:293
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:200
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/table_view.py:295
 msgid "Todas las columnas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:125
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:127
 msgid "Mañana"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:127
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:129
 msgid "Próxima semana"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:277
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:239
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:279
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:245
 msgid "Editar tarea"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:314
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:316
 msgid "Fechas y progreso"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:315
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:317
 msgid "Asignaciones"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:316
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:318
 msgid "Dependencias"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:318
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:320
 msgid "Comentarios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:337
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:339
 #, python-brace-format
 msgid "Ver en GitHub (#{num})"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:358
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:360
 msgid "Quitarla de todas las vistas; se recupera desde «Tareas archivadas»"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:367
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:369
 msgid "Guardar y crear otra"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:372
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:374
 msgid "Completar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:376
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:378
 msgid "Marcarla al 100 %, moverla a la columna de completadas y guardar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:417
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:419
 msgid "Sin descripción"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:421
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:423
 msgid "Tarea padre"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:425
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:485
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:535
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:427
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:515
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:566
 msgid "Columna"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:435
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:243
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:437
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:249
 msgid "Sin hito"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:447
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:486
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:536
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:449
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:516
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:567
 msgid "Prioridad"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:451
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:487
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:537
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:453
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:517
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:568
+msgid "Tipo"
+msgstr ""
+
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:463
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:518
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:569
 msgid "Etiquetas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:464
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:476
 msgid "Añadir etiqueta (Enter para crear)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:471
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:483
 msgid "Ninguna"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:501
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:538
 msgid "Sin prioridad"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:501
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:56
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:538
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:58
 msgid "Baja"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:501
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:56
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:538
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:58
 msgid "Media"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:501
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:56
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:538
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:58
 msgid "Alta"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:501
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:56
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:538
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:58
 msgid "Urgente"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:560
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:490
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:540
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:597
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:521
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:572
 msgid "Planificado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:565
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:602
 msgid "Planificado inicial"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:572
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:609
 msgid "Desbloquear edición"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:578
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:615
 msgid "Final real"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:582
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:493
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:543
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:619
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:524
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:575
 msgid "Duración (días)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:591
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:628
 msgid "Se cuentan el día de inicio y el final: del 11 al 15 son 5 días."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:595
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:491
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:541
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:632
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:522
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:573
 msgid "Límite"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:599
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:636
 msgid "Porcentaje completado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:623
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:660
 msgid "Asignado a"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:635
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:672
 msgid "Nombre (se crea al asignar)"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:640
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:677
 msgid "Asignar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:650
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:687
 msgid "No hay otras tareas de las que depender."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:676
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:814
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:713
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:842
 msgid "Nuevo comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:692
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:729
 msgid "Cancelar edición"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:695
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:815
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:732
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:843
 msgid "Comentar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:706
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:743
 msgid "Sin actividad registrada"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:717
-msgid "Tarea creada"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:718
-msgid "Estado cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:719
-msgid "Progreso cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:720
-msgid "Final planificado cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:721
-msgid "Planificado inicial cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:722
-msgid "Final real cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:723
-msgid "Inicio cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:724
-msgid "Límite cambiado"
-msgstr ""
-
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:748
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:776
 msgid "Sin comentarios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:756
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:784
 msgid "Tú"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:763
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:807
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:791
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:835
 msgid "Editar comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:768
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:821
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:796
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:849
 msgid "Eliminar comentario"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:808
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:836
 msgid "Guardar cambios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:823
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:851
 msgid ""
 "Si el comentario está en GitHub, también se eliminará allí. No se puede "
 "deshacer."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:920
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:949
 msgid "Hay cambios sin guardar"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:921
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:950
 msgid "Si cierras ahora se perderán los cambios de esta tarea."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:922
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:951
 msgid "Descartar cambios"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1035
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1064
 msgid "El final planificado necesita una fecha de inicio."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1042
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1071
 msgid "El final planificado no puede ser anterior al inicio."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1049
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1078
 msgid "La fecha límite no puede ser anterior al final planificado."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1171
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1202
 msgid "Sin etiquetas"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1184
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1215
 msgid "Quitar etiqueta"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1207
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1238
 msgid "Nadie asignado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1218
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1249
 msgid "Quitar asignación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1230
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1261
 msgid "Porcentaje de dedicación"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1298
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_dialog.py:1329
 msgid "Esa dependencia crearía un ciclo entre tareas."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:248
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:254
 msgid "Asignar a hito"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:428
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:458
 msgid "Abrir el issue en GitHub"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:484
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:529
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:514
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:560
 msgid "Asignado"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:488
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:538
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:519
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:570
 msgid "Issue"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:492
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:542
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:523
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:574
 msgid "Real"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:494
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:544
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:525
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/task_tree_view.py:576
 #, python-format
 msgid "% completado"
 msgstr ""
@@ -2662,32 +2859,32 @@ msgstr ""
 msgid "Idéntica al contenido actual."
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:41
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:43
 msgid "Mostrar/ocultar proyectos"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:47
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:49
 msgid "Pantalla inicial"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:52
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:55
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:54
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:57
 msgid "Vista global"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:106
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:108
 msgid "Acerca de GnoMilestone"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:124
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:126
 msgid "Menú principal"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:151
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:153
 msgid "Selecciona o crea un proyecto"
 msgstr ""
 
-#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:170
+#: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/window.py:172
 msgid "Nuevo proyecto"
 msgstr ""
 
@@ -2719,216 +2916,4 @@ msgstr ""
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/versiones.py:60
 msgid "Respecto a la versión actual: "
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Actividad por persona · últimos 30 días"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Aún no hay cambios con autor. Elige «Yo soy» arriba para firmarlos."
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Sin autor"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "{cambios} cambios"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "{abiertas} abiertas · {completadas} hechas · {vencidas} vencidas · carga {carga:.0f}%"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Yo soy:"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Los cambios que hagas en las tareas se firmarán con esta persona"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Nadie"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Atribuir cambios sin autor"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Firma con la persona elegida todos los cambios anteriores sin autor"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "¿Atribuir a {nombre} los cambios sin autor?"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con esa persona. No se puede deshacer."
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Atribuir"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Resultados y riesgo por persona"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Hechas 30 d"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Estancadas"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Urgentes"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Hechas · en curso · pendientes"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Tarea estancada tras (días sin cambios)"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Una tarea en curso sin ningún cambio durante estos días o más cuenta como estancada en Informes"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Trabajo por tipo y persona"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Abiertas"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Sin tareas completadas en 30 días"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Sin tareas abiertas asignadas"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Tipo"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Trabajo"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Error"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Sin tipo"
-msgstr ""
-
-#: src/gnomilestone/tipos.py
-msgid "Tipo cambiado"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Auditoría"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Usuario activo:"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Los cambios que hagas en las tareas se firmarán con este usuario"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Nuevo…"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Renombrar…"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Firma con el usuario activo todos los cambios anteriores sin autor"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Cambios por usuario"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Registro de cambios"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Mostrar:"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Fecha"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Usuario"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Tarea"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Cambio"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Detalle"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Aún no hay cambios registrados"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Todos los usuarios"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Nuevo usuario"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Renombrar usuario"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "¿Eliminar a {nombre}?"
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Sus cambios del historial se quedarán sin autor."
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "Todos los cambios anteriores de este proyecto sin autor se firmarán con ese usuario. No se puede deshacer."
-msgstr ""
-
-#: src/gnomilestone/ui/auditoria_view.py
-msgid "{n} cambios"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Incluir archivadas"
-msgstr ""
-
-#: src/gnomilestone/ui/report_view.py
-msgid "Cuenta también las tareas archivadas en los informes sobre las tareas. El ritmo de trabajo, el flujo acumulado y los tiempos por columna se calculan con el historial y siempre las incluyen."
 msgstr ""

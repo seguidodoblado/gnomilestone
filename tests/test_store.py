@@ -842,3 +842,26 @@ def test_atribuir_cambios_sin_autor_solo_toca_el_proyecto(store):
     assert store.atribuir_cambios_sin_autor(a.id, yo.id) == 1
     assert [e.usuario_id for e in store.listar_historial_tarea(ta.id)] == [yo.id]
     assert [e.usuario_id for e in store.listar_historial_tarea(tb.id)] == [None]
+
+
+def test_el_historial_de_estado_conserva_los_nombres_de_columna(store):
+    from gnomilestone.historial import detalle_evento
+
+    proyecto = store.crear_proyecto("Columnas")
+    temporal = store.crear_estado(proyecto.id, "Temporal")
+    final = store.crear_estado(proyecto.id, "Final")
+    tarea = store.crear_tarea(proyecto.id, "T", estado_id=temporal.id)
+    tarea.estado_id = final.id
+    store.actualizar_tarea(tarea)
+    store.eliminar_estado(temporal.id)  # queda vacía y se borra
+    evento = next(e for e in store.listar_historial_tarea(tarea.id) if e.tipo == "estado")
+    estados = {e.id: e.nombre for e in store.listar_estados(proyecto.id)}
+    assert detalle_evento(evento, estados) == "Temporal → Final"
+
+
+def test_detalle_de_estado_sin_nombre_guardado_no_muestra_el_id():
+    from gnomilestone.historial import detalle_evento
+    from gnomilestone.models import HistorialTarea
+
+    antiguo = HistorialTarea(1, 1, "2026-11-10 14:08", "estado", "estado_id", None, "39")
+    assert detalle_evento(antiguo, {}) == "— → (columna eliminada)"
