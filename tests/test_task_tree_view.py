@@ -89,3 +89,11 @@ def test_porcentaje_texto_lleva_el_simbolo_y_las_filas_sin_tarea_van_vacias():
     tarea.porcentaje_completado = 60
     assert construir_filas([tarea], {})[0].porcentaje_texto == "60 %"
     assert TareaRow("Proyecto", []).porcentaje_texto == ""
+
+
+def test_la_fila_lleva_el_tipo_traducido():
+    from gnomilestone.ui.task_tree_view import TareaRow
+
+    tarea = Tarea(1, 1, "T", tipo="error")
+    assert TareaRow(tarea=tarea, titulo="T", hijos=[]).tipo == "Error"
+    assert TareaRow(tarea=Tarea(2, 1, "U"), titulo="U", hijos=[]).tipo == ""

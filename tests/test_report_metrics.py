@@ -124,3 +124,65 @@ def test_las_finalizaciones_se_fechan_en_el_fin_real_de_la_tarea():
     # ...y hay una sola finalización, en el fin real de la tarea y no en el día del alta.
     finales = [e for e in resultado if e.tipo == "fin_real"]
     assert [(e.tarea_id, e.creado[:10]) for e in finales] == [(1, "2026-10-08")]
+
+
+def test_actividad_por_usuario_agrupa_y_deja_los_sin_autor_al_final():
+    from gnomilestone.models import Usuario
+    from gnomilestone.report_metrics import actividad_por_usuario
+
+    usuarios = [Usuario(1, "Ana"), Usuario(2, "Luis"), Usuario(3, "Eva")]
+    ev = lambda i, uid: HistorialTarea(i, 1, "2026-11-10 10:00:00", "estado", usuario_id=uid)
+    filas = actividad_por_usuario(usuarios, [ev(1, 2), ev(2, 2), ev(3, 1), ev(4, None), ev(5, 99)])
+    assert [(f.usuario.nombre if f.usuario else None, f.cambios) for f in filas] == [
+        ("Luis", 2), ("Ana", 1), ("Eva", 0), (None, 2),
+    ]
+
+
+def test_resultados_por_recurso():
+    from gnomilestone.report_metrics import resultados_por_recurso
+
+    hoy = date(2026, 11, 12)
+    recursos = [Recurso(1, 1, "Ana"), Recurso(2, 1, "Luis")]
+    tareas = [
+        tarea(1, porcentaje_completado=100, fecha_fin_real="2026-11-05", fecha_fin_planificada_inicial="2026-11-06"),
+        tarea(2, porcentaje_completado=100, fecha_fin_real="2026-10-05", fecha_fin_planificada_inicial="2026-10-01"),
+        tarea(3, porcentaje_completado=40, estado_id=2, fecha_limite="2000-01-01", prioridad=4),
+        tarea(4, porcentaje_completado=0, estado_id=1, prioridad=3),
+        tarea(5, porcentaje_completado=0, estado_id=2),
+    ]
+    asig = [Asignacion(i, i, 1) for i in range(1, 6)]
+    eventos = [
+        HistorialTarea(1, 3, "2026-10-01 10:00:00", "progreso"),
+        HistorialTarea(2, 5, "2026-11-11 10:00:00", "estado"),
+    ]
+    filas = resultados_por_recurso(recursos, tareas, asig, eventos, 1, hoy, 14)
+    ana = next(f for f in filas if f.recurso.nombre == "Ana")
+    assert (ana.hechas, ana.en_curso, ana.pendientes) == (2, 2, 1)
+    assert (ana.hechas_30d, ana.hechas_30d_previas) == (1, 1)
+    assert ana.a_tiempo == 50
+    assert ana.estancadas == 1  # la 3: sin cambios desde el 1-oct; la 5 se movió ayer
+    assert (ana.urgentes, ana.vencidas) == (2, 1)
+    luis = next(f for f in filas if f.recurso.nombre == "Luis")
+    assert luis.a_tiempo is None and luis.en_curso == 0
+    # Con un umbral enorme nada está estancado.
+    assert resultados_por_recurso(recursos, tareas, asig, eventos, 1, hoy, 90)[0].estancadas == 0
+
+
+def test_trabajo_por_tipo_atribuye_por_asignacion():
+    from gnomilestone.report_metrics import trabajo_por_tipo
+
+    hoy = date(2026, 11, 12)
+    recursos = [Recurso(1, 1, "Ana"), Recurso(2, 1, "Luis")]
+    tareas = [
+        tarea(1, porcentaje_completado=100, fecha_fin_real="2026-11-10", tipo="error"),
+        tarea(2, porcentaje_completado=100, fecha_fin_real="2026-11-11", tipo="error"),
+        tarea(3, porcentaje_completado=100, fecha_fin_real="2026-11-01"),
+        tarea(4, porcentaje_completado=100, fecha_fin_real="2026-08-01", tipo="trabajo"),  # fuera de 30 d
+        tarea(5, porcentaje_completado=20, tipo="funcionalidad"),
+    ]
+    asig = [Asignacion(i, i, 1) for i in (1, 2, 3, 4, 5)]
+    hechas = trabajo_por_tipo(recursos, tareas, asig, True, hoy)
+    assert hechas[0].recurso.nombre == "Ana" and hechas[0].por_tipo == {"error": 2, "": 1}
+    assert hechas[1].total == 0
+    abiertas = trabajo_por_tipo(recursos, tareas, asig, False, hoy)
+    assert abiertas[0].por_tipo == {"funcionalidad": 1}

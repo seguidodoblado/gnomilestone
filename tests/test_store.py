@@ -783,3 +783,62 @@ def test_subseccion_con_icono_elegido(tmp_path):
     iconos = {s.nombre: s.icon_name for s in store.listar_subsecciones_documentacion(proyecto.id, "arquitectura")}
     assert iconos["Sin icono"] == "starred-symbolic"
     assert iconos["Propia"] is None
+
+
+def test_el_historial_registra_el_usuario_activo(store):
+    proyecto = store.crear_proyecto("Autores")
+    ana = store.crear_usuario("Ana")
+    anonima = store.crear_tarea(proyecto.id, "Antes")
+    store.usuario_actual_id = ana.id
+    firmada = store.crear_tarea(proyecto.id, "Después")
+    firmada.porcentaje_completado = 30
+    store.actualizar_tarea(firmada)
+    assert [e.usuario_id for e in store.listar_historial_tarea(anonima.id)] == [None]
+    assert {e.usuario_id for e in store.listar_historial_tarea(firmada.id)} == {ana.id}
+    store.eliminar_usuario(ana.id)
+    assert store.usuario_actual_id is None
+    assert {e.usuario_id for e in store.listar_historial_tarea(firmada.id)} == {None}
+
+
+def test_usuarios_se_crean_renombran_y_no_se_repiten(store):
+    ana = store.crear_usuario("  Ana ")
+    assert ana.nombre == "Ana"
+    store.renombrar_usuario(ana.id, "Ana B")
+    assert [u.nombre for u in store.listar_usuarios()] == ["Ana B"]
+    with pytest.raises(ValueError):
+        store.crear_usuario("   ")
+    with pytest.raises(sqlite3.IntegrityError):
+        store.crear_usuario("ana b")
+
+
+def test_historial_del_proyecto_junta_todas_las_tareas_en_orden(store):
+    a, b = store.crear_proyecto("A"), store.crear_proyecto("B")
+    t1, t2 = store.crear_tarea(a.id, "uno"), store.crear_tarea(a.id, "dos")
+    store.crear_tarea(b.id, "ajena")
+    historial = store.listar_historial_proyecto(a.id)
+    assert [e.tarea_id for e in historial] == [t2.id, t1.id]
+
+
+def test_la_migracion_39_convierte_los_recursos_firmantes_en_usuarios(tmp_path):
+    ruta = tmp_path / "vieja.db"
+    store = Store(ruta)
+    proyecto = store.crear_proyecto("P")
+    tarea = store.crear_tarea(proyecto.id, "T")
+    recurso = store.crear_recurso(proyecto.id, "Ana")
+    with sqlite3.connect(ruta) as db:
+        db.execute("ALTER TABLE historial_tarea ADD COLUMN recurso_id INTEGER")
+        db.execute("UPDATE historial_tarea SET recurso_id = ?", (recurso.id,))
+        db.execute("PRAGMA user_version = 38")
+    store = Store(ruta)
+    usuarios = store.listar_usuarios()
+    assert [u.nombre for u in usuarios] == ["Ana"]
+    assert {e.usuario_id for e in store.listar_historial_tarea(tarea.id)} == {usuarios[0].id}
+
+
+def test_atribuir_cambios_sin_autor_solo_toca_el_proyecto(store):
+    a, b = store.crear_proyecto("A"), store.crear_proyecto("B")
+    yo = store.crear_usuario("Yo")
+    ta, tb = store.crear_tarea(a.id, "ta"), store.crear_tarea(b.id, "tb")
+    assert store.atribuir_cambios_sin_autor(a.id, yo.id) == 1
+    assert [e.usuario_id for e in store.listar_historial_tarea(ta.id)] == [yo.id]
+    assert [e.usuario_id for e in store.listar_historial_tarea(tb.id)] == [None]

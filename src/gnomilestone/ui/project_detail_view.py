@@ -12,7 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
-from gnomilestone import completado, ganttcalc
+from gnomilestone import completado, ganttcalc, settings
 from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.hitos import hitos_con_estado
 from gnomilestone.i18n import _
@@ -181,7 +181,14 @@ class ProjectDetailView(Gtk.Box):
             on_dedicacion_changed=self._on_dedicacion_changed,
         )
         self._vista_stack.add_named(self._uso, "uso")
-        self._informes = ReportView()
+        self._informes_con_archivadas = bool(
+            settings.read_settings().get("informes_incluir_archivadas", False)
+        )
+        self._informes = ReportView(
+            store, on_cambio=self.refrescar,
+            incluir_archivadas=self._informes_con_archivadas,
+            on_incluir_archivadas=self._on_informes_archivadas,
+        )
         self._vista_stack.add_named(self._informes, "informes")
         self._documentacion = DocumentationView(
             store, self._on_abrir_tarea_por_id, self.refrescar
@@ -284,19 +291,31 @@ class ProjectDetailView(Gtk.Box):
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
         tareas_uso = tareas_visibles
         self._uso.set_filas(construir_filas_uso(recursos, tareas_uso, asignaciones), tareas_uso)
+        historial_bruto = self._store.listar_historial_proyecto(self._proyecto.id)
+        tareas_informes = tareas_con_archivadas if self._informes_con_archivadas else tareas
+        if not self._mostrar_completadas:
+            tareas_informes = ocultar_completadas(tareas_informes)
         self._informes.set_data(
-            tareas_visibles, estados, recursos, asignaciones,
+            tareas_informes, estados, recursos, asignaciones,
             dependencias=self._store.listar_dependencias(self._proyecto.id),
             historial=eventos_con_fecha_de_finalizacion(
-                tareas_con_archivadas,
-                [
-                    evento
-                    for tarea in tareas_con_archivadas
-                    for evento in self._store.listar_historial_tarea(tarea.id)
-                ],
-                completado.id_columna_final(estados),
+                tareas_con_archivadas, historial_bruto, completado.id_columna_final(estados),
             ),
+            historial_bruto=historial_bruto,
         )
+        self._informes.set_auditoria(
+            self._proyecto.id,
+            historial_bruto,
+            {t.id: t.titulo for t in tareas_con_archivadas},
+            {e.id: e.nombre for e in estados},
+        )
+
+    def _on_informes_archivadas(self, incluir: bool) -> None:
+        self._informes_con_archivadas = incluir
+        ajustes = settings.read_settings()
+        ajustes["informes_incluir_archivadas"] = incluir
+        settings.write_settings(ajustes)
+        self.refrescar()
 
     def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
         self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)

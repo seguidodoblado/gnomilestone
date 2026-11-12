@@ -83,6 +83,7 @@ class GitHubItem:
     labels: list[str] | None = None
     label_colors: dict[str, str] | None = None
     priority_name: str | None = None
+    issue_type: str | None = None  # nombre del tipo de issue (Task, Bug, Feature…)
 
 
 def obtener_token() -> str | None:
@@ -356,6 +357,9 @@ class GitHubClient:
                           login
                         }
                       }
+                      issueType {
+                        name
+                      }
                       milestone {
                         title
                         dueOn
@@ -469,6 +473,7 @@ class GitHubClient:
                     labels=labels,
                     label_colors=label_colors,
                     priority_name=priority_name,
+                    issue_type=(content.get("issueType") or {}).get("name"),
                 )
             )
 
@@ -511,6 +516,21 @@ class GitHubClient:
                 "options": {o["name"]: o["id"] for o in nodo.get("options") or []},
             }
         return campos
+
+    def listar_tipos_issue(self, owner: str, repo: str) -> list[str]:
+        """Nombres de los tipos de issue del repositorio (vacío si no tiene)."""
+        data = self.graphql(
+            """
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                issueTypes(first: 25) { nodes { name } }
+              }
+            }
+            """,
+            {"owner": owner, "repo": repo},
+        )
+        nodos = ((data.get("repository") or {}).get("issueTypes") or {}).get("nodes") or []
+        return [n["name"] for n in nodos if n and n.get("name")]
 
     def establecer_campos_issue(self, issue_node_id: str, valores: list[dict[str, Any]]) -> None:
         """Escribe campos de issue. Cada valor lleva `fieldId` y uno de `singleSelectOptionId`
@@ -620,12 +640,15 @@ class GitHubClient:
         body: str = "",
         assignees: list[str] | None = None,
         labels: list[str] | None = None,
+        tipo: str | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {"title": titulo, "body": body}
         if assignees:
             data["assignees"] = assignees
         if labels:
             data["labels"] = labels
+        if tipo:
+            data["type"] = tipo
         return self._request(f"repos/{owner}/{repo}/issues", method="POST", data=data)
 
     def actualizar_issue(
@@ -639,8 +662,11 @@ class GitHubClient:
         assignees: list[str] | None = None,
         labels: list[str] | None = None,
         milestone: int | None = None,
+        tipo: str | None = None,
     ) -> dict[str, Any]:
         data: dict[str, Any] = {}
+        if tipo:
+            data["type"] = tipo
         if milestone is not None:
             data["milestone"] = milestone
         if titulo is not None:

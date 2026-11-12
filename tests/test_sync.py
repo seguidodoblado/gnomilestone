@@ -1004,3 +1004,41 @@ def test_un_error_de_github_distinto_no_se_confunde_con_milestone_existente(tmp_
     client.crear_milestone.side_effect = GitHubError("HTTP 500")
     assert GitHubSyncManager(store, client).push_hito(hito.id) is False
     client.listar_milestones.assert_not_called()
+
+
+def test_tipo_para_issue_usa_el_nombre_del_repositorio_y_omite_si_no_existe():
+    from unittest.mock import MagicMock
+
+    from gnomilestone.models import Tarea
+    from gnomilestone.sync import GitHubSyncManager
+
+    cliente = MagicMock()
+    cliente.listar_tipos_issue.return_value = ["Tarea", "Error", "Funcionalidad"]
+    sync = GitHubSyncManager(MagicMock(), cliente)
+    assert sync._tipo_para_issue("o", "r", Tarea(1, 1, "T", tipo="error")) == {"tipo": "Error"}
+    assert sync._tipo_para_issue("o", "r", Tarea(2, 1, "T")) == {}
+    cliente.listar_tipos_issue.return_value = ["Epic"]
+    sync = GitHubSyncManager(MagicMock(), cliente)
+    assert sync._tipo_para_issue("o", "r", Tarea(3, 1, "T", tipo="error")) == {}
+
+
+def test_enviar_jerarquia_ignora_los_subissues_ya_enlazados_y_sigue_con_el_resto():
+    from unittest.mock import MagicMock
+
+    from gnomilestone.github import GitHubError
+    from gnomilestone.models import Tarea
+
+    tareas = [
+        Tarea(1, 1, "padre", github_issue_number=10),
+        Tarea(2, 1, "hija ya enlazada", padre_id=1, github_issue_number=11),
+        Tarea(3, 1, "hija nueva", padre_id=1, github_issue_number=12),
+    ]
+    store = MagicMock()
+    store.listar_tareas.return_value = tareas
+    cliente = MagicMock()
+    cliente.obtener_issue.side_effect = lambda o, r, n: {"id": 1000 + n}
+    cliente.vincular_subissue.side_effect = [
+        GitHubError("422: Issue may not contain duplicate sub-issues"), None,
+    ]
+    GitHubSyncManager(store, cliente)._enviar_jerarquia("o", "r", tareas[0])
+    assert cliente.vincular_subissue.call_count == 2

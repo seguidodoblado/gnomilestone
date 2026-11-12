@@ -11,9 +11,11 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from gnomilestone.etiquetas import marcado_chip
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Etiqueta, Recurso, Tarea
+from gnomilestone.tipos import nombre_tipo
 from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
+from gnomilestone.ui.tipo_icono import crear_icono_tipo
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
     asegurar_css_vencimientos,
@@ -83,6 +85,10 @@ class TareaRow(GObject.Object):
     @property
     def prioridad(self) -> str:
         return nombre_prioridad(self.tarea.prioridad) if self.tarea else ""
+
+    @property
+    def tipo(self) -> str:
+        return nombre_tipo(self.tarea.tipo) if self.tarea and self.tarea.tipo else ""
 
     @property
     def issue(self) -> str:
@@ -412,6 +418,30 @@ def prioridad_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
     return factory
 
 
+def tipo_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
+    """Columna «Tipo»: icono del tipo junto al texto."""
+    factory = Gtk.SignalListItemFactory()
+
+    def _setup(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        item.set_child(Gtk.Box(spacing=6, height_request=ALTURA_FILA, valign=Gtk.Align.CENTER))
+
+    def _bind(_factory: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
+        fila = _fila_de(item, arbol)
+        caja = item.get_child()
+        while (hijo := caja.get_first_child()) is not None:
+            caja.remove(hijo)
+        if fila.tarea is not None:
+            icono = crear_icono_tipo(fila.tarea.tipo)
+            if icono is not None:
+                caja.append(icono)
+                caja.append(Gtk.Label(label=fila.tipo, xalign=0))
+        _bind_fila(caja, fila)
+
+    factory.connect("setup", _setup)
+    factory.connect("bind", _bind)
+    return factory
+
+
 def issue_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
     """Columna «Issue»: «#N» como enlace al issue en GitHub (texto plano si no hay URL)."""
     factory = Gtk.SignalListItemFactory()
@@ -484,6 +514,7 @@ COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
     ("asignado", _("Asignado"), False, True),
     ("estado", _("Columna"), False, False),
     ("prioridad", _("Prioridad"), False, False),
+    ("tipo", _("Tipo"), False, False),
     ("etiquetas", _("Etiquetas"), False, False),
     ("issue", _("Issue"), False, False),
     ("fecha_inicio", _("Inicio"), False, False),
@@ -534,6 +565,7 @@ class TaskTreeView(Gtk.ColumnView):
         for clave, titulo, propiedad, visible_defecto in (
             ("estado", _("Columna"), "estado", False),
             ("prioridad", _("Prioridad"), None, False),
+            ("tipo", _("Tipo"), None, False),
             ("etiquetas", _("Etiquetas"), None, False),
             ("issue", _("Issue"), None, False),
             ("fecha_inicio", _("Inicio"), "fecha_inicio", False),
@@ -546,6 +578,7 @@ class TaskTreeView(Gtk.ColumnView):
             fabrica = {
                 "estado": estado_factory,
                 "prioridad": prioridad_factory,
+                "tipo": tipo_factory,
                 "etiquetas": etiquetas_factory,
                 "issue": issue_factory,
             }.get(clave)

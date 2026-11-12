@@ -14,6 +14,7 @@ from gnomilestone.ui.about import build_about_dialog
 from gnomilestone.ui.global_gantt_view import GlobalGanttView
 from gnomilestone.ui.project_detail_view import ProjectDetailView
 from gnomilestone.ui.project_list_view import ProjectListView
+from gnomilestone.usuarios import inicializar_usuario_actual
 
 _GLOBE_ICON = Path(__file__).resolve().parent.parent / "assets" / "globe-symbolic.svg"
 
@@ -33,6 +34,7 @@ class MainWindow(Gtk.ApplicationWindow):
             default_height=700,
         )
         self._store = Store()
+        inicializar_usuario_actual(self._store)
         self._proyecto_actual: Proyecto | None = None
 
         header = Gtk.HeaderBar()

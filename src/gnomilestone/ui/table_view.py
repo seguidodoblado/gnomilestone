@@ -28,6 +28,7 @@ from gnomilestone.ui.task_tree_view import (
     issue_factory,
     ordenar_jerarquicamente,
     prioridad_factory,
+    tipo_factory,
 )
 from gnomilestone.ui.vencimiento import (
     aplicar_estilo_vencimiento,
@@ -227,6 +228,7 @@ class TableView(Gtk.Box):
             "asignado": _recursos_factory(),
             "estado": estado_factory(arbol=False),
             "prioridad": prioridad_factory(arbol=False),
+            "tipo": tipo_factory(arbol=False),
             "etiquetas": etiquetas_factory(arbol=False),
             "issue": issue_factory(arbol=False),
         }

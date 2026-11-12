@@ -18,6 +18,7 @@ from gnomilestone.i18n import _
 from gnomilestone.models import Hito, Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
 from gnomilestone.store import ESTADOS_POR_DEFECTO, Store
+from gnomilestone.tipos import nombre_remoto, tipo_desde_github
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,24 @@ class GitHubSyncManager:
     def __init__(self, store: Store, client: GitHubClient | None = None) -> None:
         self._store = store
         self._client = client or GitHubClient()
+        self._tipos_remotos: dict[tuple[str, str], list[str]] = {}
+
+    def _tipo_para_issue(self, owner: str, repo: str, tarea: Tarea) -> dict[str, str]:
+        """Argumento `tipo` para crear o actualizar el issue, con el nombre que el repositorio
+        da a ese tipo. Vacío si la tarea no tiene tipo o el repositorio no tiene uno
+        equivalente: enviar un nombre que no existe haría fallar todo el envío del issue."""
+        if not tarea.tipo:
+            return {}
+        clave = (owner, repo)
+        if clave not in self._tipos_remotos:
+            try:
+                nombres = self._client.listar_tipos_issue(owner, repo)
+            except GitHubError:
+                log.warning("No se pudieron leer los tipos de issue; se omite el tipo")
+                return {}
+            self._tipos_remotos[clave] = nombres if isinstance(nombres, list) else []
+        nombre = nombre_remoto(tarea.tipo, self._tipos_remotos[clave])
+        return {"tipo": nombre} if nombre else {}
 
     # -- Eliminación ----------------------------------------------------------
 
@@ -273,6 +292,7 @@ class GitHubSyncManager:
 
             conflicto_item = False
             nivel_prioridad = nivel_desde_opcion(item.priority_name)
+            tipo_remoto = tipo_desde_github(item.issue_type)
             if tarea_existente:
                 if _en_conflicto(tarea_existente):
                     conflicto_item = True
@@ -314,6 +334,9 @@ class GitHubSyncManager:
                     if nivel_prioridad is not None and tarea_existente.prioridad != nivel_prioridad:
                         tarea_existente.prioridad = nivel_prioridad
                         modificada = True
+                    if tipo_remoto is not None and tarea_existente.tipo != tipo_remoto:
+                        tarea_existente.tipo = tipo_remoto
+                        modificada = True
                     if (
                         tarea_existente.github_item_id != item.id
                         or tarea_existente.github_url != item.url
@@ -340,6 +363,7 @@ class GitHubSyncManager:
                     github_item_id=item.id,
                     github_url=item.url,
                     prioridad=nivel_prioridad or 0,
+                    tipo=tipo_remoto or "",
                 )
                 resultado.tareas_creadas += 1
                 self._store.marcar_sincronizada_github(nueva.id)
@@ -905,10 +929,21 @@ class GitHubSyncManager:
             ]
             pares.extend((tarea, hija) for hija in hijas)
             for padre, hija in pares:
-                id_hija = self._client.obtener_issue(owner, repo, hija.github_issue_number).get("id")
-                if id_hija:
-                    self._client.vincular_subissue(
-                        owner, repo, padre.github_issue_number, id_hija
+                # Un par que falla (o que ya estaba enlazado) no debe impedir enlazar los demás.
+                try:
+                    id_hija = self._client.obtener_issue(
+                        owner, repo, hija.github_issue_number
+                    ).get("id")
+                    if id_hija:
+                        self._client.vincular_subissue(
+                            owner, repo, padre.github_issue_number, id_hija
+                        )
+                except GitHubError as error:
+                    if "duplicate sub-issues" in str(error):
+                        continue  # ya era subissue de ese padre: nada que hacer
+                    log.warning(
+                        "No se pudo enlazar la tarea %s como subissue de la %s",
+                        hija.id, padre.id, exc_info=True,
                     )
         except Exception:
             log.warning(
@@ -1181,6 +1216,7 @@ class GitHubSyncManager:
                     state=estado_issue,
                     assignees=asignados or None,
                     labels=etiquetas,
+                    **self._tipo_para_issue(owner, repo, tarea),
                 )
                 if etiquetas is not None:
                     self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)
@@ -1193,6 +1229,7 @@ class GitHubSyncManager:
                     titulo=tarea.titulo,
                     body=tarea.descripcion,
                     assignees=asignados or None,
+                    **self._tipo_para_issue(owner, repo, tarea),
                     **({"labels": etiquetas} if etiquetas else {}),
                 )
                 self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)

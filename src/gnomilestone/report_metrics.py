@@ -12,7 +12,16 @@ from datetime import UTC, date, datetime, timedelta
 
 from gnomilestone.documentacion import fecha_completada
 from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
-from gnomilestone.models import Asignacion, Dependencia, HistorialTarea, Proyecto, Recurso, Tarea
+from gnomilestone.models import (
+    Asignacion,
+    Dependencia,
+    HistorialTarea,
+    Proyecto,
+    Recurso,
+    Tarea,
+    Usuario,
+)
+from gnomilestone.prioridad import ALTA
 
 
 @dataclass(frozen=True)
@@ -314,3 +323,151 @@ def eventos_con_fecha_de_finalizacion(
                 tipo="fin_real", campo="fecha_fin_real", valor_nuevo=dia,
             ))
     return resultado
+
+
+@dataclass(frozen=True)
+class ActividadUsuario:
+    usuario: Usuario | None  # None: cambios sin autor conocido (anteriores al registro de autor).
+    cambios: int
+
+
+def actividad_por_usuario(usuarios: list[Usuario], eventos: list[HistorialTarea]) -> list[ActividadUsuario]:
+    """Cambios del historial agrupados por usuario de gestión, del más al menos activo.
+
+    Los cambios sin autor se agrupan aparte y solo aparecen si los hay."""
+    por_id = {u.id: u for u in usuarios}
+    cuentas: dict[int | None, int] = defaultdict(int)
+    for evento in eventos:
+        cuentas[evento.usuario_id if evento.usuario_id in por_id else None] += 1
+    filas = [ActividadUsuario(por_id.get(k) if k is not None else None, n) for k, n in cuentas.items()]
+    filas += [ActividadUsuario(u, 0) for u in usuarios if u.id not in cuentas]
+    return sorted(filas, key=lambda f: (f.usuario is None, -f.cambios, f.usuario.nombre.casefold() if f.usuario else ""))
+
+
+@dataclass(frozen=True)
+class ResultadosRecurso:
+    recurso: Recurso
+    pendientes: int  # abiertas aún sin empezar (backlog)
+    en_curso: int  # abiertas ya empezadas
+    hechas: int
+    hechas_30d: int
+    hechas_30d_previas: int  # los 30 días anteriores, para la tendencia
+    a_tiempo: float | None  # % de hechas terminadas en o antes del fin planificado; None sin datos
+    estancadas: int  # en curso sin ningún cambio desde hace `dias_estancada` días o más
+    urgentes: int  # abiertas con prioridad alta o urgente
+    vencidas: int
+
+
+DIAS_ESTANCADA = 14
+
+
+def _dia(texto: str | None) -> date | None:
+    try:
+        return date.fromisoformat((texto or "")[:10])
+    except ValueError:
+        return None
+
+
+def resultados_por_recurso(
+    recursos: list[Recurso],
+    tareas: list[Tarea],
+    asignaciones: list[Asignacion],
+    eventos: list[HistorialTarea] | None = None,
+    primer_estado_id: int | None = None,
+    hoy: date | None = None,
+    dias_estancada: int = DIAS_ESTANCADA,
+) -> list[ResultadosRecurso]:
+    """Cómo va el trabajo de cada persona: resultados recientes, plazos y riesgo.
+
+    Una tarea abierta está «en curso» si tiene progreso o ya salió de la primera columna;
+    si no, es backlog y nunca cuenta como estancada. Su última actividad es su último evento
+    del historial (o, sin él, su última modificación)."""
+    hoy = hoy or datetime.now().astimezone().date()
+    ultimo: dict[int, date] = {}
+    for evento in eventos or []:
+        if (dia := _dia(evento.creado)) is not None and dia > ultimo.get(evento.tarea_id, date.min):
+            ultimo[evento.tarea_id] = dia
+    por_tarea = {t.id: t for t in tareas}
+    asignadas: dict[int, set[int]] = defaultdict(set)
+    for a in asignaciones:
+        if a.tarea_id in por_tarea:
+            asignadas[a.recurso_id].add(a.tarea_id)
+    filas = []
+    for recurso in recursos:
+        ts = [por_tarea[i] for i in asignadas.get(recurso.id, set())]
+        abiertas = [t for t in ts if t.porcentaje_completado < 100]
+        hechas = [t for t in ts if t.porcentaje_completado >= 100]
+        en_curso = [
+            t for t in abiertas
+            if t.porcentaje_completado > 0
+            or (primer_estado_id is not None and t.estado_id not in (None, primer_estado_id))
+        ]
+        fines = [(_dia(fecha_completada(t)), t) for t in hechas]
+        plazo = [
+            (fin, _dia(t.fecha_fin_planificada_inicial or t.fecha_fin_planificada))
+            for fin, t in fines if fin is not None
+        ]
+        plazo = [(fin, previsto) for fin, previsto in plazo if previsto is not None]
+        estancadas = 0
+        for t in en_curso:
+            actividad = ultimo.get(t.id) or _dia(t.actualizado) or _dia(t.creado)
+            if actividad is not None and (hoy - actividad).days >= dias_estancada:
+                estancadas += 1
+        filas.append(ResultadosRecurso(
+            recurso,
+            pendientes=len(abiertas) - len(en_curso),
+            en_curso=len(en_curso),
+            hechas=len(hechas),
+            hechas_30d=sum(fin is not None and 0 <= (hoy - fin).days < 30 for fin, _t in fines),
+            hechas_30d_previas=sum(fin is not None and 30 <= (hoy - fin).days < 60 for fin, _t in fines),
+            a_tiempo=100 * sum(fin <= previsto for fin, previsto in plazo) / len(plazo) if plazo else None,
+            estancadas=estancadas,
+            urgentes=sum(t.prioridad >= ALTA for t in abiertas),
+            vencidas=sum(estado_vencimiento(t, hoy) == VENCIDA for t in abiertas),
+        ))
+    return sorted(filas, key=lambda f: (-f.estancadas, -f.vencidas, -f.en_curso, f.recurso.nombre.casefold()))
+
+
+@dataclass(frozen=True)
+class TrabajoPorTipo:
+    recurso: Recurso
+    por_tipo: dict[str, int]  # clave de tipo ("" si no tiene) -> tareas
+
+    @property
+    def total(self) -> int:
+        return sum(self.por_tipo.values())
+
+
+def trabajo_por_tipo(
+    recursos: list[Recurso],
+    tareas: list[Tarea],
+    asignaciones: list[Asignacion],
+    completadas: bool = True,
+    hoy: date | None = None,
+    dias: int = 30,
+) -> list[TrabajoPorTipo]:
+    """Tareas de cada persona repartidas por tipo (trabajo, error, funcionalidad, sin tipo).
+
+    Con `completadas` cuenta las terminadas en los últimos `dias` días; si no, las abiertas.
+    Se atribuye por asignación, no por quién edita."""
+    hoy = hoy or datetime.now().astimezone().date()
+    por_tarea = {t.id: t for t in tareas}
+    asignadas: dict[int, set[int]] = defaultdict(set)
+    for a in asignaciones:
+        if a.tarea_id in por_tarea:
+            asignadas[a.recurso_id].add(a.tarea_id)
+
+    def cuenta(t: Tarea) -> bool:
+        if not completadas:
+            return t.porcentaje_completado < 100
+        fin = _dia(fecha_completada(t))
+        return fin is not None and 0 <= (hoy - fin).days < dias
+
+    filas = []
+    for recurso in recursos:
+        por_tipo: dict[str, int] = defaultdict(int)
+        for i in asignadas.get(recurso.id, set()):
+            if cuenta(por_tarea[i]):
+                por_tipo[por_tarea[i].tipo] += 1
+        filas.append(TrabajoPorTipo(recurso, dict(por_tipo)))
+    return sorted(filas, key=lambda f: (-f.total, f.recurso.nombre.casefold()))
