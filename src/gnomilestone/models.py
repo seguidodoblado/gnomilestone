@@ -176,6 +176,7 @@ class SubseccionDocumentacion:
     nombre: str
     orden: int = 0
     tipo: str = "notas"  # "notas" (tarjetas Markdown) o "diagramas" (flujos dibujados)
+    icon_name: str | None = None  # icono simbólico propio de la subsección, si tiene uno
 
 
 @dataclass

@@ -44,6 +44,7 @@ from gnomilestone.ui.note_preview_window import NotePreviewWindow
 from gnomilestone.ui.note_window import ETIQUETAS_ESTADO, NoteWindow
 from gnomilestone.ui.recortado import AlturaFija
 from gnomilestone.ui.roadmap_view import RoadmapView
+from gnomilestone.ui.selector_icono import SelectorIcono
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ _SECCIONES = (
 )
 # Subsecciones fijas de Blueprint: se alimentan de las tareas, no de notas.
 # Iconos simbólicos del sistema de cada sección y de las subsecciones fijas.
+# Cada sección de documentación tiene su propio icono simbólico, como las
+# subsecciones de Blueprint, para que se distingan visualmente en el árbol lateral.
 _ICONOS_SECCION = {
     "vision_general": "help-about-symbolic",
     "arquitectura": "applications-engineering-symbolic",
@@ -73,6 +76,15 @@ _ICONO_FECHA = "x-office-calendar-symbolic"
 _ICONO_VERSION = "document-open-recent-symbolic"
 _ICONO_NOTAS = "text-x-generic-symbolic"  # subsecciones editables de notas
 _ICONO_DIAGRAMAS = "media-playlist-shuffle-symbolic"  # subsecciones de diagramas
+_ICONO_LICENCIA = "balanza-symbolic"  # icono propio (assets/icons), no está en el tema
+_TITULOS_LICENCIA = frozenset({"licencia", "license", "licence", "copying"})
+
+
+def _icono_de_nota(titulo: str, seccion: str) -> str:
+    """Las notas de licencia de Visión general llevan la balanza; el resto, el icono de nota."""
+    if seccion == "vision_general" and titulo.strip().casefold() in _TITULOS_LICENCIA:
+        return _ICONO_LICENCIA
+    return _ICONO_NOTAS
 _FIJAS = {
     "blueprint": (
         ("historial", _("Historial")),
@@ -183,7 +195,7 @@ class DocumentationView(Gtk.Box):
         self._titulo_sub = Gtk.Label(xalign=0, hexpand=True)
         self._titulo_sub.add_css_class("title-3")
         self._renombrar_btn = Gtk.Button(
-            icon_name="document-edit-symbolic", tooltip_text=_("Renombrar subsección")
+            icon_name="document-edit-symbolic", tooltip_text=_("Editar subsección")
         )
         self._renombrar_btn.connect("clicked", self._on_renombrar_subseccion)
         self._eliminar_sub_btn = Gtk.Button(
@@ -362,11 +374,15 @@ class DocumentationView(Gtk.Box):
                 continue
             if seccion in _FIJAS:
                 for clave, etiqueta in _FIJAS[seccion]:
-                    self._lateral.append(
-                        self._fila_subseccion(
-                            seccion, clave, etiqueta, _ICONOS_FIJAS.get(clave, _ICONO_NOTAS)
-                        )
+                    boton = self._fila_subseccion(
+                        seccion, clave, etiqueta, _ICONOS_FIJAS.get(clave, _ICONO_NOTAS)
                     )
+                    boton.set_hexpand(True)
+                    # Mismo hueco de flecha que las subsecciones editables, para alinearlas.
+                    fila = Gtk.Box(spacing=0)
+                    fila.append(self._flecha(("fija", 0), False))
+                    fila.append(boton)
+                    self._lateral.append(fila)
             else:
                 for sub in (s for s in subsecciones if s.seccion == seccion):
                     self._anadir_subseccion_editable(sub, notas, diagramas)
@@ -379,7 +395,10 @@ class DocumentationView(Gtk.Box):
     ) -> None:
         """Fila de la subsección con su flecha de despliegue y, si está abierta, su contenido:
         las notas anidadas según su jerarquía, o los diagramas."""
-        icono = _ICONO_DIAGRAMAS if sub.tipo == "diagramas" else _ICONO_NOTAS
+        # Cada subsección tiene su propio icono simbólico (guardado en sub.icon_name
+        # al crear el proyecto). Si no tiene uno asignado, se usa el genérico por tipo
+        # (notas o diagramas), no el de la sección padre.
+        icono = sub.icon_name or (_ICONO_DIAGRAMAS if sub.tipo == "diagramas" else _ICONO_NOTAS)
         de_la_sub = [n for n in notas if n.subseccion_id == sub.id]
         diagramas_sub = [d for d in diagramas if d.subseccion_id == sub.id]
         tiene_hijos = bool(diagramas_sub if sub.tipo == "diagramas" else de_la_sub)
@@ -417,7 +436,10 @@ class DocumentationView(Gtk.Box):
             fila = Gtk.Box(spacing=0, margin_start=nivel * 14)
             fila.append(self._flecha(clave, tiene_hijas))
             hoja = self._fila_hoja(
-                nota.titulo, _ICONO_NOTAS, 0, lambda n=nota: self._abrir_desde_arbol(n)
+                nota.titulo,
+                _icono_de_nota(nota.titulo, nota.seccion),
+                0,
+                lambda n=nota: self._abrir_desde_arbol(n),
             )
             hoja.set_hexpand(True)
             fila.append(hoja)
@@ -990,28 +1012,51 @@ class DocumentationView(Gtk.Box):
         proyecto_id = self._proyecto.id
 
         tipos = Gtk.DropDown.new_from_strings([_("Notas"), _("Diagramas")])
+        selector = SelectorIcono(None, _ICONO_NOTAS)
+        extra = Gtk.Box(spacing=8)
+        extra.append(tipos)
+        extra.append(selector)
 
         def crear(nombre: str) -> None:
             tipo = "diagramas" if tipos.get_selected() == 1 else "notas"
-            sub = self._store.crear_subseccion_documentacion(proyecto_id, seccion, nombre, tipo)
+            sub = self._store.crear_subseccion_documentacion(
+                proyecto_id, seccion, nombre, tipo, selector.icono
+            )
             self._seleccion = (seccion, sub.id)
             self._secciones_plegadas.discard(seccion)
             self._nivel = None
             self.refrescar()
 
-        pedir_texto(self.get_root(), _("Nueva subsección"), "", crear, extra=tipos)
+        # Al cambiar el tipo, el icono «por defecto» que muestra el botón es el de ese tipo.
+        def al_cambiar_tipo(*_args) -> None:
+            selector.por_defecto = _ICONO_DIAGRAMAS if tipos.get_selected() == 1 else _ICONO_NOTAS
+
+        tipos.connect("notify::selected", al_cambiar_tipo)
+        pedir_texto(self.get_root(), _("Nueva subsección"), "", crear, extra=extra)
 
     def _on_renombrar_subseccion(self, _boton: Gtk.Button) -> None:
         if self._seleccion is None or not isinstance(self._seleccion[1], int):
             return
         sub_id = self._seleccion[1]
+        sub = self._subsecciones.get(sub_id)
+        if sub is None:
+            return
+        selector = SelectorIcono(
+            sub.icon_name, _ICONO_DIAGRAMAS if sub.tipo == "diagramas" else _ICONO_NOTAS
+        )
 
         def renombrar(nombre: str) -> None:
             self._store.renombrar_subseccion_documentacion(sub_id, nombre)
+            if selector.icono != sub.icon_name:
+                self._store.cambiar_icono_subseccion_documentacion(sub_id, selector.icono)
             self.refrescar()
 
         pedir_texto(
-            self.get_root(), _("Renombrar subsección"), self._titulo_sub.get_text(), renombrar
+            self.get_root(),
+            _("Editar subsección"),
+            self._titulo_sub.get_text(),
+            renombrar,
+            extra=selector,
         )
 
     def _on_eliminar_subseccion(self, _boton: Gtk.Button) -> None:

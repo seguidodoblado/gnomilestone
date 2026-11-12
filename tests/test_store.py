@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from gnomilestone.store import CicloDependenciaError, ColumnaNoVaciaError, Store
@@ -671,3 +673,113 @@ def test_migracion_convierte_las_tareas_hito_en_hitos(tmp_path):
     assert por_titulo["Suelta"].hito_id is None
     assert por_titulo["Hija del hito"].padre_id is None  # sube al padre del Hito (ninguno)
     assert (tmp_path / "viejo.db.copia-antes-de-hitos").exists()
+
+
+def test_migracion_34_rellena_iconos_de_subsecciones(tmp_path):
+    ruta = tmp_path / "iconos.db"
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    db.execute("INSERT INTO proyecto (id, nombre) VALUES (1, 'P')")
+    db.execute("DELETE FROM subseccion_documentacion")
+    filas = [
+        ("arquitectura", "A", 0, "notas", None),
+        ("arquitectura", "Diag", 3, "diagramas", None),
+        ("arquitectura", "Propia", 1, "notas", "folder-symbolic"),  # icono ya elegido
+        ("arquitectura", "Creada", 7, "notas", None),  # no sembrada
+    ]
+    for seccion, nombre, orden, tipo, icono in filas:
+        db.execute(
+            "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo, icon_name) "
+            "VALUES (1, ?, ?, ?, ?, ?)", (seccion, nombre, orden, tipo, icono),
+        )
+    db.execute("PRAGMA user_version = 33")  # base que ya pasó por la 33 sin relleno
+    db.commit()
+    db.close()
+
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    iconos = dict(db.execute("SELECT nombre, icon_name FROM subseccion_documentacion"))
+    assert iconos == {
+        "A": "applications-graphics-symbolic",
+        "Diag": "media-playlist-shuffle-symbolic",
+        "Propia": "folder-symbolic",
+        "Creada": None,
+    }
+
+
+def test_migracion_35_sustituye_iconos_antiguos_sin_pisar_los_elegidos(tmp_path):
+    ruta = tmp_path / "antiguos.db"
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    db.execute("INSERT INTO proyecto (id, nombre) VALUES (1, 'P')")
+    db.execute("DELETE FROM subseccion_documentacion")
+    filas = [
+        ("especificaciones", "Modelo", 0, "accessories-database-symbolic"),  # no existe en el tema
+        ("arquitectura", "Diseño", 0, "applications-engineering-symbolic"),  # repetía la sección
+        ("arquitectura", "Stack", 1, "folder-symbolic"),  # elegido por el usuario
+    ]
+    for seccion, nombre, orden, icono in filas:
+        db.execute(
+            "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo, icon_name) "
+            "VALUES (1, ?, ?, ?, 'notas', ?)", (seccion, nombre, orden, icono),
+        )
+    db.execute("PRAGMA user_version = 34")
+    db.commit()
+    db.close()
+
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    iconos = dict(db.execute("SELECT nombre, icon_name FROM subseccion_documentacion"))
+    assert iconos == {
+        "Modelo": "drive-harddisk-symbolic",
+        "Diseño": "applications-graphics-symbolic",
+        "Stack": "folder-symbolic",
+    }
+
+
+def test_migracion_36_repara_iconos_repetidos_y_el_de_interfaz(tmp_path):
+    ruta = tmp_path / "repetidos.db"
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    db.execute("INSERT INTO proyecto (id, nombre) VALUES (1, 'P')")
+    db.execute("DELETE FROM subseccion_documentacion")
+    filas = [  # `orden` repetido en Arquitectura, como en una base real
+        ("arquitectura", "Diseño y estructura", 0, "view-grid-symbolic"),
+        ("arquitectura", "Stack y empaquetado", 0, "view-grid-symbolic"),
+        ("arquitectura", "Quality and delivery", 0, "view-grid-symbolic"),
+        ("arquitectura", "Mía", 0, "folder-symbolic"),
+        ("especificaciones", "Interfaz", 2, "preferences-desktop-symbolic"),
+    ]
+    for seccion, nombre, orden, icono in filas:
+        db.execute(
+            "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo, icon_name) "
+            "VALUES (1, ?, ?, ?, 'notas', ?)", (seccion, nombre, orden, icono),
+        )
+    db.execute("PRAGMA user_version = 35")
+    db.commit()
+    db.close()
+
+    Store(ruta)
+    db = sqlite3.connect(ruta)
+    iconos = dict(db.execute("SELECT nombre, icon_name FROM subseccion_documentacion"))
+    assert iconos == {
+        "Diseño y estructura": "applications-graphics-symbolic",
+        "Stack y empaquetado": "view-grid-symbolic",
+        "Quality and delivery": "emblem-ok-symbolic",
+        "Mía": "folder-symbolic",
+        "Interfaz": "view-dual-symbolic",
+    }
+
+
+def test_subseccion_con_icono_elegido(tmp_path):
+    store = Store(tmp_path / "icono.db")
+    proyecto = store.crear_proyecto("P")
+    sub = store.crear_subseccion_documentacion(proyecto.id, "arquitectura", "Propia", "notas", "folder-symbolic")
+    assert sub.icon_name == "folder-symbolic"
+    otra = store.crear_subseccion_documentacion(proyecto.id, "arquitectura", "Sin icono")
+    assert otra.icon_name is None
+    store.cambiar_icono_subseccion_documentacion(otra.id, "starred-symbolic")
+    store.cambiar_icono_subseccion_documentacion(sub.id, None)
+    iconos = {s.nombre: s.icon_name for s in store.listar_subsecciones_documentacion(proyecto.id, "arquitectura")}
+    assert iconos["Sin icono"] == "starred-symbolic"
+    assert iconos["Propia"] is None

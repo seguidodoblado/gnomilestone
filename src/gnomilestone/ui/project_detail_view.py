@@ -48,7 +48,7 @@ _VISTAS_RAIL = (
     ("informes", "x-office-chart-bar-symbolic", _("Informes"), _("Informes del proyecto")),
     (
         "documentacion",
-        "text-x-generic-symbolic",
+        "accessories-dictionary-symbolic",
         _("Documentación"),
         _("Documentación del proyecto"),
     ),

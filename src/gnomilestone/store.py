@@ -181,9 +181,37 @@ def _asignacion_de_fila(fila: sqlite3.Row) -> Asignacion:
     return Asignacion(**dict(fila))
 
 
+# Icono simbólico (del tema GTK, no traducible) de cada subsección sembrada, por
+# (sección, orden, tipo). Fuente única: la usan la siembra y la migración 34.
+_ICONOS_SUBSECCION_POR_DEFECTO = {
+    ("vision_general", 0, "notas"): "user-home-symbolic",
+    ("arquitectura", 0, "notas"): "applications-graphics-symbolic",
+    ("arquitectura", 1, "notas"): "view-grid-symbolic",
+    ("arquitectura", 2, "notas"): "emblem-ok-symbolic",
+    ("arquitectura", 3, "diagramas"): "media-playlist-shuffle-symbolic",
+    ("especificaciones", 0, "notas"): "drive-harddisk-symbolic",
+    ("especificaciones", 1, "notas"): "system-users-symbolic",
+    ("especificaciones", 2, "notas"): "view-dual-symbolic",
+    ("especificaciones", 3, "notas"): "network-wired-symbolic",
+    ("especificaciones", 4, "notas"): "system-run-symbolic",
+    ("decisiones_tecnicas", 0, "notas"): "emblem-system-symbolic",
+}
+
+# Iconos de las primeras versiones (repetían el de la sección o no existían en el tema).
+# La migración 35 los sustituye; un icono distinto a estos es elección del usuario.
+_ICONOS_SUBSECCION_ANTIGUOS = {
+    ("vision_general", 0, "notas"): "help-about-symbolic",
+    ("arquitectura", 0, "notas"): "applications-engineering-symbolic",
+    ("arquitectura", 1, "notas"): "preferences-system-network-symbolic",
+    ("especificaciones", 0, "notas"): "accessories-database-symbolic",
+    ("especificaciones", 4, "notas"): "emblem-special-symbolic",
+    ("decisiones_tecnicas", 0, "notas"): "applications-utilities-symbolic",
+}
+
+
 def _subsecciones_por_defecto() -> dict[str, tuple[tuple[str, str], ...]]:
     """Subsecciones (nombre, tipo) con las que nace cada proyecto; editables después.
-    Función y no constante para traducirlas con el idioma ya instalado."""
+    Función y no constante para traducir los nombres con el idioma ya instalado."""
     return {
         "vision_general": ((_("Contexto del proyecto"), "notas"),),
         "arquitectura": (
@@ -204,13 +232,23 @@ def _subsecciones_por_defecto() -> dict[str, tuple[tuple[str, str], ...]]:
 
 
 def _sembrar_subsecciones(db: sqlite3.Connection, proyecto_id: int) -> None:
+    # La migración 19 siembra antes de que exista la columna `icon_name` (migración 33).
+    con_icono = "icon_name" in {fila[1] for fila in db.execute("PRAGMA table_info(subseccion_documentacion)")}
     for seccion, subsecciones in _subsecciones_por_defecto().items():
         for orden, (nombre, tipo) in enumerate(subsecciones):
-            db.execute(
-                "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (proyecto_id, seccion, nombre, orden, tipo),
-            )
+            if con_icono:
+                db.execute(
+                    "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo, icon_name) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (proyecto_id, seccion, nombre, orden, tipo,
+                     _ICONOS_SUBSECCION_POR_DEFECTO.get((seccion, orden, tipo))),
+                )
+            else:
+                db.execute(
+                    "INSERT INTO subseccion_documentacion (proyecto_id, seccion, nombre, orden, tipo) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (proyecto_id, seccion, nombre, orden, tipo),
+                )
     notas_por_categoria = {
         "Contexto del proyecto": ("README", "Código de conducta", "Contribuyendo", "Licencia", "Seguridad"),
         "Diseño y estructura": ("Capas", "Estructura del proyecto", "Componentes", "Flujos"),
@@ -695,6 +733,59 @@ class Store:
         if version < 32:
             self._migrar_hitos(db)
             db.execute("PRAGMA user_version = 32")
+            version = 32
+        if version < 33:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(subseccion_documentacion)")}
+            if "icon_name" not in columnas:
+                db.execute(
+                    "ALTER TABLE subseccion_documentacion ADD COLUMN icon_name TEXT"
+                )
+            db.execute("PRAGMA user_version = 33")
+            version = 33
+        if version < 34:
+            # Rellena el icono de las subsecciones sembradas que aún no lo tienen (también las
+            # de bases que ya estaban en la 33). Solo toca las que conservan sección, orden y
+            # tipo originales, y nunca pisa un icono ya asignado.
+            for (seccion, orden, tipo), icono in _ICONOS_SUBSECCION_POR_DEFECTO.items():
+                db.execute(
+                    "UPDATE subseccion_documentacion SET icon_name = ? "
+                    "WHERE seccion = ? AND orden = ? AND tipo = ? AND icon_name IS NULL",
+                    (icono, seccion, orden, tipo),
+                )
+            db.execute("PRAGMA user_version = 34")
+            version = 34
+        if version < 35:
+            for clave, antiguo in _ICONOS_SUBSECCION_ANTIGUOS.items():
+                seccion, orden, tipo = clave
+                db.execute(
+                    "UPDATE subseccion_documentacion SET icon_name = ? "
+                    "WHERE seccion = ? AND orden = ? AND tipo = ? AND icon_name = ?",
+                    (_ICONOS_SUBSECCION_POR_DEFECTO[clave], seccion, orden, tipo, antiguo),
+                )
+            db.execute("PRAGMA user_version = 35")
+            version = 35
+        if version < 36:
+            # «Interfaz» usaba un icono que el tema no tiene simbólico. Y en bases con el
+            # `orden` repetido en Arquitectura, la 35 dejó el mismo icono en tres subsecciones:
+            # se repara por nombre (de fábrica, en español o inglés) solo si siguen con él.
+            db.execute(
+                "UPDATE subseccion_documentacion SET icon_name = 'view-dual-symbolic' "
+                "WHERE seccion = 'especificaciones' AND orden = 2 AND tipo = 'notas' "
+                "AND icon_name = 'preferences-desktop-symbolic'"
+            )
+            reparaciones = (
+                (("Diseño y estructura", "Design and structure"), "applications-graphics-symbolic"),
+                (("Calidad y entrega", "Quality and delivery"), "emblem-ok-symbolic"),
+            )
+            for nombres, icono in reparaciones:
+                db.execute(
+                    "UPDATE subseccion_documentacion SET icon_name = ? "
+                    "WHERE seccion = 'arquitectura' AND icon_name = 'view-grid-symbolic' "
+                    "AND nombre IN (?, ?)",
+                    (icono, *nombres),
+                )
+            db.execute("PRAGMA user_version = 36")
+            version = 36
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1521,7 +1612,12 @@ class Store:
             return [SubseccionDocumentacion(**dict(f)) for f in filas]
 
     def crear_subseccion_documentacion(
-        self, proyecto_id: int, seccion: str, nombre: str, tipo: str = "notas"
+        self,
+        proyecto_id: int,
+        seccion: str,
+        nombre: str,
+        tipo: str = "notas",
+        icon_name: str | None = None,
     ) -> SubseccionDocumentacion:
         if seccion not in SECCIONES_DOCUMENTACION or seccion in SUBSECCIONES_FIJAS:
             raise ValueError(f"Sección sin subsecciones editables: {seccion}")
@@ -1535,8 +1631,8 @@ class Store:
             ).fetchone()[0]
             cursor = db.execute(
                 "INSERT INTO subseccion_documentacion "
-                "(proyecto_id, seccion, nombre, orden, tipo) VALUES (?, ?, ?, ?, ?)",
-                (proyecto_id, seccion, nombre, orden, tipo),
+                "(proyecto_id, seccion, nombre, orden, tipo, icon_name) VALUES (?, ?, ?, ?, ?, ?)",
+                (proyecto_id, seccion, nombre, orden, tipo, icon_name),
             )
             fila = db.execute(
                 "SELECT * FROM subseccion_documentacion WHERE id = ?", (cursor.lastrowid,)
@@ -1548,6 +1644,16 @@ class Store:
             db.execute(
                 "UPDATE subseccion_documentacion SET nombre = ? WHERE id = ?",
                 (nombre, subseccion_id),
+            )
+
+    def cambiar_icono_subseccion_documentacion(
+        self, subseccion_id: int, icon_name: str | None
+    ) -> None:
+        """Fija el icono simbólico de la subsección; None devuelve el genérico de su tipo."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE subseccion_documentacion SET icon_name = ? WHERE id = ?",
+                (icon_name, subseccion_id),
             )
 
     def eliminar_subseccion_documentacion(self, subseccion_id: int) -> None:
