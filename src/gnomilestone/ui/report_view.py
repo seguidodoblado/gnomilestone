@@ -372,7 +372,7 @@ class ReportView(Gtk.Box):
         self._draw_card(cr, *reparto, _("Reparto por persona"))
         x, y, w, h = reparto
         self._draw_resource_bars(cr, x + 18, y + 70, w - 36, h - 90)
-        self._draw_card(cr, *actividad, _("Trabajo por tipo y persona"))
+        self._draw_card(cr, *actividad, _("Tareas por tipo y persona"))
         x, y, w, h = actividad
         self._draw_mode_selector(
             cr, x + 18, y + 16, w - 36, (_("Hechas 30 d"), _("Abiertas")), self._tipos_completadas,

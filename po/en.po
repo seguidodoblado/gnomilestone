@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.1.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-12 13:20+0100\n"
+"POT-Creation-Date: 2026-11-13 00:59+0100\n"
 "PO-Revision-Date: 2026-11-06 12:30+0100\n"
 "Last-Translator: José Antonio Seguido Doblado <jose.antonio.seguido@gmail."
 "com>\n"
@@ -2420,8 +2420,8 @@ msgid "Reparto por persona"
 msgstr "Distribution by person"
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:375
-msgid "Trabajo por tipo y persona"
-msgstr "Work by type and person"
+msgid "Tareas por tipo y persona"
+msgstr "Tasks by type and person"
 
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:378
 #: /media/seguidodoblado/Proyectos/Desarrollo/gnomilestone/src/gnomilestone/ui/report_view.py:501
