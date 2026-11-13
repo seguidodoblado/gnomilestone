@@ -31,17 +31,22 @@ proyecto (notas, diagramas y líneas de tiempo).
 ## Funcionalidades
 
 - **Proyectos y tareas**: alta/baja de proyectos, tareas y subtareas con jerarquía,
-  columna de tablero, fechas, duración, % completado, hitos, dependencias (con
-  detección de ciclos), asignación de personas con su dedicación, prioridad, etiquetas
-  de colores y comentarios.
+  columna de tablero, fechas, duración, % completado, tipo (trabajo, error o
+  funcionalidad), el hito al que contribuyen, dependencias (con detección de ciclos),
+  asignación de personas con su dedicación, prioridad (hasta «Urgente»), etiquetas de
+  colores y comentarios.
+- **Hitos**: puntos de control con fecha objetivo ligados a los Milestones de GitHub, con
+  su avance calculado desde las tareas que contribuyen a ellos; se ven en el Gantt (rombo y
+  línea de meta), en Blueprint y en el Roadmap.
 - **Diálogo de tarea**: ventana con pestañas (General, Fechas y progreso, Asignaciones,
   Dependencias y Comentarios), descripción en Markdown con barra de formato y vista
   previa, selectores con búsqueda para la tarea padre y las dependencias, calendario con
   atajos (Hoy, Mañana, Próxima semana), validación campo a campo y aviso de cambios sin
   guardar.
 - **Vistas de un proyecto** (rail de iconos al estilo Planner): Lista (listado plano
-  con indentación, búsqueda y filtro por columna, con columnas de prioridad y
-  etiquetas), Tablero Kanban (columnas configurables, tarjetas arrastrables), Gantt
+  con indentación y tareas padre plegables, búsqueda y filtro por columna, con columnas
+  de prioridad, tipo y etiquetas), Tablero Kanban (columnas configurables, tarjetas
+  arrastrables, subtareas como cápsulas con su progreso), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
   zoom y propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita
   de las personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el
@@ -52,13 +57,17 @@ proyecto (notas, diagramas y líneas de tiempo).
   avatar; el nombre, el email público y el avatar se pueden traer de GitHub.
 - **Gantt global**: superpone los proyectos elegidos en un único diagrama para
   detectar solapes entre ellos.
-- **Informes**: panel visual por proyecto con progreso global, tareas por estado,
-  avance (sin empezar/en curso/completadas), alertas de fechas (vencidas,
-  planificadas pasadas, próximas 7 días, recursos activos), reparto por persona y
-  ruta crítica (las tareas con alerta roja sobre una línea de tiempo de 7 días).
+- **Informes**: panel visual por proyecto en cinco pestañas: Resumen (estado general y
+  riesgo temporal), Flujo de trabajo (tareas por estado, ritmo de trabajo, tiempo medio
+  y acumulación por columna), Planificación (burndown/burnup, desviación, fechas
+  planificadas frente a reales y ruta crítica), Equipo (reparto, trabajo por tipo y
+  resultados y riesgo por persona) y Auditoría.
+- **Usuarios y auditoría**: cada cambio de una tarea queda firmado con el usuario de
+  gestión activo; la pestaña Auditoría muestra los cambios por usuario y el registro
+  cronológico.
 - **Documentación del proyecto**: ficha propia de cada proyecto, con contenido de la
-  app (sin leer ficheros externos), organizada en Arquitectura, Especificaciones,
-  Blueprint y Decisiones técnicas. Las notas son tarjetas con Markdown (plantillas,
+  app (sin leer ficheros externos), organizada en Visión general (con el contexto del proyecto traído de su repositorio de
+  GitHub), Arquitectura, Especificaciones, Blueprint y Decisiones técnicas. Las notas son tarjetas con Markdown (plantillas,
   estado, subpáginas, enlaces internos `[[Título]]` y `#27`, bloques de código con
   coloreado y diagramas Mermaid de flujo), se editan en una ventana aparte y guardan
   sus versiones anteriores; las subsecciones de diagramas tienen un editor de nodos y
@@ -127,17 +136,21 @@ diagrams and timelines).
 ## Features
 
 - **Projects and tasks**: create/delete projects, tasks and subtasks with hierarchy,
-  board column, dates, duration, % complete, milestones, dependencies (with cycle
-  detection), people assignment with their dedication, priority, colored labels and
-  comments.
+  board column, dates, duration, % complete, type (work, bug or feature), the
+  milestone they contribute to, dependencies (with cycle detection), people assignment
+  with their dedication, priority (up to “Urgent”), colored labels and comments.
+- **Milestones**: checkpoints with a target date tied to GitHub Milestones, with their
+  progress computed from the tasks that contribute to them; they show in the Gantt
+  (diamond and goal line), in Blueprint and in the Roadmap.
 - **Task dialog**: a tabbed window (General, Dates and progress, Assignments,
   Dependencies and Comments), a Markdown description with a formatting bar and preview,
   searchable pickers for the parent task and dependencies, a calendar with shortcuts
   (Today, Tomorrow, Next week), field-by-field validation and a warning about unsaved
   changes.
 - **Views within a project** (Planner-style icon rail): List (flat listing with
-  hierarchy indentation, text search and board-column filter, with priority and label
-  columns), Kanban board (configurable columns, draggable cards), Gantt (bars with
+  hierarchy indentation and foldable parent tasks, text search and board-column filter,
+  with priority, type and label columns), Kanban board (configurable columns, draggable
+  cards, subtasks as capsules showing their progress), Gantt (bars with
   progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
   propagation to children and dependents), Resources (business cards of the
   people, with their equipment, media and places) and Resource usage (people's occupancy
@@ -148,13 +161,16 @@ diagrams and timelines).
   their avatar; the name, public email and avatar can be fetched from GitHub.
 - **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
   between them.
-- **Reports**: a visual panel with overall progress, tasks per status, progress
-  breakdown (not started/in progress/completed), date alerts (overdue, past planned
-  end, due within 7 days, active resources), distribution by person and critical path
-  (the tasks with a red alert on a 7-day timeline).
+- **Reports**: a visual panel per project in five tabs: Summary (general status and time
+  risk), Workflow (tasks per status, work rhythm, average time and accumulation per
+  column), Planning (burndown/burnup, deviation, planned versus actual dates and
+  critical path), Team (distribution, work by type and results and risk per person) and
+  Audit.
+- **Users and audit**: every change to a task is signed with the active management user;
+  the Audit tab shows the changes per user and the chronological log.
 - **Project documentation**: each project's own documentation, with content stored in
-  the app (no external files read), organized in Architecture, Specifications,
-  Blueprint and Technical decisions. Notes are Markdown cards (templates, status,
+  the app (no external files read), organized in Overview (with the project context pulled from its GitHub repository),
+  Architecture, Specifications, Blueprint and Technical decisions. Notes are Markdown cards (templates, status,
   subpages, internal links `[[Title]]` and `#27`, highlighted code blocks and Mermaid
   flowcharts), edited in a separate window, and they keep their earlier versions;
   diagram subsections have a node-and-arrow editor; and Blueprint draws History,
