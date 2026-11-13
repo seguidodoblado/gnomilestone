@@ -220,6 +220,10 @@ class GitHubSyncManager:
         recursos_por_nombre: dict[str, Recurso] = {
             r.nombre.lower(): r for r in self._store.listar_recursos(proyecto_id)
         }
+        # Una persona con otro nombre visible sigue siendo la del usuario de GitHub.
+        for r in self._store.listar_recursos(proyecto_id):
+            if r.github_login:
+                recursos_por_nombre[r.github_login.lower()] = r
 
         def _asegurar_recurso(login: str) -> Recurso:
             login_lower = login.lower()
@@ -230,6 +234,7 @@ class GitHubSyncManager:
                 proyecto_id=proyecto_id,
                 nombre=login,
                 avatar_url=avatar,
+                github_login=login,
             )
             recursos_por_nombre[login_lower] = nuevo_recurso
             resultado.recursos_creados += 1

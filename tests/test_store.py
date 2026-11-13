@@ -865,3 +865,41 @@ def test_detalle_de_estado_sin_nombre_guardado_no_muestra_el_id():
 
     antiguo = HistorialTarea(1, 1, "2026-11-10 14:08", "estado", "estado_id", None, "39")
     assert detalle_evento(antiguo, {}) == "— → (columna eliminada)"
+
+
+def test_recursos_de_persona(store) -> None:
+    proyecto = store.crear_proyecto("P")
+    ana = store.crear_recurso(proyecto.id, "Ana")
+    luis = store.crear_recurso(proyecto.id, "Luis")
+    portatil = store.crear_recurso(proyecto.id, "Portátil", categoria="equipos")
+    oficina = store.crear_recurso(proyecto.id, "Oficina", categoria="lugares")
+    store.fijar_recursos_de_persona(ana.id, [portatil.id, oficina.id, luis.id])
+    assert [r.nombre for r in store.listar_recursos_de_persona(ana.id)] == ["Portátil", "Oficina"]
+    # Un recurso pertenece como mucho a una persona: pasa a Luis y sale de Ana.
+    store.fijar_recursos_de_persona(luis.id, [portatil.id])
+    assert [r.nombre for r in store.listar_recursos_de_persona(ana.id)] == ["Oficina"]
+    # Borrar la persona deja libres sus recursos.
+    store.eliminar_recurso(luis.id)
+    assert store.listar_recursos_de_persona(luis.id) == []
+    assert next(r for r in store.listar_recursos(proyecto.id) if r.id == portatil.id).persona_id is None
+
+
+def test_recurso_guarda_detalles_y_datos_de_persona(store) -> None:
+    proyecto = store.crear_proyecto("P")
+    ana = store.crear_recurso(proyecto.id, "Ana", cargo="Desarrolladora", telefono="600")
+    equipo = store.crear_recurso(
+        proyecto.id, "Portátil", categoria="equipos", detalles={"marca": "Lenovo", "modelo": "T14"}
+    )
+    equipo.detalles["estado"] = "En uso"
+    store.actualizar_recurso(equipo)
+    por_id = {r.id: r for r in store.listar_recursos(proyecto.id)}
+    assert (por_id[ana.id].cargo, por_id[ana.id].telefono) == ("Desarrolladora", "600")
+    assert por_id[equipo.id].detalles == {"marca": "Lenovo", "modelo": "T14", "estado": "En uso"}
+
+
+def test_persona_guarda_usuario_de_github(store) -> None:
+    proyecto = store.crear_proyecto("P")
+    ana = store.crear_recurso(proyecto.id, "Ana García", github_login="anag")
+    ana.github_login = "ana-g"
+    store.actualizar_recurso(ana)
+    assert store.listar_recursos(proyecto.id)[0].github_login == "ana-g"
