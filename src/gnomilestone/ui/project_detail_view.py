@@ -290,13 +290,16 @@ class ProjectDetailView(Gtk.Box):
         recursos = self._store.listar_recursos(self._proyecto.id)
         asignaciones = self._store.listar_asignaciones_del_proyecto(self._proyecto.id)
         tareas_uso = tareas_visibles
-        self._uso.set_filas(construir_filas_uso(recursos, tareas_uso, asignaciones), tareas_uso)
+        # Uso e Informes miden carga de trabajo, que solo tiene sentido para las personas;
+        # equipos, medios y lugares tendrán los suyos más adelante.
+        personas = [r for r in recursos if r.categoria == "personas"]
+        self._uso.set_filas(construir_filas_uso(personas, tareas_uso, asignaciones), tareas_uso)
         historial_bruto = self._store.listar_historial_proyecto(self._proyecto.id)
         tareas_informes = tareas_con_archivadas if self._informes_con_archivadas else tareas
         if not self._mostrar_completadas:
             tareas_informes = ocultar_completadas(tareas_informes)
         self._informes.set_data(
-            tareas_informes, estados, recursos, asignaciones,
+            tareas_informes, estados, personas, asignaciones,
             dependencias=self._store.listar_dependencias(self._proyecto.id),
             historial=eventos_con_fecha_de_finalizacion(
                 tareas_con_archivadas, historial_bruto, completado.id_columna_final(estados),

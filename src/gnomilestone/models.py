@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -130,6 +130,17 @@ class Recurso:
     # `proyecto_id` (el proyecto donde se creó). Evita duplicar el alta de una misma
     # persona/medio/equipo/lugar en cada proyecto en el que participa.
     es_global: bool = False
+    # Solo en Equipos, Medios y Lugares: la Persona (otro recurso de categoría «personas»)
+    # a la que pertenecen; None si están libres. En una Persona queda vacía.
+    persona_id: int | None = None
+    # Solo en Personas: cargo y teléfono para la tarjeta.
+    # Usuario de GitHub de la persona (puede diferir del nombre que se muestra).
+    github_login: str | None = None
+    cargo: str | None = None
+    telefono: str | None = None
+    # Datos propios de la categoría (ver `recurso_campos.campos_de`): marca y modelo de un
+    # equipo, caducidad de una licencia, dirección de un lugar…
+    detalles: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

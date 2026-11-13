@@ -222,6 +222,10 @@ class GitHubClient:
             avatar_url=datos.get("avatar_url") or "",
         )
 
+    def obtener_perfil_usuario(self, login: str) -> dict[str, Any]:
+        """Perfil público de un usuario (nombre, email público, ubicación, empresa…)."""
+        return self._request(f"users/{login}")
+
     def listar_repositorios(self, per_page: int = 100) -> list[GitHubRepo]:
         datos = self._request(f"user/repos?per_page={per_page}&sort=updated")
         return [
