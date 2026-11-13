@@ -161,7 +161,16 @@ def _dependencia_de_fila(fila: sqlite3.Row) -> Dependencia:
 def _recurso_de_fila(fila: sqlite3.Row) -> Recurso:
     datos = dict(fila)
     datos["es_global"] = bool(datos["es_global"])
+    datos["detalles"] = _detalles_de_json(datos.get("detalles"))
     return Recurso(**datos)
+
+
+def _detalles_de_json(texto: str | None) -> dict[str, str]:
+    try:
+        datos = json.loads(texto) if texto else {}
+    except ValueError:
+        return {}
+    return {str(k): str(v) for k, v in datos.items()} if isinstance(datos, dict) else {}
 
 
 def _comentario_de_fila(fila: sqlite3.Row) -> Comentario:
@@ -830,6 +839,29 @@ class Store:
                     )
             db.execute("PRAGMA user_version = 39")
             version = 39
+        if version < 40:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(recurso)")}
+            if "persona_id" not in columnas:
+                # Dueño de un Equipo, Medio o Lugar: otra fila de `recurso` (una Persona).
+                db.execute(
+                    "ALTER TABLE recurso ADD COLUMN persona_id INTEGER "
+                    "REFERENCES recurso(id) ON DELETE SET NULL"
+                )
+            db.execute("PRAGMA user_version = 40")
+            version = 40
+        if version < 41:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(recurso)")}
+            for columna in ("cargo", "telefono", "detalles"):
+                if columna not in columnas:
+                    db.execute(f"ALTER TABLE recurso ADD COLUMN {columna} TEXT")
+            db.execute("PRAGMA user_version = 41")
+            version = 41
+        if version < 42:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(recurso)")}
+            if "github_login" not in columnas:
+                db.execute("ALTER TABLE recurso ADD COLUMN github_login TEXT")
+            db.execute("PRAGMA user_version = 42")
+            version = 42
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -2171,12 +2203,33 @@ class Store:
         avatar_url: str | None = None,
         categoria: str = "personas",
         es_global: bool = False,
+        persona_id: int | None = None,
+        cargo: str | None = None,
+        telefono: str | None = None,
+        detalles: dict[str, str] | None = None,
+        github_login: str | None = None,
     ) -> Recurso:
+        if categoria == "personas":
+            persona_id = None
         with closing(self._connect()) as db, db:
             cursor = db.execute(
                 "INSERT INTO recurso (proyecto_id, nombre, email, color_hex, avatar_url, "
-                "categoria, es_global) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (proyecto_id, nombre, email, color_hex, avatar_url, categoria, int(es_global)),
+                "categoria, es_global, persona_id, cargo, telefono, detalles, github_login) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    proyecto_id,
+                    nombre,
+                    email,
+                    color_hex,
+                    avatar_url,
+                    categoria,
+                    int(es_global),
+                    persona_id,
+                    cargo,
+                    telefono,
+                    json.dumps(detalles or {}, ensure_ascii=False),
+                    github_login,
+                ),
             )
             fila = db.execute("SELECT * FROM recurso WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return _recurso_de_fila(fila)
@@ -2215,7 +2268,8 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute(
                 "UPDATE recurso SET nombre = ?, email = ?, color_hex = ?, avatar_url = ?, "
-                "categoria = ?, es_global = ? WHERE id = ?",
+                "categoria = ?, es_global = ?, persona_id = ?, "
+                "cargo = ?, telefono = ?, detalles = ?, github_login = ? WHERE id = ?",
                 (
                     recurso.nombre,
                     recurso.email,
@@ -2223,9 +2277,37 @@ class Store:
                     recurso.avatar_url,
                     recurso.categoria,
                     int(recurso.es_global),
+                    None if recurso.categoria == "personas" else recurso.persona_id,
+                    recurso.cargo,
+                    recurso.telefono,
+                    json.dumps(recurso.detalles, ensure_ascii=False),
+                    recurso.github_login,
                     recurso.id,
                 ),
             )
+            if recurso.categoria != "personas":
+                # Solo una Persona puede tener recursos propios.
+                db.execute("UPDATE recurso SET persona_id = NULL WHERE persona_id = ?", (recurso.id,))
+
+    def listar_recursos_de_persona(self, persona_id: int) -> list[Recurso]:
+        """Equipos, Medios y Lugares que pertenecen a `persona_id`."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT * FROM recurso WHERE persona_id = ? ORDER BY categoria, nombre",
+                (persona_id,),
+            ).fetchall()
+            return [_recurso_de_fila(fila) for fila in filas]
+
+    def fijar_recursos_de_persona(self, persona_id: int, recurso_ids: list[int]) -> None:
+        """Deja como únicos recursos de la Persona los de `recurso_ids` (solo Equipos,
+        Medios y Lugares; el resto de ids se ignora). Los que se quitan quedan libres."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE recurso SET persona_id = NULL WHERE persona_id = ?", (persona_id,))
+            for recurso_id in set(recurso_ids):
+                db.execute(
+                    "UPDATE recurso SET persona_id = ? WHERE id = ? AND categoria != 'personas'",
+                    (persona_id, recurso_id),
+                )
 
     def eliminar_recurso(self, recurso_id: int) -> None:
         with closing(self._connect()) as db, db:
@@ -2310,7 +2392,8 @@ class Store:
         with closing(self._connect()) as db:
             filas = db.execute(
                 "SELECT a.tarea_id AS tarea_asignada_id, r.id, r.proyecto_id, r.nombre, "
-                "r.email, r.color_hex, r.avatar_url, r.categoria, r.es_global "
+                "r.email, r.color_hex, r.avatar_url, r.categoria, r.es_global, r.persona_id, "
+                "r.cargo, r.telefono, r.detalles, r.github_login "
                 "FROM asignacion a "
                 "JOIN recurso r ON r.id = a.recurso_id "
                 "JOIN tarea t ON t.id = a.tarea_id "
