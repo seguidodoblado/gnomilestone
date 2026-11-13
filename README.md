@@ -43,9 +43,13 @@ proyecto (notas, diagramas y líneas de tiempo).
   con indentación, búsqueda y filtro por columna, con columnas de prioridad y
   etiquetas), Tablero Kanban (columnas configurables, tarjetas arrastrables), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
-  zoom y propagación en cascada a hijas y dependientes), Recursos (alta/edición, avatar,
-  carga por persona) y Uso de recursos (ocupación en el tiempo, con sobrecarga marcada
-  en rojo).
+  zoom y propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita
+  de las personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el
+  tiempo de las personas, con sobrecarga marcada en rojo).
+- **Recursos**: cada persona es una tarjeta de visita con su cargo, email y teléfono y
+  tres tablas editables (equipos con su hardware, medios con licencias y accesos, y
+  lugares de trabajo con su dirección), plegables y con el contorno del color de su
+  avatar; el nombre, el email público y el avatar se pueden traer de GitHub.
 - **Gantt global**: superpone los proyectos elegidos en un único diagrama para
   detectar solapes entre ellos.
 - **Informes**: panel visual por proyecto con progreso global, tareas por estado,
@@ -135,8 +139,13 @@ diagrams and timelines).
   hierarchy indentation, text search and board-column filter, with priority and label
   columns), Kanban board (configurable columns, draggable cards), Gantt (bars with
   progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
-  propagation to children and dependents), Resources (create/edit, avatar, workload per
-  person) and Resource usage (occupancy over time, with overload marked in red).
+  propagation to children and dependents), Resources (business cards of the
+  people, with their equipment, media and places) and Resource usage (people's occupancy
+  over time, with overload marked in red).
+- **Resources**: each person is a business card with their role, email and phone and
+  three editable tables (equipment with its hardware data, media with licenses and
+  access, and workplaces with their address), foldable and outlined in the color of
+  their avatar; the name, public email and avatar can be fetched from GitHub.
 - **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
   between them.
 - **Reports**: a visual panel with overall progress, tasks per status, progress
