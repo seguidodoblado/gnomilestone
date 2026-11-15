@@ -1111,6 +1111,26 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE tarea SET estado_id = NULL WHERE proyecto_id = ?", (proyecto_id,))
 
+    def estados_de_tareas(self, proyecto_id: int) -> dict[int, int]:
+        """Columna (id) de cada tarea que tiene una, para migrarlas al sustituir el tablero
+        por el de GitHub (ver `reasignar_estados` y `sync.py`)."""
+        with closing(self._connect()) as db:
+            filas = db.execute(
+                "SELECT id, estado_id FROM tarea WHERE proyecto_id = ? AND estado_id IS NOT NULL",
+                (proyecto_id,),
+            ).fetchall()
+            return {f["id"]: f["estado_id"] for f in filas}
+
+    def reasignar_estados(self, estado_por_tarea: dict[int, int]) -> int:
+        """Pone a cada tarea sin columna la columna indicada. Devuelve cuántas ha migrado."""
+        with closing(self._connect()) as db, db:
+            for tarea_id, estado_id in estado_por_tarea.items():
+                db.execute(
+                    "UPDATE tarea SET estado_id = ? WHERE id = ? AND estado_id IS NULL",
+                    (estado_id, tarea_id),
+                )
+        return len(estado_por_tarea)
+
     def eliminar_estados_de_proyecto(self, proyecto_id: int) -> None:
         """Borra todas las columnas del proyecto sin comprobar que estén vacías (a
         diferencia de `eliminar_estado`): llamar siempre después de

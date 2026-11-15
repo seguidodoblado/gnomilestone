@@ -631,28 +631,59 @@ class ProjectDetailView(Gtk.Box):
         self._sync_pulse_id = GLib.timeout_add(100, self._on_sync_pulse)
         self._sync_button.set_sensitive(False)
 
-        def _do_sync() -> None:
-            sync = GitHubSyncManager(self._store)
-            res = sync.pull_proyecto(self._proyecto.id)
+        def _terminar(res=None) -> bool:
+            if self._sync_pulse_id is not None:
+                GLib.source_remove(self._sync_pulse_id)
+                self._sync_pulse_id = None
+            self._sync_progress.set_visible(False)
+            self._sync_button.set_sensitive(True)
+            self.refrescar()
+            if res is None:
+                return False
+            avisos = list(res.errores) + list(res.conflictos) + list(res.avisos)
+            if avisos:
+                # También a la terminal: el diálogo no permite copiar el texto.
+                log.warning("Avisos de la sincronización con GitHub:\n%s", "\n".join(avisos))
+                dialog = Gtk.AlertDialog()
+                dialog.set_message(_("Sincronización con GitHub"))
+                dialog.set_detail("\n".join(avisos))
+                dialog.show(self.get_root())
+            return False
 
-            def _done() -> bool:
-                if self._sync_pulse_id is not None:
-                    GLib.source_remove(self._sync_pulse_id)
-                    self._sync_pulse_id = None
-                self._sync_progress.set_visible(False)
-                self._sync_button.set_sensitive(True)
-                self.refrescar()
-                avisos = list(res.errores) + list(res.conflictos) + list(res.avisos)
-                if avisos:
-                    # También a la terminal: el diálogo no permite copiar el texto.
-                    log.warning("Avisos de la sincronización con GitHub:\n%s", "\n".join(avisos))
-                    dialog = Gtk.AlertDialog()
-                    dialog.set_message(_("Sincronización con GitHub"))
-                    dialog.set_detail("\n".join(avisos))
-                    dialog.show(self.get_root())
+        def _hacer_pull(eleccion: dict[int, str | None]) -> None:
+            def _run() -> None:
+                res = GitHubSyncManager(self._store).pull_proyecto(self._proyecto.id, eleccion)
+                GLib.idle_add(_terminar, res)
+
+            threading.Thread(target=_run, daemon=True).start()
+
+        def _do_sync() -> None:
+            # Antes de sustituir el tablero local por el de GitHub, se pregunta a dónde
+            # migrar las tareas de las columnas que GitHub no reconoce.
+            try:
+                pendientes, opciones = GitHubSyncManager(
+                    self._store
+                ).columnas_sin_equivalente(self._proyecto.id)
+            except Exception:
+                log.exception("No se pudo comparar el tablero local con el de GitHub")
+                pendientes, opciones = [], []
+            if not pendientes:
+                _hacer_pull({})
+                return
+
+            def _preguntar() -> bool:
+                from gnomilestone.ui.mapeo_columnas_dialog import MapeoColumnasDialog
+
+                MapeoColumnasDialog(
+                    self.get_root(),
+                    pendientes,
+                    opciones,
+                    on_aceptar=_hacer_pull,
+                    on_cancelar=lambda: _terminar(None),
+                ).present()
                 return False
 
-            GLib.idle_add(_done)
+            GLib.idle_add(_preguntar)
 
         threading.Thread(target=_do_sync, daemon=True).start()
 
