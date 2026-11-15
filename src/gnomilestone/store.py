@@ -862,6 +862,12 @@ class Store:
                 db.execute("ALTER TABLE recurso ADD COLUMN github_login TEXT")
             db.execute("PRAGMA user_version = 42")
             version = 42
+        if version < 43:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(etiqueta)")}
+            if "descripcion" not in columnas:
+                db.execute("ALTER TABLE etiqueta ADD COLUMN descripcion TEXT NOT NULL DEFAULT ''")
+            db.execute("PRAGMA user_version = 43")
+            version = 43
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1579,10 +1585,15 @@ class Store:
             return [_etiqueta_de_fila(f) for f in filas]
 
     def asegurar_etiqueta(
-        self, proyecto_id: int, nombre: str, color: str | None = None
+        self,
+        proyecto_id: int,
+        nombre: str,
+        color: str | None = None,
+        descripcion: str | None = None,
     ) -> Etiqueta:
         """La etiqueta con ese nombre (sin distinguir mayúsculas), creándola si no existe.
-        Si ya existe y llega un color distinto (el de GitHub manda), lo actualiza."""
+        Si ya existe y llega un color o una descripción distintos (el de GitHub manda), los
+        actualiza; una descripción vacía no borra la local."""
         nombre = nombre.strip()
         with closing(self._connect()) as db, db:
             fila = db.execute(
@@ -1591,17 +1602,24 @@ class Store:
             ).fetchone()
             if fila is None:
                 cursor = db.execute(
-                    "INSERT INTO etiqueta (proyecto_id, nombre, color) VALUES (?, ?, ?)",
-                    (proyecto_id, nombre, (color or "6e7781").lstrip("#")),
+                    "INSERT INTO etiqueta (proyecto_id, nombre, color, descripcion)"
+                    " VALUES (?, ?, ?, ?)",
+                    (proyecto_id, nombre, (color or "6e7781").lstrip("#"), descripcion or ""),
                 )
                 fila = db.execute(
                     "SELECT * FROM etiqueta WHERE id = ?", (cursor.lastrowid,)
                 ).fetchone()
-            elif color and fila["color"] != color.lstrip("#"):
-                db.execute(
-                    "UPDATE etiqueta SET color = ? WHERE id = ?", (color.lstrip("#"), fila["id"])
-                )
-                fila = db.execute("SELECT * FROM etiqueta WHERE id = ?", (fila["id"],)).fetchone()
+            else:
+                nuevo_color = color.lstrip("#") if color else fila["color"]
+                nueva_desc = descripcion if descripcion else fila["descripcion"]
+                if nuevo_color != fila["color"] or nueva_desc != fila["descripcion"]:
+                    db.execute(
+                        "UPDATE etiqueta SET color = ?, descripcion = ? WHERE id = ?",
+                        (nuevo_color, nueva_desc, fila["id"]),
+                    )
+                    fila = db.execute(
+                        "SELECT * FROM etiqueta WHERE id = ?", (fila["id"],)
+                    ).fetchone()
             return _etiqueta_de_fila(fila)
 
     def contar_tareas_por_etiqueta(self, proyecto_id: int) -> dict[int, int]:
@@ -1635,6 +1653,13 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute(
                 "UPDATE etiqueta SET color = ? WHERE id = ?", (color.lstrip("#"), etiqueta_id)
+            )
+
+    def actualizar_descripcion_etiqueta(self, etiqueta_id: int, descripcion: str) -> None:
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE etiqueta SET descripcion = ? WHERE id = ?",
+                (descripcion.strip(), etiqueta_id),
             )
 
     def eliminar_etiqueta(self, etiqueta_id: int) -> None:

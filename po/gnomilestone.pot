@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.1.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-15 14:09+0100\n"
+"POT-Creation-Date: 2026-11-15 15:16+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -755,7 +755,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: src/gnomilestone/store.py:1152
+#: src/gnomilestone/store.py:1158
 msgid "No Status"
 msgstr ""
 
@@ -766,7 +766,7 @@ msgid ""
 "tareas."
 msgstr ""
 
-#: src/gnomilestone/sync.py:564
+#: src/gnomilestone/sync.py:565
 #, python-brace-format
 msgid ""
 "{n} tareas se han quedado sin columna real de GitHub y se han agrupado en "
@@ -854,7 +854,7 @@ msgstr ""
 #: src/gnomilestone/ui/github_link_dialog.py:117
 #: src/gnomilestone/ui/global_gantt_view.py:96
 #: src/gnomilestone/ui/hito_dialog.py:91 src/gnomilestone/ui/hito_dialog.py:203
-#: src/gnomilestone/ui/labels_dialog.py:219
+#: src/gnomilestone/ui/labels_dialog.py:247
 #: src/gnomilestone/ui/mapeo_columnas_dialog.py:71
 #: src/gnomilestone/ui/note_window.py:92 src/gnomilestone/ui/note_window.py:223
 #: src/gnomilestone/ui/project_detail_view.py:375
@@ -898,7 +898,7 @@ msgstr ""
 #: src/gnomilestone/ui/documentation_view.py:1074
 #: src/gnomilestone/ui/global_gantt_view.py:96
 #: src/gnomilestone/ui/hito_dialog.py:86
-#: src/gnomilestone/ui/labels_dialog.py:219
+#: src/gnomilestone/ui/labels_dialog.py:247
 #: src/gnomilestone/ui/note_window.py:98 src/gnomilestone/ui/note_window.py:223
 #: src/gnomilestone/ui/project_detail_view.py:579
 #: src/gnomilestone/ui/project_list_view.py:211
@@ -1651,25 +1651,29 @@ msgstr ""
 msgid "Este proyecto aún no tiene etiquetas."
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:156
+#: src/gnomilestone/ui/labels_dialog.py:165
 #, python-brace-format
 msgid "{n} tareas"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:156
+#: src/gnomilestone/ui/labels_dialog.py:165
 msgid "1 tarea"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:161
-#: src/gnomilestone/ui/labels_dialog.py:211
+#: src/gnomilestone/ui/labels_dialog.py:170
+#: src/gnomilestone/ui/labels_dialog.py:239
 msgid "Eliminar etiqueta"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:192
+#: src/gnomilestone/ui/labels_dialog.py:179
+msgid "Descripción (opcional)"
+msgstr ""
+
+#: src/gnomilestone/ui/labels_dialog.py:216
 msgid "Ya existe otra etiqueta con ese nombre."
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:214
+#: src/gnomilestone/ui/labels_dialog.py:242
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{nombre}»? Se quitará de las tareas que la "

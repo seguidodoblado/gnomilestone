@@ -78,10 +78,10 @@ class _SelectorColor(Gtk.MenuButton):
 
 
 class LabelsDialog(Gtk.Window):
-    """Gestión de las etiquetas de un proyecto: alta, renombrado, color y borrado.
+    """Gestión de las etiquetas de un proyecto: alta, renombrado, color, descripción y borrado.
 
-    Si el proyecto está vinculado con un repositorio de GitHub, renombrar, cambiar el color
-    o borrar se aplica también allí (afecta a todos los issues que la lleven)."""
+    Si el proyecto está vinculado con un repositorio de GitHub, renombrar, cambiar el color o
+    la descripción y borrar se aplica también allí (afecta a todos los issues que la lleven)."""
 
     def __init__(
         self, parent: Gtk.Window, store: Store, proyecto_id: int, on_changed: Callable[[], None]
@@ -140,7 +140,16 @@ class LabelsDialog(Gtk.Window):
             self._lista.append(vacio)
             return
         for etiqueta in etiquetas:
-            fila = Gtk.Box(spacing=8, margin_top=6, margin_bottom=6, margin_start=8, margin_end=8)
+            tarjeta = Gtk.Box(
+                orientation=Gtk.Orientation.VERTICAL,
+                spacing=4,
+                margin_top=6,
+                margin_bottom=6,
+                margin_start=8,
+                margin_end=8,
+            )
+            fila = Gtk.Box(spacing=8)
+            tarjeta.append(fila)
             fila.append(
                 _SelectorColor(etiqueta.color, lambda c, e=etiqueta: self._on_color(c, e))
             )
@@ -163,7 +172,22 @@ class LabelsDialog(Gtk.Window):
             borrar.add_css_class("circular")
             borrar.connect("clicked", self._on_eliminar, etiqueta, n)
             fila.append(borrar)
-            self._lista.append(fila)
+
+            # GitHub limita la descripción de una etiqueta a 100 caracteres.
+            descripcion = Gtk.Entry(
+                text=etiqueta.descripcion,
+                placeholder_text=_("Descripción (opcional)"),
+                max_length=100,
+            )
+            descripcion.add_css_class("caption")
+            descripcion.connect("activate", self._on_descripcion, etiqueta)
+            foco_desc = Gtk.EventControllerFocus()
+            foco_desc.connect(
+                "leave", lambda _c, e=descripcion, t=etiqueta: self._on_descripcion(e, t)
+            )
+            descripcion.add_controller(foco_desc)
+            tarjeta.append(descripcion)
+            self._lista.append(tarjeta)
 
     def _mostrar_error(self, mensaje: str | None) -> None:
         self._error.set_visible(bool(mensaje))
@@ -201,6 +225,10 @@ class LabelsDialog(Gtk.Window):
         self._refrescar()
         self._on_changed()
         return GLib.SOURCE_REMOVE
+
+    def _on_descripcion(self, entrada: Gtk.Entry, etiqueta: Etiqueta) -> None:
+        self._sync.cambiar_descripcion_etiqueta(etiqueta.id, entrada.get_text())
+        self._on_changed()
 
     def _on_color(self, color: str, etiqueta: Etiqueta) -> None:
         self._sync.cambiar_color_etiqueta(etiqueta.id, color)

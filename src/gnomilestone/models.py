@@ -173,6 +173,7 @@ class Etiqueta:
     proyecto_id: int
     nombre: str
     color: str = "6e7781"  # hex sin «#», como lo da GitHub
+    descripcion: str = ""  # como la «description» de la etiqueta de GitHub (máx. 100 caracteres)
 
 
 # Secciones de la documentación del proyecto, en el orden en que se muestran.
