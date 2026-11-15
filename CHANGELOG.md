@@ -5,6 +5,18 @@ en este archivo.
 
 ## [Unreleased]
 
+### Added
+
+- Las notas de «Contexto del proyecto» (Visión general) llevan un icono propio, como los de la barra lateral de GitHub: libro para README, corazón sobre una mano para el código de conducta, dos personas para «Contribuyendo», balanza para la licencia y escudo para la seguridad. Se reconocen por el título, en español o en inglés (`README`, `Código de conducta`/`Code of conduct`, `Contribuyendo`/`Contributing`, `Licencia`/`License`/`COPYING`, `Seguridad`/`Security policy`), y son iconos simbólicos propios en `assets/icons`
+
+### Changed
+
+- Las fichas de persona de Recursos se dibujan plegadas la primera vez que aparecen (la elección del usuario se respeta después), y las cinco secciones del árbol de Documentación arrancan plegadas
+
+### Fixed
+
+- La tilde (tecla muerta) quedaba «flotando» en cualquier campo de texto hasta pasar a otro campo o borrar hacia atrás, llevándose además la última letra, con avisos `IBUS-WARNING … Type 'h' is not supported` en la terminal: IBus 1.5.29 con GTK4 no confirma la tecla muerta. La aplicación usa ahora el método de entrada integrado de GTK (`GTK_IM_MODULE=simple`) cuando la sesión usa `ibus`, a costa de los motores de IBus que componen caracteres (japonés, chino, coreano…); el resto de métodos no se tocan
+
 ## [0.1.0] - 2026-11-15
 
 ### Added
