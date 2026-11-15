@@ -84,7 +84,8 @@ proyecto (notas, diagramas y líneas de tiempo).
 - **Integración con GitHub**: vinculación opcional de un proyecto a un repositorio
   (y a un GitHub Project), con sincronización bidireccional de Issues (traer y crear
   tareas, enviar cambios de estado), de los campos del Project (incluidas las columnas
-  del tablero y la prioridad), de las etiquetas y de los comentarios; eliminar una tarea
+  del tablero y la prioridad), de las etiquetas (con su descripción) y de los comentarios;
+  las tareas conservan su columna al pasar a un tablero de GitHub, y eliminar una tarea
   borra también su issue.
 - **Preferencias**: selector de idioma (Sistema/Español/English) y de tema
   (Sistema/Claro/Oscuro), persistidos en `~/.config/gnomilestone/settings.json`.
@@ -186,7 +187,8 @@ diagrams and timelines).
 - **GitHub integration**: optionally link a project to a repository (and a GitHub
   Project), with two-way synchronization of Issues (pull and create tasks, push
   status changes), of the Project's fields (including the board columns and the
-  priority), of labels and of comments; deleting a task also deletes its issue.
+  priority), of labels (with their description) and of comments; tasks keep their column when
+  moving to a GitHub board, and deleting a task also deletes its issue.
 - **Preferences**: language selector (System/Español/English) and theme selector
   (System/Light/Dark), persisted in `~/.config/gnomilestone/settings.json`.
 
