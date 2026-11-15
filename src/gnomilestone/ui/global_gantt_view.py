@@ -50,9 +50,10 @@ class GlobalGanttView(Gtk.Box):
         self._mostrar_completadas_check.connect(
             "toggled", lambda _check: self._actualizar_gantt()
         )
-        panel_proyectos.append(self._mostrar_completadas_check)
-        self._checks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self._checks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, vexpand=True)
         panel_proyectos.append(self._checks_box)
+        panel_proyectos.append(Gtk.Separator())
+        panel_proyectos.append(self._mostrar_completadas_check)
         self.append(panel_proyectos)
 
         self._gantt = GanttView(
