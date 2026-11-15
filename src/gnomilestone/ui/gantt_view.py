@@ -10,7 +10,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import settings
-from gnomilestone.i18n import _
+from gnomilestone.i18n import N_, _
 from gnomilestone.models import Dependencia, Hito, Tarea
 from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
@@ -18,7 +18,13 @@ from gnomilestone.ui.gantt_drawing_area import GanttDrawingArea
 from gnomilestone.ui.task_tree_view import TareaRow, TaskTreeView
 
 _PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
-_ESCALAS = (("Diario", 80.0), ("Semanal", 36.0), ("Mensual", 18.0), ("Trimestral", 8.0), ("Anual", 4.0))
+_ESCALAS = (
+    ("Diario", N_("Diario"), 80.0),
+    ("Semanal", N_("Semanal"), 36.0),
+    ("Mensual", N_("Mensual"), 18.0),
+    ("Trimestral", N_("Trimestral"), 8.0),
+    ("Anual", N_("Anual"), 4.0),
+)
 
 
 class GanttView(Gtk.Box):
@@ -84,8 +90,8 @@ class GanttView(Gtk.Box):
         toolbar.append(zoom_in)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         grupo_escalas: Gtk.ToggleButton | None = None
-        for etiqueta, px_por_dia in _ESCALAS:
-            boton_escala = Gtk.ToggleButton(label=_(etiqueta))
+        for etiqueta, texto, px_por_dia in _ESCALAS:
+            boton_escala = Gtk.ToggleButton(label=_(texto))
             boton_escala.add_css_class("linked")
             if grupo_escalas is None:
                 grupo_escalas = boton_escala
