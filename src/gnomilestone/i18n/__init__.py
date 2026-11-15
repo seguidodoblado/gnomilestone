@@ -23,6 +23,11 @@ def _(message: str) -> str:
     return gettext.dgettext(DOMAIN, message)
 
 
+def N_(message: str) -> str:
+    """Marca un texto para extraerlo sin traducirlo aún (se traduce con ``_()`` al usarlo)."""
+    return message
+
+
 def codigo_idioma() -> str:
     """Código de idioma de la interfaz (p. ej. ``es``, ``en_us``). Fuente: ajustes
     (``LANGUAGE``), luego variables/locale del sistema; por defecto ``es`` (idioma fuente)."""

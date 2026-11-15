@@ -13,7 +13,6 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
 from gnomilestone import i18n, settings, theme
-from gnomilestone.ui.window import MainWindow
 
 APPLICATION_ID = "io.github.seguidodoblado.GnoMilestone"
 
@@ -46,6 +45,10 @@ class GnoMilestoneApplication(Gtk.Application):
             # recolore según el tema, también el oscuro. Funciona desde el código fuente y
             # en el .deb sin depender del tema de iconos del usuario.
             Gtk.IconTheme.get_for_display(Gdk.Display.get_default()).add_search_path(str(_ICONOS))
+            # Import diferido: los _() de nivel de módulo de la UI deben evaluarse tras
+            # fijar el idioma en main() (i18n.install()).
+            from gnomilestone.ui.window import MainWindow
+
             window = MainWindow(self)
         window.present()
 
