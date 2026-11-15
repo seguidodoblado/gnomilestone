@@ -1,9 +1,12 @@
 gnomilestone (0.1.0-1) noble; urgency=medium
 
-  * Primera versión: ventana principal, selector de idioma (Sistema/Español/
-    English) y de tema (Sistema/Claro/Oscuro), diálogo "Acerca de" y
-    empaquetado .deb con CI/CD. La gestión de proyectos, el diagrama de
-    Gantt, la tabla, el Kanban y la integración con GitHub llegan en
-    próximas versiones.
+  * Primera versión: gestor de proyectos de escritorio para GNOME con proyectos,
+    tareas y subtareas (jerarquía, dependencias, hitos, prioridad, tipo y
+    etiquetas), vistas Lista, Tablero, Gantt (también global), Recursos y Uso
+    de recursos, Informes en cinco pestañas con auditoría de cambios,
+    documentación propia de cada proyecto (notas, diagramas y línea de tiempo)
+    y sincronización bidireccional opcional con GitHub Issues y Projects.
+    Selector de idioma (Sistema/Español/English) y de tema
+    (Sistema/Claro/Oscuro), diálogo "Acerca de" y empaquetado .deb con CI/CD.
 
- -- Jose Antonio Seguido Doblado <jose.antonio.seguido@gmail.com>  Fri, 06 Nov 2026 12:00:00 +0100
+ -- José Antonio Seguido Doblado <jose.antonio.seguido@gmail.com>  Sun, 15 Nov 2026 15:37:27 +0100

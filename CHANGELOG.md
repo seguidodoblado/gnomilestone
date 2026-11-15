@@ -5,6 +5,8 @@ en este archivo.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-15
+
 ### Added
 
 - Las etiquetas tienen descripción (#78): se ve y se edita en la ventana de etiquetas (máx. 100 caracteres, como en GitHub), se envía al repositorio al cambiarla o al crear la etiqueta, y al sincronizar se traen todas las etiquetas del repositorio, también las que ningún issue lleva, con su color y descripción (una descripción vacía en GitHub no borra la local)
@@ -53,12 +55,21 @@ en este archivo.
 - Regla de fechas común al Gantt y a Uso (`ganttcalc.marcas_regla`): las escalas Trimestral y Anual marcan meses (con el año en enero), Mensual y Semanal semanas y Diario días; en Uso la escala Anual antes superponía las fechas
 - Fecha límite en la vista de Uso (#11): cada barra de asignación muestra su línea de holgura y su bandera con las mismas reglas de color de vencimiento que el Gantt (rojo, naranja o neutra según `dias_alerta_vencimiento`) y el mismo tooltip; el dibujo se comparte en `ui/limite_dibujo.py` y el lienzo crece lo necesario para que quepa la bandera
 - Las columnas del tablero se envían al campo Status del Project V2 vinculado al cerrar el diálogo de columnas (nombres, orden, altas y bajas); como GitHub regenera las opciones, se reasocian los ids y se restituye el estado de cada tarea. Los renombrados hechos en GitHub no se traen
+- Cada subsección de Documentación tiene su propio icono simbólico, distinto del de su sección y del de las demás (columna `icon_name`, migraciones 33 a 36: las bases existentes reciben los iconos por defecto sin pisar los que ya se hubieran puesto, y se reparan las que tenían el `orden` repetido en Arquitectura). Al crear o editar una subsección hay un selector de icono (cuadrícula de iconos del tema; «Por defecto» devuelve el genérico de su tipo), y las notas «Licencia», «License», «Licence» y «COPYING» de Visión general llevan una balanza (`balanza-symbolic`, icono propio porque el tema no tiene ninguno)
+- Los Informes nombran a las personas por su usuario de GitHub (`github_login`) cuando lo tienen, y por su nombre si no
 
 ### Changed
 
 - Al sincronizar un proyecto local con un Project V2 (#78), el tablero de GitHub sigue sustituyendo al local, pero las tareas ya no pierden su columna: se migran a la columna de la misma opción o del mismo nombre y, si una columna local con tareas no existe en GitHub, una ventana pregunta a qué columna remota pasan sus tareas (o si se quedan sin columna)
 - Se centraliza en `project_detail_view.py` la lógica de un proyecto (antes repartida en `window.py`), simplificando la ventana principal; `ordenar_jerarquicamente` (prefijos de conector para listados planos) pasa de `window.py` a `task_tree_view.py`, de donde ya la puede reutilizar la vista Tabla
 - **Documentos en doble idioma:** `CONTRIBUTING`, `README`, `SECURITY` y `SUPPORT` pasan a ser un único fichero con español e inglés (como `CODE_OF_CONDUCT.md`) y desaparecen sus versiones `.en.md`. En el README, el logotipo y los badges van una sola vez.
+- El autocompletado de Asignaciones en el diálogo de tarea solo ofrece personas, no equipos, medios ni lugares
+- La tarjeta «Trabajo por tipo y persona» de Informes pasa a llamarse «Tareas por tipo y persona»: cuenta tareas, no trabajo
+- El historial de un cambio de columna guarda también el nombre de la columna anterior y de la nueva (en `detalle`), así que sigue legible si la columna se elimina; los eventos antiguos de una columna ya eliminada muestran «(columna eliminada)» en vez de su número
+- El botón «Añadir tareas…» de la vista Hitos toma el color de su tarjeta (sombra translúcida, como el chip) en vez de un tono crema
+- Las subsecciones fijas de Blueprint quedan alineadas con las editables (les faltaba el hueco de la flecha de despliegue)
+- Mejoras estéticas en el tema claro: columnas y tarjetas del Tablero y velo del Gantt global con contraste propio, panel del Gantt global con separador, y nuevo icono de Informes
+- Las cadenas traducibles de nivel de módulo de la interfaz se evalúan tras fijar el idioma (import diferido de `MainWindow`) y `i18n-extract.sh` extrae también las marcadas con `N_()`, con lo que se aplican traducciones que no se estaban aplicando
 
 ### Fixed
 
@@ -69,3 +80,6 @@ en este archivo.
 - Redimensionar una tarea con nietas (hija de hija) no las recortaba si ya no cabían, solo a las hijas directas; `limitar_hijos_tras_redimensionar` ahora recorta en cascada a cualquier profundidad
 - Las filas del árbol de tareas no tenían la misma altura que las barras del Gantt (el tema añade su propio relleno vertical por encima de los 32px fijados), desalineando ambos; se anula ese relleno por CSS
 - Un hito se podía guardar sin fecha, quedando invisible en el Gantt sin ningún aviso (no hay dónde situar un punto en el tiempo sin fecha); el diálogo de tarea ahora la exige cuando "Es un hito" está marcado
+- Enviar una tarea a GitHub fallaba con un 422 («assignees … invalid») cuando una persona asignada se llamaba con su nombre completo: ahora los asignados se envían por su usuario de GitHub y una persona sin él se omite en vez de hacer fallar el envío de la tarea entera
+- Al añadir un issue a un Project V2, GitHub respondía «Content already exists in this project» si ya estaba dentro y la tarea se quedaba sin su item (y sin poder enviar columna ni fechas): ahora se reutiliza el item que el proyecto ya tiene
+- Soltar una tarjeta en el Tablero y mover tareas al eliminar una columna reconstruían la vista dentro del propio evento, con riesgo de cierre inesperado de la aplicación (SIGSEGV al pintar): el refresco se difiere hasta que termina el arrastre o se cierra la ventana, y el icono del arrastre se libera al terminar
