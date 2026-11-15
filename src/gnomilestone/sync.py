@@ -15,7 +15,7 @@ from gnomilestone.github import (
 )
 from gnomilestone.hitos import esta_conseguido
 from gnomilestone.i18n import _
-from gnomilestone.models import Hito, Recurso, Tarea
+from gnomilestone.models import EstadoTablero, Hito, Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
 from gnomilestone.store import ESTADOS_POR_DEFECTO, Store
 from gnomilestone.tipos import nombre_remoto, tipo_desde_github
@@ -121,12 +121,51 @@ class GitHubSyncManager:
 
     # -- Pull (GitHub -> GnoMilestone) ---------------------------------------
 
-    def pull_proyecto(self, proyecto_id: int) -> SyncResult:
-        """Sincroniza desde GitHub hacia el proyecto local."""
-        with _BLOQUEO_PROYECTO:
-            return self._pull_proyecto(proyecto_id)
+    def columnas_sin_equivalente(
+        self, proyecto_id: int
+    ) -> tuple[list[tuple[EstadoTablero, int]], list[GitHubStatusOption]]:
+        """Columnas locales con tareas que el tablero del Project V2 vinculado no reconoce
+        (ni por id de opción ni por nombre), con su número de tareas, y las opciones remotas.
+        Son las que el pull no sabría dónde migrar: la interfaz pregunta por ellas."""
+        proyecto = self._store.obtener_proyecto(proyecto_id)
+        if not (proyecto and proyecto.github_repo_owner and proyecto.github_project_v2_id):
+            return [], []
+        valor = proyecto.github_project_v2_id
+        num = int(valor) if valor.isdigit() else None
+        if num is None:
+            for p in self._client.listar_proyectos_v2(proyecto.github_repo_owner):
+                if p.id == valor:
+                    num = p.number
+                    break
+        if num is None:
+            return [], []
+        _meta, remotas, _items = self._client.obtener_detalles_proyecto_v2(
+            proyecto.github_repo_owner, num
+        )
+        ids = {o.id for o in remotas}
+        nombres = {o.name.casefold() for o in remotas}
+        sin_equivalente = []
+        for estado in self._store.listar_estados(proyecto_id):
+            n = self._store.contar_tareas_en_estado(estado.id)
+            reconocida = estado.github_option_id in ids or estado.nombre.casefold() in nombres
+            if reconocida:
+                continue
+            if n:
+                sin_equivalente.append((estado, n))
+        return sin_equivalente, list(remotas)
 
-    def _pull_proyecto(self, proyecto_id: int) -> SyncResult:
+    def pull_proyecto(
+        self, proyecto_id: int, columnas_a_opciones: dict[int, str | None] | None = None
+    ) -> SyncResult:
+        """Sincroniza desde GitHub hacia el proyecto local. `columnas_a_opciones` (id de
+        columna local -> id de opción remota, o None para dejarla sin columna) dice a dónde
+        migrar las tareas de columnas sin equivalente; el resto se migra solo."""
+        with _BLOQUEO_PROYECTO:
+            return self._pull_proyecto(proyecto_id, columnas_a_opciones or {})
+
+    def _pull_proyecto(
+        self, proyecto_id: int, columnas_a_opciones: dict[int, str | None]
+    ) -> SyncResult:
         resultado = SyncResult()
         proyecto = self._store.obtener_proyecto(proyecto_id)
         if not proyecto:
@@ -182,6 +221,8 @@ class GitHubSyncManager:
                     # Se quita la columna a todas las tareas y se borran las columnas
                     # actuales antes de recrearlas: PRAGMA foreign_keys=ON impide borrar
                     # una columna con tareas (ON DELETE RESTRICT), de ahí el orden.
+                    estado_previo = self._store.estados_de_tareas(proyecto_id)
+                    estados_previos = {e.id: e for e in estados_existentes}
                     self._store.limpiar_estado_de_tareas(proyecto_id)
                     self._store.eliminar_estados_de_proyecto(proyecto_id)
 
@@ -203,6 +244,24 @@ class GitHubSyncManager:
                         resultado.estados_creados += 1
                         estados_existentes.append(nuevo_estado)
                         status_map[opt.id] = nuevo_estado.id
+
+                    # Migración de las tareas a su nueva columna: la elegida por el usuario,
+                    # si no la de la misma opción de GitHub y, si no, la del mismo nombre.
+                    # Si el item trae su propio Status, el de GitHub manda más abajo.
+                    por_nombre = {e.nombre.casefold(): e.id for e in estados_existentes}
+                    destino: dict[int, int] = {}
+                    for viejo in estados_previos.values():
+                        if viejo.id in columnas_a_opciones:
+                            nuevo_id = status_map.get(columnas_a_opciones[viejo.id] or "")
+                        else:
+                            nuevo_id = status_map.get(viejo.github_option_id or "") or por_nombre.get(
+                                viejo.nombre.casefold()
+                            )
+                        if nuevo_id:
+                            destino[viejo.id] = nuevo_id
+                    self._store.reasignar_estados(
+                        {t: destino[e] for t, e in estado_previo.items() if e in destino}
+                    )
 
                     if cambios_en_tablero and not any(e.es_final for e in estados_existentes):
                         resultado.avisos.append(
