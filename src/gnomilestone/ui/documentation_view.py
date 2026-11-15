@@ -76,15 +76,32 @@ _ICONO_FECHA = "x-office-calendar-symbolic"
 _ICONO_VERSION = "document-open-recent-symbolic"
 _ICONO_NOTAS = "text-x-generic-symbolic"  # subsecciones editables de notas
 _ICONO_DIAGRAMAS = "media-playlist-shuffle-symbolic"  # subsecciones de diagramas
-_ICONO_LICENCIA = "balanza-symbolic"  # icono propio (assets/icons), no está en el tema
-_TITULOS_LICENCIA = frozenset({"licencia", "license", "licence", "copying"})
+# Iconos propios (assets/icons, no están en el tema) de las notas de «Contexto del proyecto»,
+# como los de la barra lateral de GitHub; se reconocen por el título, en español o en inglés.
+_ICONOS_CONTEXTO = {
+    "readme": "readme-symbolic",
+    "código de conducta": "codigo-conducta-symbolic",
+    "code of conduct": "codigo-conducta-symbolic",
+    "contribuyendo": "contribuir-symbolic",
+    "contributing": "contribuir-symbolic",
+    "licencia": "balanza-symbolic",
+    "license": "balanza-symbolic",
+    "licence": "balanza-symbolic",
+    "copying": "balanza-symbolic",
+    "seguridad": "seguridad-symbolic",
+    "security": "seguridad-symbolic",
+    "security policy": "seguridad-symbolic",
+}
 
 
 def _icono_de_nota(titulo: str, seccion: str) -> str:
-    """Las notas de licencia de Visión general llevan la balanza; el resto, el icono de nota."""
-    if seccion == "vision_general" and titulo.strip().casefold() in _TITULOS_LICENCIA:
-        return _ICONO_LICENCIA
+    """Las notas de Visión general con nombre de fichero de comunidad (README, código de
+    conducta, contribuir, licencia, seguridad) llevan su icono; el resto, el de nota."""
+    if seccion == "vision_general":
+        return _ICONOS_CONTEXTO.get(titulo.strip().casefold(), _ICONO_NOTAS)
     return _ICONO_NOTAS
+
+
 _FIJAS = {
     "blueprint": (
         ("historial", _("Historial")),
@@ -152,7 +169,8 @@ class DocumentationView(Gtk.Box):
         self._nivel: int | None = None  # nota cuyas subpáginas se ven (None = nivel raíz)
         # Nodos desplegados del árbol de navegación: ('sub', id) y ('nota', id).
         self._expandidos: set[tuple[str, int]] = set()
-        self._secciones_plegadas: set[str] = set()  # secciones principales plegadas
+        # Secciones principales plegadas: el árbol arranca con todas plegadas.
+        self._secciones_plegadas: set[str] = {clave for clave, _nombre in _SECCIONES}
 
         # Panel de navegación (árbol) a la izquierda, con el ancho ajustable arrastrando.
         panel = Gtk.Paned(

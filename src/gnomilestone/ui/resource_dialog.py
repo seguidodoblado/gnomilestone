@@ -148,6 +148,7 @@ class ResourceView(Gtk.Box):
         self._on_changed = on_changed
         self._filtro_categoria = "personas"
         self._plegadas: set[int] = set()  # personas con la tarjeta plegada
+        self._vistas: set[int] = set()  # personas cuya tarjeta ya se ha dibujado alguna vez
 
         # Se crean antes que el filtro: activar su primer botón dispara refrescar(), que
         # ya necesita _flujo/_vacio existentes.
@@ -583,6 +584,11 @@ class ResourceView(Gtk.Box):
         for boton in (edit_button, delete_button, toggle):
             botones.append(boton)
         cabecera.append(botones)
+        if persona.id not in self._vistas:
+            # La primera vez que se dibuja, la tarjeta nace plegada; luego se respeta lo que
+            # el usuario haga (desplegarla, o plegar y desplegar todas a la vez).
+            self._vistas.add(persona.id)
+            self._plegadas.add(persona.id)
         aplicar_plegado(persona.id in self._plegadas)
 
         tarjeta.append(Gtk.Separator())

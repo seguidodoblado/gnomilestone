@@ -130,3 +130,22 @@ def test_eventos_pasados_cuenta_los_anteriores_a_hoy():
     assert eventos_pasados(eventos, date(2026, 10, 1)) == 0
     assert eventos_pasados(eventos, date(2027, 1, 1)) == 4
     assert eventos_pasados([], date(2026, 11, 12)) == 0
+
+
+def test_iconos_de_las_notas_de_contexto():
+    from gnomilestone.ui.documentation_view import _icono_de_nota
+
+    esperados = {
+        "README": "readme-symbolic",
+        "Código de conducta": "codigo-conducta-symbolic",
+        "Contribuyendo": "contribuir-symbolic",
+        "Licencia": "balanza-symbolic",
+        "COPYING": "balanza-symbolic",
+        "Seguridad": "seguridad-symbolic",
+        "Security policy": "seguridad-symbolic",
+    }
+    for titulo, icono in esperados.items():
+        assert _icono_de_nota(titulo, "vision_general") == icono
+    # Fuera de Visión general, o con otro título, la nota lleva el icono genérico.
+    assert _icono_de_nota("README", "arquitectura") == "text-x-generic-symbolic"
+    assert _icono_de_nota("Otra nota", "vision_general") == "text-x-generic-symbolic"

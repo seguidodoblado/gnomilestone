@@ -18,3 +18,18 @@ def test_read_settings_corrupt_file_returns_empty_dict(tmp_path, monkeypatch):
     path.write_text("not json", encoding="utf-8")
     monkeypatch.setattr(settings, "SETTINGS_PATH", path)
     assert settings.read_settings() == {}
+
+
+def test_el_paquete_evita_el_metodo_de_entrada_ibus_de_gtk4():
+    import subprocess
+    import sys
+
+    def modulo(valor: str) -> str:
+        entorno = {**__import__("os").environ, "GTK_IM_MODULE": valor, "PYTHONPATH": "src"}
+        return subprocess.run(
+            [sys.executable, "-c", "import os, gnomilestone; print(os.environ['GTK_IM_MODULE'])"],
+            capture_output=True, text=True, env=entorno, check=True,
+        ).stdout.strip()
+
+    assert modulo("ibus") == "simple"
+    assert modulo("fcitx") == "fcitx"  # solo se sustituye IBus
