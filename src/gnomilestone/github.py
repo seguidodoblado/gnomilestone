@@ -785,13 +785,30 @@ class GitHubClient:
         except (ValueError, UnicodeDecodeError):
             return None
 
-    def crear_etiqueta(self, owner: str, repo: str, nombre: str, color: str) -> None:
-        """Crea la etiqueta en el repositorio con su color; si ya existe (422) no hace nada."""
+    def listar_etiquetas_repo(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Todas las etiquetas del repositorio (nombre, color y descripción), paginado."""
+        resultado: list[dict[str, Any]] = []
+        pagina = 1
+        while True:
+            lote = self._request(f"repos/{owner}/{repo}/labels?per_page=100&page={pagina}")
+            if not lote:
+                break
+            resultado.extend(lote)
+            if len(lote) < 100:
+                break
+            pagina += 1
+        return resultado
+
+    def crear_etiqueta(
+        self, owner: str, repo: str, nombre: str, color: str, descripcion: str = ""
+    ) -> None:
+        """Crea la etiqueta en el repositorio con su color y descripción; si ya existe (422)
+        no hace nada."""
         try:
             self._request(
                 f"repos/{owner}/{repo}/labels",
                 method="POST",
-                data={"name": nombre, "color": color.lstrip("#")},
+                data={"name": nombre, "color": color.lstrip("#"), "description": descripcion},
             )
         except GitHubError as e:
             if "422" not in str(e):
@@ -866,12 +883,15 @@ class GitHubClient:
         nombre: str,
         nuevo_nombre: str | None = None,
         color: str | None = None,
+        descripcion: str | None = None,
     ) -> None:
         data: dict[str, Any] = {}
         if nuevo_nombre is not None:
             data["new_name"] = nuevo_nombre
         if color is not None:
             data["color"] = color.lstrip("#")
+        if descripcion is not None:
+            data["description"] = descripcion
         self._request(
             f"repos/{owner}/{repo}/labels/{urllib.parse.quote(nombre, safe='')}",
             method="PATCH",

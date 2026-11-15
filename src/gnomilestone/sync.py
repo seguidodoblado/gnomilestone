@@ -311,6 +311,7 @@ class GitHubSyncManager:
 
         # Los Milestones se traen antes que las tareas para poder enlazar cada una con su Hito.
         if repo_name:
+            self._pull_etiquetas_repo(proyecto_id, owner, repo_name, resultado)
             self._pull_milestones(proyecto_id, owner, repo_name, resultado)
         hitos_de = {}
         for h in self._store.listar_hitos(proyecto_id):
@@ -818,9 +819,53 @@ class GitHubSyncManager:
                     self._client.actualizar_etiqueta(*repo, etiqueta.nombre, color=color)
                 except GitHubNotFoundError:
                     # No existe todavía en el repositorio: se crea ya con su color.
-                    self._client.crear_etiqueta(*repo, etiqueta.nombre, color)
+                    self._client.crear_etiqueta(
+                        *repo, etiqueta.nombre, color, etiqueta.descripcion
+                    )
 
             self._en_remoto(_recolorear, "cambiar el color de la etiqueta", en_segundo_plano)
+
+    def cambiar_descripcion_etiqueta(
+        self, etiqueta_id: int, descripcion: str, *, en_segundo_plano: bool = True
+    ) -> None:
+        etiqueta = self._store.obtener_etiqueta(etiqueta_id)
+        descripcion = descripcion.strip()
+        if etiqueta is None or etiqueta.descripcion == descripcion:
+            return
+        self._store.actualizar_descripcion_etiqueta(etiqueta_id, descripcion)
+        repo = self._repo_de(etiqueta.proyecto_id)
+        if repo:
+            def _describir() -> None:
+                try:
+                    self._client.actualizar_etiqueta(
+                        *repo, etiqueta.nombre, descripcion=descripcion
+                    )
+                except GitHubNotFoundError:
+                    # No existe todavía en el repositorio: se crea ya con su descripción.
+                    self._client.crear_etiqueta(
+                        *repo, etiqueta.nombre, etiqueta.color, descripcion
+                    )
+
+            self._en_remoto(_describir, "cambiar la descripción de la etiqueta", en_segundo_plano)
+
+    def _pull_etiquetas_repo(
+        self, proyecto_id: int, owner: str, repo_name: str, resultado: SyncResult
+    ) -> None:
+        """Trae las etiquetas del repositorio (también las que ningún issue lleva) con su color
+        y descripción. Se emparejan con las locales por nombre, sin distinguir mayúsculas."""
+        try:
+            for remota in self._client.listar_etiquetas_repo(owner, repo_name):
+                if not (remota.get("name") or "").strip():
+                    continue
+                self._store.asegurar_etiqueta(
+                    proyecto_id,
+                    remota["name"],
+                    remota.get("color"),
+                    remota.get("description") or None,
+                )
+        except Exception as e:
+            log.exception("Error al traer las etiquetas del repositorio")
+            resultado.errores.append(f"Error sincronizando etiquetas de {owner}/{repo_name}: {e}")
 
     def eliminar_etiqueta(self, etiqueta_id: int, *, en_segundo_plano: bool = True) -> None:
         """Borra la etiqueta de todas las tareas y, si hay repositorio vinculado, de GitHub
@@ -1063,7 +1108,9 @@ class GitHubSyncManager:
         for etiqueta in anadidas:
             if etiqueta.nombre.casefold() not in {n.casefold() for n in remotas}:
                 try:
-                    self._client.crear_etiqueta(owner, repo, etiqueta.nombre, etiqueta.color)
+                    self._client.crear_etiqueta(
+                        owner, repo, etiqueta.nombre, etiqueta.color, etiqueta.descripcion
+                    )
                 except Exception:
                     log.exception("No se pudo crear la etiqueta %s en GitHub", etiqueta.nombre)
         resultado = [n for n in remotas if n.casefold() not in quitadas]

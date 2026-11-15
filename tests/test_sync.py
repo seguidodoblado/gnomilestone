@@ -380,7 +380,7 @@ class _ClienteEtiquetas:
     def obtener_issue(self, owner, repo, number):
         return {"labels": [{"name": n} for n in self.remotas]}
 
-    def crear_etiqueta(self, owner, repo, nombre, color):
+    def crear_etiqueta(self, owner, repo, nombre, color, descripcion=""):
         self.etiquetas_creadas.append((nombre, color))
 
     def actualizar_issue(self, **kwargs):
@@ -594,7 +594,7 @@ def test_gestion_de_etiquetas_tolera_que_no_exista_en_github(tmp_path):
         def eliminar_etiqueta(self, *args):
             raise GitHubNotFoundError("404")
 
-        def crear_etiqueta(self, owner, repo, nombre, color):
+        def crear_etiqueta(self, owner, repo, nombre, color, descripcion=""):
             self.creadas.append((nombre, color))
 
     store, proyecto, _tarea = _proyecto_con_issue(tmp_path)
