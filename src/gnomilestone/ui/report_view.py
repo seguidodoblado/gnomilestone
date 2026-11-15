@@ -167,6 +167,7 @@ class ReportView(Gtk.Box):
     def _preparar_estilo(self, cr) -> None:
         ajustes = Gtk.Settings.get_default()
         oscuro = bool(ajustes and "dark" in (ajustes.get_property("gtk-theme-name") or "").lower())
+        self._oscuro = oscuro
         self._text_color = (0.90, 0.90, 0.92) if oscuro else (0.20, 0.20, 0.20)
         if ajustes:
             font_name = ajustes.get_property("gtk-font-name") or "Sans 11"
@@ -388,7 +389,8 @@ class ReportView(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _draw_panel(self, cr, x: int, y: int, width: int, height: int) -> None:
-        cr.set_source_rgba(0.12, 0.13, 0.15, 0.36)
+        # Tema claro: velo oscuro muy tenue para que la card no quede en un gris sucio.
+        cr.set_source_rgba(*((0.12, 0.13, 0.15, 0.36) if getattr(self, "_oscuro", True) else (0.12, 0.13, 0.15, 0.06)))
         cr.rectangle(x, y, width, height)
         cr.fill()
         cr.set_source_rgba(0.45, 0.47, 0.52, 0.45)

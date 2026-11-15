@@ -4,7 +4,6 @@ import logging
 import threading
 from collections.abc import Callable
 from datetime import date, timedelta
-from pathlib import Path
 
 import gi
 
@@ -45,7 +44,7 @@ _VISTAS_RAIL = (
     ("gantt", "view-continuous-symbolic", _("Gantt"), _("Gantt")),
     ("recursos", "system-users-symbolic", _("Recursos"), _("Recursos")),
     ("uso", "preferences-system-time-symbolic", _("Uso"), _("Uso de recursos")),
-    ("informes", "x-office-chart-bar-symbolic", _("Informes"), _("Informes del proyecto")),
+    ("informes", "informes-symbolic", _("Informes"), _("Informes del proyecto")),
     (
         "documentacion",
         "accessories-dictionary-symbolic",
@@ -55,7 +54,6 @@ _VISTAS_RAIL = (
 )
 
 _css_rail_aplicado = False
-_REPORT_ICON = Path(__file__).resolve().parent.parent / "assets" / "mintinstall-office-symbolic.svg"
 def _asegurar_css_rail() -> None:
     global _css_rail_aplicado
     if _css_rail_aplicado:
@@ -209,10 +207,7 @@ class ProjectDetailView(Gtk.Box):
             boton.set_tooltip_text(tooltip)
             cuerpo = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             cuerpo.set_halign(Gtk.Align.CENTER)
-            if nombre == "informes":
-                imagen = Gtk.Image.new_from_file(str(_REPORT_ICON))
-            else:
-                imagen = Gtk.Image.new_from_icon_name(icono)
+            imagen = Gtk.Image.new_from_icon_name(icono)
             imagen.set_pixel_size(28)
             cuerpo.append(imagen)
             texto = Gtk.Label(label=etiqueta)

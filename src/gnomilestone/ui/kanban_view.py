@@ -63,6 +63,8 @@ def _asegurar_css_columnas() -> None:
     global _css_columnas_aplicado
     if _css_columnas_aplicado:
         return
+    ajustes = Gtk.Settings.get_default()
+    oscuro = bool(ajustes and "dark" in (ajustes.get_property("gtk-theme-name") or "").lower())
     reglas_color = "\n".join(
         f".{_CLASE_COLUMNA_PREFIJO}{indice} {{ border-top: 3px solid {color}; }}\n"
         # Mismo color arriba de cada tarjeta: hoy hereda el de su columna; cuando haya
@@ -79,20 +81,21 @@ def _asegurar_css_columnas() -> None:
     # misma franja de color arriba a juego con su columna.
     reglas = (
         ".gnomilestone-columna-fondo { "
-        "background-color: alpha(black, 0.18); border-radius: 12px; }\n"
+        f"background-color: alpha(black, {0.18 if oscuro else 0.06}); border-radius: 12px; }}\n"
+
         # El viewport del ScrolledWindow pinta fondo opaco encima de la columna.
         ".gnomilestone-columna-fondo scrolledwindow, "
         ".gnomilestone-columna-fondo viewport { "
         "background-color: transparent; background-image: none; }\n"
         ".card.gnomilestone-tarjeta { "
         "padding: 8px 10px; "
-        "background-color: alpha(@view_fg_color, 0.20); "
+        f"background-color: alpha(@view_fg_color, {0.20 if oscuro else 0.08}); "
         "background-image: none; "
         "border: none; "
         "border-radius: 10px; "
         "box-shadow: none; }\n"
         ".card.gnomilestone-tarjeta:hover { "
-        "background-color: alpha(@view_fg_color, 0.28); "
+        f"background-color: alpha(@view_fg_color, {0.28 if oscuro else 0.14}); "
         "background-image: none; }\n"
         # Línea que marca dónde caerá la tarjeta arrastrada.
         ".gnomilestone-indicador-drop { "
