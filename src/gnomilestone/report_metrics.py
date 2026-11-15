@@ -425,7 +425,7 @@ def resultados_por_recurso(
             urgentes=sum(t.prioridad >= ALTA for t in abiertas),
             vencidas=sum(estado_vencimiento(t, hoy) == VENCIDA for t in abiertas),
         ))
-    return sorted(filas, key=lambda f: (-f.estancadas, -f.vencidas, -f.en_curso, f.recurso.nombre.casefold()))
+    return sorted(filas, key=lambda f: (-f.estancadas, -f.vencidas, -f.en_curso, f.recurso.nombre_informe.casefold()))
 
 
 @dataclass(frozen=True)
@@ -470,4 +470,4 @@ def trabajo_por_tipo(
             if cuenta(por_tarea[i]):
                 por_tipo[por_tarea[i].tipo] += 1
         filas.append(TrabajoPorTipo(recurso, dict(por_tipo)))
-    return sorted(filas, key=lambda f: (-f.total, f.recurso.nombre.casefold()))
+    return sorted(filas, key=lambda f: (-f.total, f.recurso.nombre_informe.casefold()))

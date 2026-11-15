@@ -1224,7 +1224,9 @@ class TaskDialog(Gtk.Window):
         return [
             r.nombre
             for r in self._store.listar_recursos(self._proyecto_id)
-            if r.id not in asignados and (not texto or texto in r.nombre.casefold())
+            if r.categoria == "personas"
+            and r.id not in asignados
+            and (not texto or texto in r.nombre.casefold())
         ]
 
     def _on_recurso_sugerido(self, nombre: str) -> None:

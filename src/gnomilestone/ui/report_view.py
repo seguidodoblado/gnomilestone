@@ -254,7 +254,7 @@ class ReportView(Gtk.Box):
         self._asignaciones = asignaciones or []
         reparto = sorted(
             reparto_por_recurso(self._recursos, tareas, self._asignaciones),
-            key=lambda fila: (-fila.tareas, -fila.progreso_medio, fila.recurso.nombre.casefold()),
+            key=lambda fila: (-fila.tareas, -fila.progreso_medio, fila.recurso.nombre_informe.casefold()),
         )
         sin_tareas = sum(fila.tareas == 0 for fila in reparto)
         critica = ruta_critica(tareas, dependencias or [])
@@ -462,7 +462,7 @@ class ReportView(Gtk.Box):
             yy = y + 22 + i * 31
             cr.set_source_rgb(*self._text_color)
             cr.move_to(x, yy + 14)
-            cr.show_text(fila.recurso.nombre[:14])
+            cr.show_text(fila.recurso.nombre_informe[:14])
             self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
             cr.set_source_rgba(0.12, 0.22, 0.38, 0.75)
             cr.fill()
@@ -512,7 +512,7 @@ class ReportView(Gtk.Box):
             yy = y + 22 + i * 31
             cr.set_source_rgb(*self._text_color)
             cr.move_to(x, yy + 14)
-            cr.show_text(fila.recurso.nombre[:14])
+            cr.show_text(fila.recurso.nombre_informe[:14])
             total = fila.hechas + fila.en_curso + fila.pendientes
             self._rounded_rectangle(cr, bx, yy, bw, 20, 10)
             cr.set_source_rgba(0.12, 0.22, 0.38, 0.75)
@@ -1496,7 +1496,7 @@ class ReportView(Gtk.Box):
             cr.set_source_rgb(*self._text_color)
             cr.set_font_size(max(12, self._font_size))
             cr.move_to(x, yy + 12)
-            cr.show_text(fila.recurso.nombre[:14])
+            cr.show_text(fila.recurso.nombre_informe[:14])
             bx = x + min(100, width * 0.42)
             bw = max(20, width - (bx - x) - 8)
             bar_y, bar_h, radius = yy, 20, 10

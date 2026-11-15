@@ -481,7 +481,7 @@ class KanbanView(Gtk.Box):
         origen = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
         origen.connect("prepare", self._on_preparar_arrastre, tarea.id)
         origen.connect("drag-begin", self._on_arrastre_iniciado, tarjeta)
-        origen.connect("drag-end", lambda *_a: self._quitar_indicador())
+        origen.connect("drag-end", self._on_arrastre_terminado)
         tarjeta.add_controller(origen)
 
         # Soltar sobre una tarjeta la coloca antes o después de ella (mitad superior/inferior).
@@ -574,6 +574,12 @@ class KanbanView(Gtk.Box):
         return Gdk.ContentProvider.new_for_value(valor)
 
 
+    def _on_arrastre_terminado(self, origen: Gtk.DragSource, *_a) -> None:
+        self._quitar_indicador()
+        # Suelta el icono del arrastre (un WidgetPaintable de la tarjeta): así no queda
+        # apuntando a un widget que el refresco siguiente va a destruir.
+        origen.set_icon(None, 0, 0)
+
     @staticmethod
     def _on_arrastre_iniciado(origen: Gtk.DragSource, _drag: Gdk.Drag, tarjeta: Gtk.Widget) -> None:
         # El icono del arrastre es la propia tarjeta (no el icono genérico de documento).
@@ -623,11 +629,21 @@ class KanbanView(Gtk.Box):
             self._store.reordenar_tareas(nuevo)
         if not (cambia_columna or cambia_orden):
             return False
+        # No se refresca dentro del propio callback de soltar: reconstruir el tablero mientras
+        # el arrastre sigue activo destruye la tarjeta arrastrada (y su icono de arrastre) en
+        # pleno evento. Se difiere a que el arrastre haya terminado.
+        # Posible mejora, solo si esto no resolviera los cierres (SIGSEGV en el renderizado):
+        # no reconstruir todo, sino mover/actualizar solo la tarjeta o columna afectada,
+        # como hace Planify (mapas id → widget).
+        GLib.idle_add(self._refrescar_tras_soltar)
+        return True
+
+    def _refrescar_tras_soltar(self) -> bool:
         if self._on_cambio is not None:
             self._on_cambio()  # refresca también Tabla/Gantt, y de paso este tablero
         else:
             self.refrescar()
-        return True
+        return GLib.SOURCE_REMOVE
 
     def _avisar_dependencias(
         self, tarea: Tarea, estado_id: int, referencia_id: int | None, despues: bool

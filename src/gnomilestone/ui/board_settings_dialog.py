@@ -5,7 +5,7 @@ from collections.abc import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
 
 from gnomilestone.i18n import _
 from gnomilestone.models import EstadoTablero
@@ -211,14 +211,20 @@ class BoardSettingsDialog(Gtk.Window):
             self._store.mover_tareas_a_estado(origen.id, destino.id)
             self._store.eliminar_estado(origen.id)
             selector.close()
-            self._refresh()
-            self._on_changed()
+            # Refresca cuando la ventana modal ya se ha cerrado, no dentro de su señal:
+            # reconstruir las filas y el tablero a la vez que se cierra provoca fallos de GTK.
+            GLib.timeout_add(250, self._refrescar_tras_cerrar)
 
         confirm_button = Gtk.Button(label=_("Mover y eliminar"))
         confirm_button.add_css_class("destructive-action")
         confirm_button.connect("clicked", _confirmar)
         box.append(confirm_button)
         selector.present()
+
+    def _refrescar_tras_cerrar(self) -> bool:
+        self._refresh()
+        self._on_changed()
+        return GLib.SOURCE_REMOVE
 
     def _mostrar_error(self, mensaje: str) -> None:
         dialog = Gtk.AlertDialog()

@@ -142,6 +142,11 @@ class Recurso:
     # equipo, caducidad de una licencia, dirección de un lugar…
     detalles: dict[str, str] = field(default_factory=dict)
 
+    @property
+    def nombre_informe(self) -> str:
+        """Cómo se nombra al recurso en los informes: su usuario de GitHub, si lo tiene."""
+        return self.github_login or self.nombre
+
 
 @dataclass
 class Asignacion:

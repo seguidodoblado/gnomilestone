@@ -1191,7 +1191,13 @@ class GitHubSyncManager:
         owner = proyecto.github_repo_owner
         repo = proyecto.github_repo_name
 
-        asignados = [r.nombre for r in self._store.listar_recursos_de_tarea(tarea_id)]
+        # GitHub solo acepta logins: un recurso sin `github_login` (p. ej. un nombre completo)
+        # haría fallar el envío entero con un 422, así que no se manda.
+        asignados = [
+            r.github_login
+            for r in self._store.listar_recursos_de_tarea(tarea_id)
+            if r.github_login
+        ]
 
         try:
             # 1. Si ya tiene issue number asociado, actualizar el issue en GitHub
@@ -1249,12 +1255,28 @@ class GitHubSyncManager:
             v2 = proyecto.github_project_v2_id
             if v2 and v2.isdigit() and repo and tarea.github_issue_number and not tarea.github_item_id:
                 try:
-                    meta_v2, _o, _i = self._client.obtener_detalles_proyecto_v2(owner, int(v2))
+                    meta_v2, _o, items_v2 = self._client.obtener_detalles_proyecto_v2(owner, int(v2))
                     node_id = self._client.obtener_issue(
                         owner, repo, tarea.github_issue_number
                     ).get("node_id")
                     if node_id:
-                        item_id = self._client.anadir_item_v2(meta_v2["id"], node_id)
+                        try:
+                            item_id = self._client.anadir_item_v2(meta_v2["id"], node_id)
+                        except GitHubError as error:
+                            # GitHub a veces rechaza añadir un issue que ya está en el proyecto
+                            # («Content already exists»): en ese caso se reutiliza su item.
+                            if "already exists" not in str(error):
+                                raise
+                            item_id = next(
+                                (
+                                    i.id
+                                    for i in items_v2
+                                    if i.issue_number == tarea.github_issue_number
+                                ),
+                                None,
+                            )
+                            if item_id is None:
+                                raise
                         self._store.vincular_item_github(tarea.id, item_id)
                         tarea.github_item_id = item_id
                 except GitHubError:

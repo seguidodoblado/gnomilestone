@@ -903,3 +903,12 @@ def test_persona_guarda_usuario_de_github(store) -> None:
     ana.github_login = "ana-g"
     store.actualizar_recurso(ana)
     assert store.listar_recursos(proyecto.id)[0].github_login == "ana-g"
+
+
+def test_nombre_informe_prefiere_el_usuario_de_github():
+    from gnomilestone.models import Recurso
+
+    con_login = Recurso(1, 1, "José Antonio Seguido Doblado", github_login="seguidodoblado")
+    sin_login = Recurso(2, 1, "Ana López")
+    assert con_login.nombre_informe == "seguidodoblado"
+    assert sin_login.nombre_informe == "Ana López"

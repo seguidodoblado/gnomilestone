@@ -101,8 +101,11 @@ def test_sync_push_tarea_envia_asignados_y_fechas_a_project_v2(tmp_path):
     t.github_issue_number = 105
     t.github_item_id = "ITEM_1"
     store.actualizar_tarea(t)
-    rec = store.crear_recurso(p.id, "testuser")
+    rec = store.crear_recurso(p.id, "testuser", github_login="testuser")
     store.asignar_recurso(t.id, rec.id)
+    # Un recurso sin login de GitHub (nombre completo) no se envía: daría un 422.
+    sin_login = store.crear_recurso(p.id, "José Antonio Seguido Doblado")
+    store.asignar_recurso(t.id, sin_login.id)
 
     client = MagicMock(spec=GitHubClient)
     client.obtener_issue.return_value = {"labels": []}
@@ -1042,3 +1045,31 @@ def test_enviar_jerarquia_ignora_los_subissues_ya_enlazados_y_sigue_con_el_resto
     ]
     GitHubSyncManager(store, cliente)._enviar_jerarquia("o", "r", tareas[0])
     assert cliente.vincular_subissue.call_count == 2
+
+
+def test_push_reutiliza_el_item_si_github_dice_que_el_contenido_ya_existe(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "Bloguero",
+        github_repo_owner="testuser",
+        github_repo_name="bloguero",
+        github_project_v2_id="11",
+    )
+    t = store.crear_tarea(p.id, "Ya en el proyecto")
+    t.github_issue_number = 23
+    store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "node_id": "I_23"}
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}},
+        [],
+        [GitHubItem(id="ITEM_23", title="Ya en el proyecto", issue_number=23)],
+    )
+    client.anadir_item_v2.side_effect = GitHubError(
+        "GraphQL error: Content already exists in this project"
+    )
+
+    GitHubSyncManager(store, client).push_tarea(t.id)
+
+    assert store.obtener_tarea(t.id).github_item_id == "ITEM_23"
