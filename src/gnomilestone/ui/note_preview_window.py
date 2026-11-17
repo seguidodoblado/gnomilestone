@@ -11,6 +11,7 @@ from gi.repository import Gdk, GLib, Graphene, Gtk, Pango
 
 from gnomilestone.documentacion import secciones_por_titulo
 from gnomilestone.i18n import _
+from gnomilestone.markdown_pango import en_linea
 from gnomilestone.models import NotaDocumentacion, VersionDocumentacion
 from gnomilestone.ui.dialogos import dato_con_icono
 from gnomilestone.ui.hoja import HojaPagina, ZoomHoja
@@ -192,12 +193,14 @@ class NotePreviewWindow(Gtk.Window):
         for nivel, titulo, destino in destinos:
             boton = Gtk.Button(
                 child=Gtk.Label(
-                    label=titulo, xalign=0, ellipsize=Pango.EllipsizeMode.END,
+                    label=en_linea(titulo), use_markup=True, xalign=0,
+                    ellipsize=Pango.EllipsizeMode.END,
                     margin_start=(nivel - nivel_minimo) * 14,
                 )
             )
             boton.add_css_class("flat")
-            boton.set_tooltip_text(titulo)  # el título completo, si el índice lo recorta
+            # El título completo, si el índice lo recorta; con el Markdown ya interpretado.
+            boton.set_tooltip_markup(en_linea(titulo))
             boton.connect("clicked", lambda _b, d=destino: self._ir_a(d))
             caja.append(boton)
         scroller = Gtk.ScrolledWindow(
