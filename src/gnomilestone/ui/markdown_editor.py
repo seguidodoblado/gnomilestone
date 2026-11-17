@@ -10,8 +10,9 @@ from collections.abc import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gdk, Gtk
+from gi.repository import Gdk, GLib, Gtk
 
+from gnomilestone.codigo import alternar_tarea
 from gnomilestone.i18n import _
 from gnomilestone.ui import markdown_edicion
 from gnomilestone.ui.hoja import HojaPagina, ZoomHoja
@@ -67,7 +68,10 @@ class MarkdownEditor(Gtk.Box):
         vista_edicion.add_controller(teclas)
         edicion_scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         edicion_scroller.set_child(vista_edicion)
-        self._vista = VistaMarkdown(texto_vacio=texto_vacio, al_enlace=al_enlace, preprocesar=preprocesar)
+        self._vista = VistaMarkdown(
+            texto_vacio=texto_vacio, al_enlace=al_enlace, preprocesar=preprocesar,
+            al_marcar=self._on_marcar_tarea,
+        )
         if zoom_hoja is not None:
             # La página aporta sus propios márgenes; se escribe sobre ella, no en un recuadro.
             pagina_edicion = HojaPagina(zoom_hoja, desplazable=False)
@@ -122,6 +126,21 @@ class MarkdownEditor(Gtk.Box):
         else:
             self._stack.set_visible_child_name("editar")
             self._barra.set_visible(True)
+
+    def _on_marcar_tarea(self, numero: int) -> None:
+        """Casilla pulsada en la vista previa: se cambia en el texto y se repinta la vista
+        conservando el desplazamiento."""
+        antes = self.obtener_texto()
+        despues = alternar_tarea(antes, numero)
+        if despues == antes:
+            return
+        desplazable = self._vista.get_ancestor(Gtk.ScrolledWindow)
+        ajuste = desplazable.get_vadjustment() if desplazable is not None else None
+        valor = ajuste.get_value() if ajuste is not None else 0.0
+        self._buffer.set_text(despues)
+        self._vista.fijar(despues)
+        if ajuste is not None:
+            GLib.idle_add(lambda: ajuste.set_value(valor) and False)
 
     def _crear_barra_formato(self) -> Gtk.Box:
         barra = Gtk.Box(spacing=4)

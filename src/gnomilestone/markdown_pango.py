@@ -77,8 +77,14 @@ def _en_linea(texto: str) -> str:
     return re.sub(r"\x00(\d+)\x00", lambda m: codigos[int(m.group(1))], texto)
 
 
-def markdown_a_pango(texto: str) -> str:
-    """Convierte `texto` (Markdown) en marcado Pango válido para `Gtk.Label(use_markup=True)`."""
+ENLACE_TAREA = "gnomilestone-tarea:"
+
+
+def markdown_a_pango(texto: str, tareas: list[int] | None = None) -> str:
+    """Convierte `texto` (Markdown) en marcado Pango válido para `Gtk.Label(use_markup=True)`.
+
+    Con `tareas` (`[siguiente]`, que se va incrementando) las casillas de las tareas son
+    enlaces `gnomilestone-tarea:N`, con N el número de orden de la casilla en la nota."""
     salida: list[str] = []
     en_bloque = False
     bloque: list[str] = []
@@ -103,6 +109,10 @@ def markdown_a_pango(texto: str) -> str:
             cuerpo = m.group(3)
             if (t := _TAREA.match(cuerpo)) is not None:
                 marca = "☑" if t.group(1) != " " else "☐"
+                if tareas is not None:
+                    # Glifo algo mayor para que la zona pulsable sea más fácil de acertar.
+                    marca = f'<a href="{ENLACE_TAREA}{tareas[0]}"><span size="large">{marca}</span></a>'
+                    tareas[0] += 1
                 cuerpo = t.group(2)
             salida.append(f"{sangria}{marca} {_en_linea(cuerpo)}")
         elif linea.startswith(">"):
@@ -117,3 +127,8 @@ def markdown_a_pango(texto: str) -> str:
 def familia_monoespaciada() -> str | None:
     """Familia monoespaciada elegida en el escritorio (None si no se puede saber)."""
     return _familia_mono()
+
+
+def en_linea(texto: str) -> str:
+    """Marcado Pango del formato en línea de `texto` (celdas de tabla, por ejemplo)."""
+    return _en_linea(texto)

@@ -1,4 +1,4 @@
-from gnomilestone.codigo import Codigo, Texto, colorear, dividir_bloques, nombre_lenguaje
+from gnomilestone.codigo import Codigo, Tabla, Texto, colorear, dividir_bloques, nombre_lenguaje
 
 
 def test_divide_texto_y_codigo_con_lenguaje_y_titulo():
@@ -79,7 +79,32 @@ def test_las_lineas_horizontales_son_bloques_aparte():
     assert dividir_bloques("---") == [Separador()]
     # Dentro de un bloque de código no se corta, y una tabla (`|---|`) no es una línea.
     assert dividir_bloques("```\n---\n```") == [Codigo("", "", "---")]
-    assert dividir_bloques("|a|b|\n|---|---|") == [Texto("|a|b|\n|---|---|")]
+    assert dividir_bloques("|a|b|\n|---|---|") == [Tabla(("a", "b"), ("left", "left"), ())]
+
+
+def test_tablas_markdown():
+    md = "Antes\n\n| A | B | C |\n|:--|:-:|--:|\n| 1 | `x|y` | 3 \\| 4 |\n| solo |\n\nDespués"
+    assert dividir_bloques(md) == [
+        Texto("Antes"),
+        Tabla(
+            ("A", "B", "C"), ("left", "center", "right"),
+            (("1", "`x|y`", "3 | 4"), ("solo", "", "")),
+        ),
+        Texto("Después"),
+    ]
+    # Sin barras en los bordes, y una tabla en un bloque de código sigue siendo código.
+    assert dividir_bloques("a|b\n-|-\n1|2") == [Tabla(("a", "b"), ("left", "left"), (("1", "2"),))]
+    assert dividir_bloques("```\n|a|b|\n|-|-|\n```") == [Codigo("", "", "|a|b|\n|-|-|")]
+    # Sin fila separadora o con distinto número de columnas no es una tabla.
+    assert dividir_bloques("|a|b|\n|1|2|") == [Texto("|a|b|\n|1|2|")]
+    assert dividir_bloques("|a|b|\n|-|-|-|") == [Texto("|a|b|\n|-|-|-|")]
+
+
+def test_recortar_tabla():
+    from gnomilestone.codigo import recortar_bloques
+
+    t = Tabla(("a",), ("left",), (("1",), ("2",), ("3",)))
+    assert recortar_bloques([t], 3) == [Tabla(("a",), ("left",), (("1",), ("2",)))]
 
 
 def test_recortar_cuenta_el_separador_como_una_linea():
@@ -97,3 +122,22 @@ def test_el_lexer_se_cachea_y_mermaid_no_consulta_a_pygments():
     assert primero is not None and codigo._lexer("python") is primero  # mismo objeto: caché
     assert codigo._lexer("lenguaje-inexistente") is None
     assert codigo._lexer.cache_info().hits >= 1
+
+
+def test_alternar_tarea():
+    from gnomilestone.codigo import alternar_tarea
+
+    md = "- [ ] a\n```\n- [ ] código\n```\n1. [x] b\n- c"
+    assert alternar_tarea(md, 0) == "- [x] a\n```\n- [ ] código\n```\n1. [x] b\n- c"
+    assert alternar_tarea(md, 1) == "- [ ] a\n```\n- [ ] código\n```\n1. [ ] b\n- c"
+    assert alternar_tarea(md, 2) == md
+
+
+def test_pango_enlaza_las_casillas():
+    from gnomilestone.markdown_pango import markdown_a_pango
+
+    cuenta = [0]
+    salida = markdown_a_pango("- [ ] a\n- [x] b", cuenta)
+    assert 'tarea:0"><span size="large">☐' in salida and 'tarea:1"><span size="large">☑' in salida
+    assert cuenta == [2]
+    assert "href" not in markdown_a_pango("- [ ] a")
