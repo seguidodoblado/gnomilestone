@@ -17,6 +17,7 @@ except ImportError:  # sin Pygments: bloques de código sin colorear
     get_lexer_by_name = None
 
 _SEPARADOR = re.compile(r"^\s*([-*_])(\s*\1){2,}\s*$")
+_CELDA_SEPARADORA = re.compile(r"^\s*(:?)-+(:?)\s*$")
 _VALLA = re.compile(r"^(\s*)(`{3,})(.*)$")
 _TITULO = re.compile(r'^(?:title\s*=\s*)?(?:"([^"]*)"|\'([^\']*)\'|(.+))$')
 
@@ -29,6 +30,16 @@ class Texto:
 @dataclass(frozen=True)
 class Separador:
     """Línea horizontal (`---`): se dibuja como un separador que ocupa todo el ancho."""
+
+
+@dataclass(frozen=True)
+class Tabla:
+    """Tabla Markdown: la primera fila es la cabecera; `alineaciones` lleva «left», «center»
+    o «right» por columna."""
+
+    cabecera: tuple[str, ...]
+    alineaciones: tuple[str, ...]
+    filas: tuple[tuple[str, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -52,10 +63,88 @@ def _info(resto: str) -> tuple[str, str]:
     return lenguaje, titulo.strip()
 
 
-def dividir_bloques(markdown: str) -> list[Texto | Codigo | Separador]:
+def _celdas(linea: str) -> list[str]:
+    """Celdas de una fila de tabla; respeta `\\|` y las barras dentro de `código`."""
+    linea = linea.strip()
+    linea = linea.removeprefix("|")
+    if linea.endswith("|") and not linea.endswith("\\|"):
+        linea = linea[:-1]
+    celdas: list[str] = []
+    actual: list[str] = []
+    en_codigo = False
+    i = 0
+    while i < len(linea):
+        c = linea[i]
+        if c == "\\" and linea[i + 1 : i + 2] == "|":
+            actual.append("|")
+            i += 2
+            continue
+        if c == "`":
+            en_codigo = not en_codigo
+        if c == "|" and not en_codigo:
+            celdas.append("".join(actual).strip())
+            actual = []
+        else:
+            actual.append(c)
+        i += 1
+    celdas.append("".join(actual).strip())
+    return celdas
+
+
+def _alineaciones(linea: str) -> tuple[str, ...] | None:
+    """Alineaciones de una fila separadora (`|---|:-:|--:|`); None si no lo es."""
+    if "-" not in linea or "|" not in linea and not _CELDA_SEPARADORA.match(linea):
+        return None
+    resultado = []
+    for celda in _celdas(linea):
+        m = _CELDA_SEPARADORA.match(celda)
+        if m is None:
+            return None
+        resultado.append("center" if m.group(1) and m.group(2) else "right" if m.group(2) else "left")
+    return tuple(resultado)
+
+
+def _trocear_tablas(lineas: list[str]) -> list[Texto | Tabla]:
+    """Separa un tramo de líneas en texto y tablas (cabecera + separador + filas)."""
+    resultado: list[Texto | Tabla] = []
+    tramo: list[str] = []
+
+    def cerrar() -> None:
+        contenido = "\n".join(tramo).strip("\n")
+        if contenido.strip():
+            resultado.append(Texto(contenido))
+        tramo.clear()
+
+    i = 0
+    while i < len(lineas):
+        alineaciones = None
+        if i + 1 < len(lineas) and "|" in lineas[i] and (
+            alineaciones := _alineaciones(lineas[i + 1])
+        ):
+            cabecera = _celdas(lineas[i])
+            if len(cabecera) != len(alineaciones):
+                alineaciones = None
+        if not alineaciones:
+            tramo.append(lineas[i])
+            i += 1
+            continue
+        n = len(alineaciones)
+        filas: list[tuple[str, ...]] = []
+        i += 2
+        while i < len(lineas) and lineas[i].strip() and "|" in lineas[i]:
+            fila = _celdas(lineas[i])[:n]
+            filas.append(tuple(fila + [""] * (n - len(fila))))
+            i += 1
+        cerrar()
+        resultado.append(Tabla(tuple(cabecera), alineaciones, tuple(filas)))
+    cerrar()
+    return resultado
+
+
+def dividir_bloques(markdown: str) -> list[Texto | Codigo | Separador | Tabla]:
     """Separa el Markdown en tramos de texto, líneas horizontales (`---`) y bloques de
     código delimitados por ```. Un bloque sin cerrar llega hasta el final."""
-    bloques: list[Texto | Codigo | Separador] = []
+    bloques: list[Texto | Codigo | Separador | Tabla] = []
     texto: list[str] = []
     codigo: list[str] = []
     apertura: tuple[int, str] | None = None  # (nº de comillas, info) del bloque abierto
@@ -64,9 +153,7 @@ def dividir_bloques(markdown: str) -> list[Texto | Codigo | Separador]:
         tramo: list[str] = []
 
         def cerrar_tramo() -> None:
-            contenido = "\n".join(tramo).strip("\n")
-            if contenido.strip():
-                bloques.append(Texto(contenido))
+            bloques.extend(_trocear_tablas(tramo))
             tramo.clear()
 
         for linea in texto:
@@ -99,6 +186,36 @@ def dividir_bloques(markdown: str) -> list[Texto | Codigo | Separador]:
     else:
         volcar_texto()
     return bloques
+
+
+_TAREA_MD = re.compile(r"^(\s*(?:[-*+]|\d+[.)])\s+\[)( |x|X)(\]\s+)")
+
+
+def alternar_tarea(markdown: str, numero: int) -> str:
+    """Marca o desmarca la casilla `numero` (contando desde 0, fuera de los bloques de código,
+    en el orden en que las pinta el visor). Si no existe, devuelve el texto sin cambios."""
+    lineas = markdown.split("\n")
+    apertura: int | None = None
+    contadas = 0
+    for i, linea in enumerate(lineas):
+        m = _VALLA.match(linea.rstrip("\r"))
+        if apertura is None:
+            if m:
+                apertura = len(m.group(2))
+                continue
+        else:
+            if m and len(m.group(2)) >= apertura and not m.group(3).strip():
+                apertura = None
+            continue
+        t = _TAREA_MD.match(linea)
+        if t is None:
+            continue
+        if contadas == numero:
+            nuevo = " " if t.group(2) != " " else "x"
+            lineas[i] = t.group(1) + nuevo + linea[t.end(2):]
+            return "\n".join(lineas)
+        contadas += 1
+    return markdown
 
 
 # Lenguajes que Pygments no conoce: buscar uno desconocido recorre todos los plugins
@@ -166,16 +283,21 @@ def colorear(codigo: str, lenguaje: str) -> list[list[tuple[str, str]]]:
 
 
 def recortar_bloques(
-    bloques: list[Texto | Codigo | Separador], max_lineas: int
-) -> list[Texto | Codigo | Separador]:
+    bloques: list[Texto | Codigo | Separador | Tabla], max_lineas: int
+) -> list[Texto | Codigo | Separador | Tabla]:
     """Comienzo de una nota para su tarjeta: los primeros `max_lineas` líneas con contenido
     (las de texto y las de código cuentan igual). Lo que se corta termina en «…»."""
     restantes = max_lineas
-    resultado: list[Texto | Codigo | Separador] = []
+    resultado: list[Texto | Codigo | Separador | Tabla] = []
     for bloque in bloques:
         if restantes <= 0:
             break
-        if isinstance(bloque, Separador):
+        if isinstance(bloque, Tabla):
+            # Cabecera y filas cuentan como líneas (el separador no).
+            filas = bloque.filas[: max(restantes - 1, 0)]
+            restantes -= 1 + len(filas)
+            resultado.append(Tabla(bloque.cabecera, bloque.alineaciones, filas))
+        elif isinstance(bloque, Separador):
             restantes -= 1
             resultado.append(bloque)
         elif isinstance(bloque, Codigo):

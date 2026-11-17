@@ -8,6 +8,8 @@ en este archivo.
 ### Added
 
 - Las notas de «Contexto del proyecto» (Visión general) llevan un icono propio, como los de la barra lateral de GitHub: libro para README, corazón sobre una mano para el código de conducta, dos personas para «Contribuyendo», balanza para la licencia y escudo para la seguridad. Se reconocen por el título, en español o en inglés (`README`, `Código de conducta`/`Code of conduct`, `Contribuyendo`/`Contributing`, `Licencia`/`License`/`COPYING`, `Seguridad`/`Security policy`), y son iconos simbólicos propios en `assets/icons`
+- Las tablas Markdown de las notas se ven como tabla (#82): cabecera en negrita, alineación por columna (`:--`, `:-:`, `--:`), formato en línea y enlaces `[[…]]`/`#N` en las celdas, y scroll horizontal si no caben. Una tabla dentro de un bloque de código sigue siendo código
+- Las casillas de las listas de tareas (`- [ ]`) se pueden marcar y desmarcar pulsándolas en la Vista previa del editor; el cambio se escribe en el texto de la nota
 
 ### Changed
 

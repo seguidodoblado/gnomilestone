@@ -68,7 +68,7 @@ proyecto (notas, diagramas y líneas de tiempo).
 - **Documentación del proyecto**: ficha propia de cada proyecto, con contenido de la
   app (sin leer ficheros externos), organizada en Visión general (con el contexto del proyecto traído de su repositorio de
   GitHub), Arquitectura, Especificaciones, Blueprint y Decisiones técnicas. Las notas son tarjetas con Markdown (plantillas,
-  estado, subpáginas, enlaces internos `[[Título]]` y `#27`, bloques de código con
+  estado, subpáginas, enlaces internos `[[Título]]` y `#27`, tablas, bloques de código con
   coloreado y diagramas Mermaid de flujo), se editan en una ventana aparte y guardan
   sus versiones anteriores; las subsecciones de diagramas tienen un editor de nodos y
   flechas; y Blueprint dibuja Historial, Hitos y Roadmap a partir de las tareas, con
@@ -172,7 +172,7 @@ diagrams and timelines).
 - **Project documentation**: each project's own documentation, with content stored in
   the app (no external files read), organized in Overview (with the project context pulled from its GitHub repository),
   Architecture, Specifications, Blueprint and Technical decisions. Notes are Markdown cards (templates, status,
-  subpages, internal links `[[Title]]` and `#27`, highlighted code blocks and Mermaid
+  subpages, internal links `[[Title]]` and `#27`, tables, highlighted code blocks and Mermaid
   flowcharts), edited in a separate window, and they keep their earlier versions;
   diagram subsections have a node-and-arrow editor; and Blueprint draws History,
   Milestones and Roadmap from the tasks, with zoom. There is a collapsible navigation
