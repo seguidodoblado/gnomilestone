@@ -1073,3 +1073,43 @@ def test_push_reutiliza_el_item_si_github_dice_que_el_contenido_ya_existe(tmp_pa
     GitHubSyncManager(store, client).push_tarea(t.id)
 
     assert store.obtener_tarea(t.id).github_item_id == "ITEM_23"
+
+
+def test_push_vuelve_a_anadir_el_item_que_ya_no_existe_en_el_project(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "Bloguero",
+        github_repo_owner="testuser",
+        github_repo_name="bloguero",
+        github_project_v2_id="11",
+    )
+    estado = store.crear_estado(p.id, "Hecho", github_option_id="OPT_DONE")
+    t = store.crear_tarea(p.id, "Con item caducado", estado_id=estado.id)
+    t.github_issue_number = 6
+    t.github_item_id = "ITEM_VIEJO"
+    store.actualizar_tarea(t)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "node_id": "I_6"}
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": "FIELD_STATUS"},
+        [],
+        [],
+    )
+    client.anadir_item_v2.return_value = "ITEM_NUEVO"
+
+    def actualizar(project_id, item_id, status_field_id, single_select_option_id):
+        if item_id == "ITEM_VIEJO":
+            raise GitHubError("GraphQL error: The item does not exist in the project")
+
+    client.actualizar_status_item_v2.side_effect = actualizar
+
+    assert GitHubSyncManager(store, client).push_tarea(t.id) is True
+
+    assert store.obtener_tarea(t.id).github_item_id == "ITEM_NUEVO"
+    client.actualizar_status_item_v2.assert_called_with(
+        project_id="PVT_11",
+        item_id="ITEM_NUEVO",
+        status_field_id="FIELD_STATUS",
+        single_select_option_id="OPT_DONE",
+    )

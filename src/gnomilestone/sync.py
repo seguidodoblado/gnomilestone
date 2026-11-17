@@ -1280,6 +1280,21 @@ class GitHubSyncManager:
 
     # -- Push (GnoMilestone -> GitHub) ---------------------------------------
 
+    def _readjuntar_item(self, proyecto, owner: str, repo: str, tarea) -> bool:
+        """Vuelve a añadir el issue de la tarea a su Project V2 y guarda el item nuevo.
+        Devuelve False si no se pudo (sin Project numérico o sin `node_id` del issue)."""
+        v2 = proyecto.github_project_v2_id
+        if not (v2 and v2.isdigit()):
+            return False
+        meta_v2, _o, _i = self._client.obtener_detalles_proyecto_v2(owner, int(v2))
+        node_id = self._client.obtener_issue(owner, repo, tarea.github_issue_number).get("node_id")
+        if not node_id:
+            return False
+        item_id = self._client.anadir_item_v2(meta_v2["id"], node_id)
+        self._store.vincular_item_github(tarea.id, item_id)
+        tarea.github_item_id = item_id
+        return True
+
     def push_tarea(self, tarea_id: int) -> bool:
         """Envía o actualiza una tarea local en GitHub (Issue o Item de Project V2)."""
         with _BLOQUEO_PROYECTO:
@@ -1390,7 +1405,7 @@ class GitHubSyncManager:
 
             # 2. Si hay Project V2 y la tarea tiene item_id asociado, sincronizar estado y
             # fechas (campos "Start date"/"Target date", si el proyecto los tiene)
-            if proyecto.github_project_v2_id and tarea.github_item_id:
+            def _enviar_al_project() -> None:
                 num = (
                     int(proyecto.github_project_v2_id)
                     if proyecto.github_project_v2_id.isdigit()
@@ -1449,6 +1464,20 @@ class GitHubSyncManager:
                                 if "Issue field values" not in str(err):
                                     raise
                                 log.debug("«%s» es un campo de issue; se envía por el issue", nombre_campo)
+
+            if proyecto.github_project_v2_id and tarea.github_item_id:
+                try:
+                    _enviar_al_project()
+                except GitHubError as err:
+                    # El item guardado ya no está en el Project (se quitó o se borró en GitHub):
+                    # se vuelve a añadir el issue, se guarda el item nuevo y se reintenta una vez.
+                    if "does not exist in the project" not in str(err):
+                        raise
+                    if not (repo and tarea.github_issue_number and self._readjuntar_item(
+                        proyecto, owner, repo, tarea
+                    )):
+                        raise
+                    _enviar_al_project()
 
             if repo:
                 self._enviar_milestone_de_tarea(owner, repo, tarea)
