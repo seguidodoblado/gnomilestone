@@ -154,6 +154,40 @@ class GitHubSyncManager:
                 sin_equivalente.append((estado, n))
         return sin_equivalente, list(remotas)
 
+    @staticmethod
+    def _tarea_pendiente_de_envio(tarea: Tarea, con_repo: bool) -> bool:
+        """Pendiente de envío = editada en local después del último sync, o nueva y sin
+        issue en un proyecto con repositorio. No necesita marca propia: `actualizado` y
+        `github_synced_at` ya dicen si GitHub va por detrás."""
+        if tarea.github_synced_at is None:
+            return con_repo and tarea.github_issue_number is None
+        return bool(tarea.actualizado and tarea.actualizado > tarea.github_synced_at)
+
+    def tareas_pendientes_de_envio(self, proyecto_id: int) -> list[Tarea]:
+        proyecto = self._store.obtener_proyecto(proyecto_id)
+        if not proyecto or not proyecto.github_repo_owner:
+            return []
+        con_repo = bool(proyecto.github_repo_name)
+        return [
+            t
+            for t in self._store.listar_tareas(proyecto_id)
+            if self._tarea_pendiente_de_envio(t, con_repo)
+        ]
+
+    def enviar_pendientes(self, proyecto_id: int) -> list[str]:
+        """Envía a GitHub las tareas con cambios locales sin enviar. Devuelve un aviso
+        por cada tarea que no se pudo enviar (queda pendiente para el siguiente intento)."""
+        fallos: list[str] = []
+        with _BLOQUEO_PROYECTO:
+            for tarea in self.tareas_pendientes_de_envio(proyecto_id):
+                if not self._push_tarea(tarea.id):
+                    fallos.append(
+                        _("No se pudo enviar a GitHub la tarea «{titulo}»; sigue pendiente.").format(
+                            titulo=tarea.titulo
+                        )
+                    )
+        return fallos
+
     def pull_proyecto(
         self, proyecto_id: int, columnas_a_opciones: dict[int, str | None] | None = None
     ) -> SyncResult:
@@ -179,6 +213,11 @@ class GitHubSyncManager:
         if not owner:
             resultado.errores.append("El proyecto no tiene configurado propietario de GitHub.")
             return resultado
+
+        # 0. Antes de traer nada, se envía lo que quedó pendiente en local (envíos que
+        # fallaron, cierre a medias, cambios hechos sin conexión). Lo que no se pueda
+        # enviar se avisa y se respeta como conflicto en el pull.
+        resultado.errores.extend(self.enviar_pendientes(proyecto_id))
 
         # 1. Si hay Project V2 vinculado, el tablero de GitHub sustituye por completo al
         # local: nunca se fusiona por nombre, siempre se recrean las columnas desde cero

@@ -173,10 +173,12 @@ def test_sync_pull_no_sobrescribe_tarea_editada_tras_el_ultimo_sync(tmp_path):
     )
 
     sync = GitHubSyncManager(store, client)
+    sync._push_tarea = lambda _tid: False  # el envío previo falla: sigue pendiente
     res = sync.pull_proyecto(p.id)
 
     assert res.tareas_actualizadas == 0
     assert len(res.conflictos) == 1
+    assert len(res.errores) == 1  # y se avisa de que no se pudo enviar
     assert store.obtener_tarea(t.id).titulo == "Título original"
 
 
@@ -670,7 +672,10 @@ def test_renombrar_en_local_y_sincronizar_no_duplica_la_tarea(tmp_path):
     client.obtener_issue.return_value = {"labels": []}
 
     sync = GitHubSyncManager(store, client)
+    push_real = sync._push_tarea
+    sync._push_tarea = lambda _tid: False
     res = sync.pull_proyecto(p.id)
+    sync._push_tarea = push_real
     assert res.tareas_creadas == 0
     assert len(res.conflictos) == 1
     assert [x.titulo for x in store.listar_tareas(p.id)] == ["Título renombrado en local"]
@@ -1112,4 +1117,66 @@ def test_push_vuelve_a_anadir_el_item_que_ya_no_existe_en_el_project(tmp_path):
         item_id="ITEM_NUEVO",
         status_field_id="FIELD_STATUS",
         single_select_option_id="OPT_DONE",
+    )
+
+
+def test_tareas_pendientes_de_envio_y_enviar_pendientes(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("P", github_repo_owner="u", github_repo_name="r")
+    sincronizada = store.crear_tarea(p.id, "Sincronizada", github_issue_number=1)
+    store.marcar_sincronizada_github(sincronizada.id)
+    editada = store.crear_tarea(p.id, "Editada", github_issue_number=2)
+    store.marcar_sincronizada_github(editada.id)
+    with closing(store._connect()) as db, db:
+        db.execute(
+            "UPDATE tarea SET actualizado = '2999-01-01 00:00:00' WHERE id = ?", (editada.id,)
+        )
+    nueva = store.crear_tarea(p.id, "Nueva")
+
+    sync = GitHubSyncManager(store, MagicMock(spec=GitHubClient))
+    ids = {t.id for t in sync.tareas_pendientes_de_envio(p.id)}
+    assert ids == {editada.id, nueva.id}
+
+    enviadas = []
+    sync._push_tarea = lambda tid: enviadas.append(tid) or tid != nueva.id
+    fallos = sync.enviar_pendientes(p.id)
+    assert set(enviadas) == {editada.id, nueva.id}
+    assert len(fallos) == 1 and "Nueva" in fallos[0]
+
+
+def test_push_de_subtarea_movida_por_su_padre_envia_sus_fechas_nuevas(tmp_path):
+    from gnomilestone import ganttcalc
+
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "P", github_repo_owner="u", github_repo_name="r", github_project_v2_id="11"
+    )
+    padre = store.crear_tarea(
+        p.id, "Padre", fecha_inicio="2026-11-01", fecha_fin_planificada="2026-11-10",
+        duracion_dias=10,
+    )
+    hijo = store.crear_tarea(
+        p.id, "Hijo", padre_id=padre.id, fecha_inicio="2026-11-02",
+        fecha_fin_planificada="2026-11-04", duracion_dias=3,
+    )
+    for t, n in ((padre, 1), (hijo, 2)):
+        t.github_issue_number, t.github_item_id = n, f"ITEM_{n}"
+        store.actualizar_tarea(t)
+
+    # Lo mismo que hace el Gantt al mover el padre 5 días.
+    for h in ganttcalc.trasladar_hijos(store.listar_tareas(p.id), padre.id, 5):
+        store.actualizar_tarea(h)
+
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": []}
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT", "fields": {"Start date": "F_S", "Target date": "F_T"}}, [], [],
+    )
+    sync = GitHubSyncManager(store, client)
+    assert sync.push_tarea(hijo.id) is True
+    client.actualizar_fecha_item_v2.assert_any_call(
+        project_id="PVT", item_id="ITEM_2", field_id="F_S", fecha_iso="2026-11-07"
+    )
+    client.actualizar_fecha_item_v2.assert_any_call(
+        project_id="PVT", item_id="ITEM_2", field_id="F_T", fecha_iso="2026-11-09"
     )

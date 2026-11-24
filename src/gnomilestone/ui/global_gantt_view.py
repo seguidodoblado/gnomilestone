@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 
 import gi
 
@@ -134,13 +135,36 @@ class GlobalGanttView(Gtk.Box):
             cambiadas_jerarquia = ganttcalc.trasladar_hijos(tareas, tarea.id, delta_dias)
         else:
             cambiadas_jerarquia = []
+        ids_cambiados = {tarea.id}
         for cambiada in cambiadas_jerarquia:
             self._store.actualizar_tarea(cambiada)
+            ids_cambiados.add(cambiada.id)
 
         dependencias = self._store.listar_dependencias(tarea.proyecto_id)
         for cambiada in ganttcalc.recalcular_dependientes(tareas, dependencias, tarea_id):
             self._store.actualizar_tarea(cambiada)
+            ids_cambiados.add(cambiada.id)
+        self._push_a_github(tarea.proyecto_id, ids_cambiados)
         self._actualizar_gantt()
+
+    def _push_a_github(self, proyecto_id: int, tarea_ids: set[int]) -> None:
+        """Envía a GitHub las tareas movidas, como hace el Gantt de proyecto. Si falla,
+        quedan pendientes y el botón de sincronizar las reenvía."""
+        proyecto = self._store.obtener_proyecto(proyecto_id)
+        if proyecto is None or not (
+            proyecto.github_repo_name or proyecto.github_project_v2_id
+        ):
+            return
+
+        def _push() -> None:
+            sync = GitHubSyncManager(self._store)
+            for tarea_id in tarea_ids:
+                try:
+                    sync.push_tarea(tarea_id)
+                except Exception:
+                    log.debug("Error enviando tarea %s a GitHub", tarea_id, exc_info=True)
+
+        threading.Thread(target=_push, daemon=True).start()
 
     def refrescar_proyectos(self) -> None:
         seleccionados = {id_ for id_, check in self._checks if check.get_active()}
