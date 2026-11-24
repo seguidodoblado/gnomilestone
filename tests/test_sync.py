@@ -173,7 +173,7 @@ def test_sync_pull_no_sobrescribe_tarea_editada_tras_el_ultimo_sync(tmp_path):
     )
 
     sync = GitHubSyncManager(store, client)
-    sync._push_tarea = lambda _tid: False  # el envío previo falla: sigue pendiente
+    sync._push_tarea = lambda _tid, **_kw: False  # el envío previo falla: sigue pendiente
     res = sync.pull_proyecto(p.id)
 
     assert res.tareas_actualizadas == 0
@@ -673,7 +673,7 @@ def test_renombrar_en_local_y_sincronizar_no_duplica_la_tarea(tmp_path):
 
     sync = GitHubSyncManager(store, client)
     push_real = sync._push_tarea
-    sync._push_tarea = lambda _tid: False
+    sync._push_tarea = lambda _tid, **_kw: False
     res = sync.pull_proyecto(p.id)
     sync._push_tarea = push_real
     assert res.tareas_creadas == 0
@@ -1138,7 +1138,7 @@ def test_tareas_pendientes_de_envio_y_enviar_pendientes(tmp_path):
     assert ids == {editada.id, nueva.id}
 
     enviadas = []
-    sync._push_tarea = lambda tid: enviadas.append(tid) or tid != nueva.id
+    sync._push_tarea = lambda tid, **_kw: enviadas.append(tid) or tid != nueva.id
     fallos = sync.enviar_pendientes(p.id)
     assert set(enviadas) == {editada.id, nueva.id}
     assert len(fallos) == 1 and "Nueva" in fallos[0]
@@ -1180,3 +1180,265 @@ def test_push_de_subtarea_movida_por_su_padre_envia_sus_fechas_nuevas(tmp_path):
     client.actualizar_fecha_item_v2.assert_any_call(
         project_id="PVT", item_id="ITEM_2", field_id="F_T", fecha_iso="2026-11-09"
     )
+
+
+def test_varios_401_se_resumen_en_un_solo_aviso():
+    from gnomilestone.sync import SyncResult
+
+    res = SyncResult()
+    res.errores = [
+        "Error sincronizando issues: Error de autenticación con GitHub (HTTP 401): {}",
+        "Error trayendo los Milestones: Error de autenticación con GitHub (HTTP 401): {}",
+        "No se pudo enviar a GitHub la tarea «X»; sigue pendiente.",
+    ]
+    res = GitHubSyncManager._resumir_errores_401(res)
+    assert len(res.errores) == 2
+    assert "HTTP 401" in res.errores[1] and "token" in res.errores[1]
+    assert "sigue pendiente" in res.errores[0]
+
+
+def _proyecto_con_asignado(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "P", github_repo_owner="u", github_repo_name="r", github_project_v2_id="11"
+    )
+    t = store.crear_tarea(p.id, "T")
+    t.github_issue_number, t.github_item_id = 1, "ITEM_1"
+    store.actualizar_tarea(t)
+    ana = store.crear_recurso(p.id, "Ana", github_login="ana")
+    bea = store.crear_recurso(p.id, "Bea", github_login="bea")
+    store.asignar_recurso(t.id, ana.id)
+    store.asignar_recurso(t.id, bea.id)
+    store.guardar_asignados_base_github(t.id, ["ana", "bea"])
+    store.marcar_sincronizada_github(t.id)
+    return store, p, t
+
+
+def test_pull_quita_el_asignado_que_se_quito_en_github(tmp_path):
+    store, p, t = _proyecto_con_asignado(tmp_path)
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": None},
+        [],
+        [GitHubItem(id="ITEM_1", title="T", issue_number=1, assignees=["ana"])],
+    )
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert [r.github_login for r in store.listar_recursos_de_tarea(t.id)] == ["ana"]
+    assert store.asignados_base_github(t.id) == {"ana"}
+
+
+def test_pull_no_quita_un_asignado_anadido_en_local_sin_enviar(tmp_path):
+    store, p, t = _proyecto_con_asignado(tmp_path)
+    cai = store.crear_recurso(p.id, "Cai", github_login="cai")
+    store.asignar_recurso(t.id, cai.id)  # local, aún no enviado: no está en la base
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": None},
+        [],
+        [GitHubItem(id="ITEM_1", title="T", issue_number=1, assignees=["ana", "bea"])],
+    )
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    logins = {r.github_login for r in store.listar_recursos_de_tarea(t.id)}
+    assert logins == {"ana", "bea", "cai"}
+
+
+def test_push_propaga_la_desasignacion_local_y_respeta_lo_puesto_en_github(tmp_path):
+    store, _p, t = _proyecto_con_asignado(tmp_path)
+    bea = next(r for r in store.listar_recursos_de_tarea(t.id) if r.github_login == "bea")
+    store.quitar_asignacion_tarea_recurso(t.id, bea.id)
+    client = MagicMock(spec=GitHubClient)
+    # En GitHub, además, alguien asignó a «dan» desde el último sync.
+    client.obtener_issue.return_value = {
+        "labels": [],
+        "assignees": [{"login": "ana"}, {"login": "bea"}, {"login": "dan"}],
+    }
+    client.obtener_detalles_proyecto_v2.return_value = ({"id": "PVT", "fields": {}}, [], [])
+    assert GitHubSyncManager(store, client).push_tarea(t.id) is True
+    assert client.actualizar_issue.call_args.kwargs["assignees"] == ["ana", "dan"]
+    assert store.asignados_base_github(t.id) == {"ana"}
+
+
+def _proyecto_con_dos_issues(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("P", github_repo_owner="u", github_repo_name="r")
+    viva = store.crear_tarea(p.id, "Viva", github_issue_number=1)
+    borrada = store.crear_tarea(p.id, "Borrada", github_issue_number=2)
+    for t in (viva, borrada):
+        store.marcar_sincronizada_github(t.id)
+    return store, p, viva, borrada
+
+
+def test_pull_archiva_la_tarea_cuyo_issue_se_borro_en_github(tmp_path):
+    from gnomilestone.github import GitHubNotFoundError
+
+    store, p, viva, borrada = _proyecto_con_dos_issues(tmp_path)
+    client = MagicMock(spec=GitHubClient)
+    client.listar_issues.return_value = [{"number": 1, "title": "Viva", "state": "open"}]
+    client.obtener_issue.side_effect = GitHubNotFoundError("404")
+    res = GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert store.obtener_tarea(borrada.id).archivada is True
+    assert store.obtener_tarea(viva.id).archivada is False
+    assert any("#2" in a and "Borrada" in a for a in res.avisos)
+
+
+def test_pull_no_archiva_si_el_listado_esta_truncado_ni_si_hay_cambios_locales(tmp_path):
+    from gnomilestone.github import GitHubNotFoundError
+
+    store, p, _viva, borrada = _proyecto_con_dos_issues(tmp_path)
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.side_effect = GitHubNotFoundError("404")
+    # Listado de 100 issues: puede haber más páginas, que falte uno no prueba nada.
+    client.listar_issues.return_value = [
+        {"number": n, "title": f"I{n}", "state": "open"} for n in range(10, 110)
+    ]
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert store.obtener_tarea(borrada.id).archivada is False
+
+    # Listado completo, pero la tarea tiene una edición local sin enviar.
+    client.listar_issues.return_value = [{"number": 1, "title": "Viva", "state": "open"}]
+    with closing(store._connect()) as db, db:
+        db.execute(
+            "UPDATE tarea SET actualizado = '2999-01-01 00:00:00' WHERE id = ?", (borrada.id,)
+        )
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert store.obtener_tarea(borrada.id).archivada is False
+
+
+def test_un_envio_suelto_que_falla_avisa_a_los_oyentes_y_el_de_pendientes_no(tmp_path):
+    from gnomilestone import sync as sync_mod
+
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("P", github_repo_owner="u", github_repo_name="r")
+    t = store.crear_tarea(p.id, "Tarea rota")
+    client = MagicMock(spec=GitHubClient)
+    client.crear_issue.side_effect = GitHubError("boom")
+    avisos: list[str] = []
+    sync_mod.al_fallar_envio(avisos.append)
+    try:
+        manager = GitHubSyncManager(store, client)
+        assert manager.push_tarea(t.id) is False
+        assert avisos == ["Tarea rota"]
+        assert len(manager.enviar_pendientes(p.id)) == 1  # lo avisa el diálogo del sync
+        assert avisos == ["Tarea rota"]
+    finally:
+        sync_mod._oyentes_fallo_envio.remove(avisos.append)
+
+
+def _tarea_sincronizada_y_editada(tmp_path, **cambios_locales):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto(
+        "P", github_repo_owner="u", github_repo_name="r", github_project_v2_id="11"
+    )
+    t = store.crear_tarea(p.id, "Título base", descripcion="Desc base")
+    t.github_issue_number, t.github_item_id = 1, "ITEM_1"
+    store.actualizar_tarea(t)
+    store.marcar_sincronizada_github(t.id)  # guarda la base de campos
+    with closing(store._connect()) as db, db:
+        db.execute(
+            "UPDATE tarea SET github_synced_at = '2026-01-01 00:00:00' WHERE id = ?", (t.id,)
+        )
+    t = store.obtener_tarea(t.id)
+    for campo, valor in cambios_locales.items():
+        setattr(t, campo, valor)
+    store.actualizar_tarea(t)  # edición local posterior al sync
+    return store, p, t
+
+
+def _pull_con_item(store, p, **item):
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "fields": {}, "status_field_id": None},
+        [],
+        [GitHubItem(id="ITEM_1", issue_number=1, **item)],
+    )
+    sync = GitHubSyncManager(store, client)
+    sync._push_tarea = lambda _tid, **_kw: False  # el envío previo falla: sigue pendiente
+    return sync.pull_proyecto(p.id)
+
+
+def test_fusion_por_campo_trae_lo_remoto_y_conserva_lo_local(tmp_path):
+    # Local cambió el título; GitHub cambió la descripción: se quedan los dos cambios.
+    store, p, t = _tarea_sincronizada_y_editada(tmp_path, titulo="Título local")
+    res = _pull_con_item(store, p, title="Título base", body="Desc remota")
+    final = store.obtener_tarea(t.id)
+    assert final.titulo == "Título local"
+    assert final.descripcion == "Desc remota"
+    assert res.conflictos == []
+    # Sigue pendiente de envío (no se marcó como sincronizada).
+    assert final.actualizado > final.github_synced_at
+
+
+def test_fusion_por_campo_avisa_solo_del_campo_cambiado_en_ambos_lados(tmp_path):
+    store, p, t = _tarea_sincronizada_y_editada(tmp_path, titulo="Título local")
+    res = _pull_con_item(store, p, title="Título remoto", body="Desc remota")
+    final = store.obtener_tarea(t.id)
+    assert final.titulo == "Título local"  # gana lo local
+    assert final.descripcion == "Desc remota"  # lo otro sí se trae
+    assert len(res.conflictos) == 1 and "título" in res.conflictos[0]
+    assert "descripción" not in res.conflictos[0]
+
+
+def _repo_con_tres_tareas(tmp_path):
+    store = Store(tmp_path / "test.db")
+    p = store.crear_proyecto("P", github_repo_owner="u", github_repo_name="r")
+    tareas = [store.crear_tarea(p.id, f"T{n}", github_issue_number=n) for n in (1, 2, 3)]
+    for t in tareas:
+        store.marcar_sincronizada_github(t.id)
+    return store, p, tareas
+
+
+def _issue(n, **extra):
+    return {"number": n, "title": f"T{n}", "state": "open", **extra}
+
+
+def test_pull_trae_el_padre_de_un_subissue_y_no_cierra_ciclos(tmp_path):
+    store, p, (t1, t2, _t3) = _repo_con_tres_tareas(tmp_path)
+    api = "https://api.github.com/repos/u/r/issues/"
+    client = MagicMock(spec=GitHubClient)
+    client.listar_issues.return_value = [
+        _issue(1),
+        _issue(2, parent_issue_url=api + "1"),  # 2 es subissue de 1
+        _issue(3),
+    ]
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert store.obtener_tarea(t2.id).padre_id == t1.id
+    assert store.obtener_tarea(t1.id).padre_id is None
+
+    # Ahora GitHub dice que 1 es subissue de 2: cerraría un ciclo, se ignora.
+    client.listar_issues.return_value = [_issue(1, parent_issue_url=api + "2"), _issue(2), _issue(3)]
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert store.obtener_tarea(t1.id).padre_id is None
+
+
+def test_pull_trae_las_dependencias_blocked_by(tmp_path):
+    store, p, (t1, t2, _t3) = _repo_con_tres_tareas(tmp_path)
+    client = MagicMock(spec=GitHubClient)
+    client.listar_issues.return_value = [
+        _issue(1),
+        _issue(2, issue_dependencies_summary={"total_blocked_by": 1}),
+    ]
+    client.listar_bloqueos.return_value = [
+        {"number": 1, "url": "https://api.github.com/repos/u/r/issues/1"},
+        {"number": 9, "url": "https://api.github.com/repos/otro/repo/issues/9"},  # otro repo
+    ]
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    deps = store.listar_dependencias(p.id)
+    assert [(d.tarea_origen_id, d.tarea_destino_id) for d in deps] == [(t1.id, t2.id)]
+    # Una segunda sincronización no la duplica.
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert len(store.listar_dependencias(p.id)) == 1
+
+
+def test_push_envia_las_dependencias_locales_que_faltan_en_github(tmp_path):
+    store, _p, (t1, t2, _t3) = _repo_con_tres_tareas(tmp_path)
+    store.crear_dependencia(t1.id, t2.id)  # T2 queda bloqueada por T1
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_issue.return_value = {"labels": [], "id": 111}
+    client.listar_bloqueos.return_value = []
+    GitHubSyncManager(store, client).push_tarea(t2.id)
+    client.anadir_bloqueo.assert_called_once_with("u", "r", 2, 111)
+    # Si GitHub ya la tiene, no se vuelve a enviar.
+    client.anadir_bloqueo.reset_mock()
+    client.listar_bloqueos.return_value = [{"number": 1}]
+    GitHubSyncManager(store, client).push_tarea(t2.id)
+    client.anadir_bloqueo.assert_not_called()

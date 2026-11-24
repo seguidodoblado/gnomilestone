@@ -24,7 +24,7 @@ class GitHubError(Exception):
 
 
 class GitHubNotFoundError(GitHubError):
-    """HTTP 404: el recurso (etiqueta, issue…) no existe en GitHub."""
+    """HTTP 404/410: el recurso (etiqueta, issue…) no existe en GitHub."""
 
 
 class GitHubAuthError(GitHubError):
@@ -183,13 +183,13 @@ class GitHubClient:
         err_body = err.read().decode("utf-8", errors="replace")
         # 404 y 422 los trata el llamador (p. ej. «la etiqueta no existe» o «ya existe»): no
         # son un error por sí mismos, así que no ensucian la terminal.
-        nivel = logging.DEBUG if err.code in (404, 422) else logging.ERROR
+        nivel = logging.DEBUG if err.code in (404, 410, 422) else logging.ERROR
         log.log(nivel, "HTTP %s llamando a GitHub %s: %s", err.code, url, err_body)
         if err.code in (401, 403):
             raise GitHubAuthError(
                 f"Error de autenticación con GitHub (HTTP {err.code}): {err_body}"
             ) from err
-        if err.code == 404:
+        if err.code in (404, 410):  # 410: issue borrado
             raise GitHubNotFoundError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
         raise GitHubError(f"Error de GitHub API (HTTP {err.code}): {err_body}") from err
 
@@ -694,6 +694,20 @@ class GitHubClient:
             f"repos/{owner}/{repo}/issues/{numero_padre}/sub_issues",
             method="POST",
             data={"sub_issue_id": sub_issue_id, "replace_parent": True},
+        )
+
+    def listar_bloqueos(self, owner: str, repo: str, number: int) -> list[dict[str, Any]]:
+        """Issues que bloquean a `number` («blocked by» de las dependencias de issues)."""
+        return self._request(
+            f"repos/{owner}/{repo}/issues/{number}/dependencies/blocked_by?per_page=100"
+        )
+
+    def anadir_bloqueo(self, owner: str, repo: str, number: int, bloqueante_id: int) -> None:
+        """Marca el issue `number` como bloqueado por el issue de id numérico `bloqueante_id`."""
+        self._request(
+            f"repos/{owner}/{repo}/issues/{number}/dependencies/blocked_by",
+            method="POST",
+            data={"issue_id": bloqueante_id},
         )
 
     # -- Milestones (el equivalente remoto de un Hito local) -------------------------

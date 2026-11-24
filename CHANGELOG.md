@@ -13,11 +13,22 @@ en este archivo.
 - Las notas de «Contexto del proyecto» (Visión general) llevan un icono propio, como los de la barra lateral de GitHub: libro para README, corazón sobre una mano para el código de conducta, dos personas para «Contribuyendo», balanza para la licencia y escudo para la seguridad. Se reconocen por el título, en español o en inglés (`README`, `Código de conducta`/`Code of conduct`, `Contribuyendo`/`Contributing`, `Licencia`/`License`/`COPYING`, `Seguridad`/`Security policy`), y son iconos simbólicos propios en `assets/icons`
 - Las tablas Markdown de las notas se ven como tabla (#82): cabecera en negrita, alineación por columna (`:--`, `:-:`, `--:`), formato en línea y enlaces `[[…]]`/`#N` en las celdas, y scroll horizontal si no caben. Una tabla dentro de un bloque de código sigue siendo código
 - Las casillas de las listas de tareas (`- [ ]`) se pueden marcar y desmarcar pulsándolas en la Vista previa del editor; el cambio se escribe en el texto de la nota
+- El botón de sincronizar también envía (#60): antes de traer los datos de GitHub manda las tareas editadas en local desde el último sync y las nuevas sin issue; las que no se puedan enviar se avisan en el diálogo de la sincronización y quedan pendientes para el siguiente intento
+- Mover o redimensionar una barra en el Gantt global envía el cambio a GitHub, con sus subtareas y dependientes, como ya hacía el Gantt de proyecto
+- Los asignados de una tarea se sincronizan en los dos sentidos a tres bandas (#60): una desasignación hecha en GitHub se refleja en local y una hecha en local llega al issue, sin pisar lo que se haya asignado por el otro lado desde el último sync
+- Una tarea cuyo issue se borró en GitHub se archiva en local al sincronizar, con un aviso, en vez de quedarse huérfana (#60); nunca se borra, y se respeta si tiene cambios locales sin enviar o si el repositorio tiene más de 100 issues (listado truncado)
+- Aviso flotante cuando un envío suelto a GitHub falla al guardar, mover o asignar (#60): dice qué tarea no se envió y que se reintentará al sincronizar; si fallan varias a la vez, las cuenta en un solo aviso
+- Fusión por campo (#60): si una tarea se edita en local y en GitHub entre dos sincronizaciones, ya no se descarta todo lo de GitHub. Cada campo (título, descripción, columna, fechas, duración, prioridad, tipo y avance) se trae si solo cambió en GitHub, se conserva si solo cambió en local y solo se avisa —ganando lo local— cuando cambió en los dos lados a valores distintos. Las tareas anteriores a este cambio mantienen el criterio de tarea completa hasta su siguiente sincronización
+- Jerarquía y dependencias con GitHub (#60): al sincronizar se trae el padre de cada subissue y las dependencias «blocked by» entre las tareas del proyecto (sin cerrar ciclos ni duplicar), y al enviar una tarea sus dependencias locales se marcan como «blocked by» en GitHub. Quitar un padre o una dependencia en un lado no se propaga al otro
+- Decisión sobre el % de avance (#60): no se sincroniza con GitHub. Projects no tiene un campo propio de porcentaje (solo uno calculado y de solo lectura a partir de los subissues) y obligaría a crear un campo numérico a mano en cada tablero; el avance sigue siendo local y, al pasar una tarea a la columna de completadas, cierra el issue
 
 ### Changed
 
 - Vista Uso (#13): la leyenda pasa a cuadraditos de color con etiqueta corta y el tinte de fondo de cada persona usa la misma escala verde/azul/rojo que la franja de equipo; un clic en una barra abre directamente la tarea, sin el popover de dedicación (se edita en el diálogo de la tarea)
 - Las fichas de persona de Recursos se dibujan plegadas la primera vez que aparecen (la elección del usuario se respeta después), y las cinco secciones del árbol de Documentación arrancan plegadas
+
+- Tras un pull, una tarea editada en local ya no se queda en conflicto si su envío previo funciona: gana lo local y solo hay conflicto cuando el envío falla (#60)
+- Con un token de GitHub no válido, la sincronización muestra un solo aviso («El token no es válido o ha caducado») en vez de repetir el error 401 de cada recurso (#60)
 
 ### Fixed
 

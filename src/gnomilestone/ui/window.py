@@ -5,11 +5,12 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gio, Gtk
+from gi.repository import Gio, GLib, Gtk
 
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto
 from gnomilestone.store import Store
+from gnomilestone.sync import al_fallar_envio
 from gnomilestone.ui.about import build_about_dialog
 from gnomilestone.ui.global_gantt_view import GlobalGanttView
 from gnomilestone.ui.global_usage_view import GlobalUsageView
@@ -100,7 +101,50 @@ class MainWindow(Gtk.ApplicationWindow):
         self._paned.set_end_child(self._detail_stack)
         self._paned.set_resize_end_child(True)
 
-        self.set_child(self._paned)
+        # Aviso flotante (abajo, centrado) para los envíos sueltos a GitHub que fallan.
+        self._aviso_etiqueta = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
+        cerrar = Gtk.Button(icon_name="window-close-symbolic")
+        cerrar.add_css_class("flat")
+        cerrar.connect("clicked", lambda _b: self._ocultar_aviso())
+        self._aviso = Gtk.Box(
+            spacing=12,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.END,
+            margin_bottom=24,
+            visible=False,
+        )
+        self._aviso.add_css_class("osd")
+        self._aviso.add_css_class("toolbar")
+        self._aviso.append(self._aviso_etiqueta)
+        self._aviso.append(cerrar)
+        self._fallos_envio: list[str] = []
+        self._aviso_timer = 0
+        overlay = Gtk.Overlay(child=self._paned)
+        overlay.add_overlay(self._aviso)
+        self.set_child(overlay)
+        al_fallar_envio(lambda titulo: GLib.idle_add(self._on_fallo_envio, titulo))
+
+    def _on_fallo_envio(self, titulo: str) -> bool:
+        self._fallos_envio.append(titulo)
+        if len(self._fallos_envio) == 1:
+            texto = _("No se pudo enviar «{titulo}» a GitHub; se reintentará al sincronizar.")
+            texto = texto.format(titulo=titulo)
+        else:
+            texto = _(
+                "No se pudieron enviar {n} tareas a GitHub; se reintentarán al sincronizar."
+            ).format(n=len(self._fallos_envio))
+        self._aviso_etiqueta.set_label(texto)
+        self._aviso.set_visible(True)
+        if self._aviso_timer:
+            GLib.source_remove(self._aviso_timer)
+        self._aviso_timer = GLib.timeout_add_seconds(8, self._ocultar_aviso)
+        return False
+
+    def _ocultar_aviso(self) -> bool:
+        self._aviso.set_visible(False)
+        self._fallos_envio = []
+        self._aviso_timer = 0
+        return False
 
     def _build_menu_button(self) -> Gtk.Widget:
         # Menú de la cabecera: botones con icono del sistema (simbólico, con el normal como

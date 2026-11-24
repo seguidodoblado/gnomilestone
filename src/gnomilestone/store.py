@@ -145,12 +145,29 @@ def _hito_de_fila(fila: sqlite3.Row) -> Hito:
     return Hito(**datos)
 
 
+# Campos de la tarea que viajan a GitHub y cuya base del último sync se guarda para fusionarlos
+# por campo (ver `GitHubSyncManager._fusionar_campos`).
+CAMPOS_BASE_GITHUB = (
+    "titulo",
+    "descripcion",
+    "estado_id",
+    "fecha_inicio",
+    "duracion_dias",
+    "fecha_fin_planificada",
+    "prioridad",
+    "tipo",
+    "porcentaje_completado",
+)
+
+
 def _tarea_de_fila(fila: sqlite3.Row) -> Tarea:
     datos = dict(fila)
     datos.pop("es_hito", None)  # columna heredada: los Hitos son una entidad propia
     datos.pop("github_milestone_number", None)
     datos["archivada"] = bool(datos.get("archivada"))
     datos.pop("github_etiquetas", None)  # base de fusión de etiquetas: no es campo del modelo
+    datos.pop("github_asignados", None)  # base de fusión de asignados: tampoco
+    datos.pop("github_base", None)  # base de la fusión por campo: tampoco
     return Tarea(**datos)
 
 
@@ -868,6 +885,22 @@ class Store:
                 db.execute("ALTER TABLE etiqueta ADD COLUMN descripcion TEXT NOT NULL DEFAULT ''")
             db.execute("PRAGMA user_version = 43")
             version = 43
+        if version < 44:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "github_asignados" not in columnas:
+                # Logins (en minúsculas, JSON) asignados al issue en el último sync: base de
+                # la fusión a tres bandas de los asignados.
+                db.execute("ALTER TABLE tarea ADD COLUMN github_asignados TEXT")
+            db.execute("PRAGMA user_version = 44")
+            version = 44
+        if version < 45:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "github_base" not in columnas:
+                # Valores de los campos de la tarea en el último sync (JSON): base de la
+                # fusión por campo cuando se edita en local y en GitHub a la vez.
+                db.execute("ALTER TABLE tarea ADD COLUMN github_base TEXT")
+            db.execute("PRAGMA user_version = 45")
+            version = 45
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1737,6 +1770,22 @@ class Store:
                 (json.dumps(nombres), tarea_id),
             )
 
+    def asignados_base_github(self, tarea_id: int) -> set[str] | None:
+        """Logins (en minúsculas) asignados al issue en el último sync, o None si nunca hubo."""
+        with closing(self._connect()) as db:
+            fila = db.execute(
+                "SELECT github_asignados FROM tarea WHERE id = ?", (tarea_id,)
+            ).fetchone()
+            return set(json.loads(fila[0])) if fila and fila[0] is not None else None
+
+    def guardar_asignados_base_github(self, tarea_id: int, logins: list[str]) -> None:
+        """Sin tocar `actualizado`: no es una edición del usuario (no debe causar conflicto)."""
+        with closing(self._connect()) as db, db:
+            db.execute(
+                "UPDATE tarea SET github_asignados = ? WHERE id = ?",
+                (json.dumps(sorted({login.lower() for login in logins})), tarea_id),
+            )
+
     # -- Documentación -----------------------------------------------------
 
     @staticmethod
@@ -2175,9 +2224,26 @@ class Store:
         Lo usa `sync.py` tras cada pull/push correcto de una tarea, para que el próximo
         pull sepa si hubo una edición local de por medio desde entonces (conflicto)."""
         with closing(self._connect()) as db, db:
+            fila = db.execute(
+                f"SELECT {', '.join(CAMPOS_BASE_GITHUB)} FROM tarea WHERE id = ?", (tarea_id,)
+            ).fetchone()
+            base = json.dumps(dict(zip(CAMPOS_BASE_GITHUB, tuple(fila), strict=True))) if fila else None
             db.execute(
-                "UPDATE tarea SET github_synced_at = datetime('now') WHERE id = ?", (tarea_id,)
+                "UPDATE tarea SET github_synced_at = datetime('now'), github_base = ? "
+                "WHERE id = ?",
+                (base, tarea_id),
             )
+
+    def base_campos_github(self, tarea_id: int) -> dict | None:
+        """Valores de los campos sincronizados en el último sync, o None si no se guardaron."""
+        with closing(self._connect()) as db:
+            fila = db.execute("SELECT github_base FROM tarea WHERE id = ?", (tarea_id,)).fetchone()
+            return json.loads(fila[0]) if fila and fila[0] is not None else None
+
+    def guardar_base_campos_github(self, tarea_id: int, base: dict) -> None:
+        """Sin tocar `actualizado`: no es una edición del usuario."""
+        with closing(self._connect()) as db, db:
+            db.execute("UPDATE tarea SET github_base = ? WHERE id = ?", (json.dumps(base), tarea_id))
 
     # -- Dependencias ---------------------------------------------------------
 

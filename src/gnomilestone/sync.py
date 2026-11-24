@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
@@ -17,7 +18,7 @@ from gnomilestone.hitos import esta_conseguido
 from gnomilestone.i18n import _
 from gnomilestone.models import EstadoTablero, Hito, Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
-from gnomilestone.store import ESTADOS_POR_DEFECTO, Store
+from gnomilestone.store import ESTADOS_POR_DEFECTO, CicloDependenciaError, Store
 from gnomilestone.tipos import nombre_remoto, tipo_desde_github
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,22 @@ log = logging.getLogger(__name__)
 # debe leerse ni escribirse nada del proyecto: un pull o un push en ese intervalo vería
 # las tareas sin estado, o usaría ids viejos. Reentrante porque un push puede llamar a otro.
 _BLOQUEO_PROYECTO = threading.RLock()
+
+# Quien quiera enterarse de un envío suelto que falla (la ventana principal lo muestra como
+# aviso). Se llama desde el hilo del envío, con el título de la tarea.
+_oyentes_fallo_envio: list[Callable[[str], None]] = []
+
+
+def al_fallar_envio(oyente: Callable[[str], None]) -> None:
+    _oyentes_fallo_envio.append(oyente)
+
+
+def _avisar_fallo_envio(titulo: str) -> None:
+    for oyente in _oyentes_fallo_envio:
+        try:
+            oyente(titulo)
+        except Exception:  # un oyente roto no debe tumbar el envío
+            log.debug("Oyente de fallo de envío con error", exc_info=True)
 
 
 @dataclass
@@ -180,7 +197,7 @@ class GitHubSyncManager:
         fallos: list[str] = []
         with _BLOQUEO_PROYECTO:
             for tarea in self.tareas_pendientes_de_envio(proyecto_id):
-                if not self._push_tarea(tarea.id):
+                if not self._push_tarea(tarea.id, avisar=False):
                     fallos.append(
                         _("No se pudo enviar a GitHub la tarea «{titulo}»; sigue pendiente.").format(
                             titulo=tarea.titulo
@@ -195,7 +212,20 @@ class GitHubSyncManager:
         columna local -> id de opción remota, o None para dejarla sin columna) dice a dónde
         migrar las tareas de columnas sin equivalente; el resto se migra solo."""
         with _BLOQUEO_PROYECTO:
-            return self._pull_proyecto(proyecto_id, columnas_a_opciones or {})
+            resultado = self._pull_proyecto(proyecto_id, columnas_a_opciones or {})
+        return self._resumir_errores_401(resultado)
+
+    @staticmethod
+    def _resumir_errores_401(resultado: SyncResult) -> SyncResult:
+        """Con un token no válido cada recurso falla con el mismo 401: se muestra un solo
+        aviso en vez de repetirlo seis veces."""
+        auth = [e for e in resultado.errores if "(HTTP 401)" in e]
+        if auth:
+            resultado.errores = [e for e in resultado.errores if e not in auth]
+            resultado.errores.append(
+                _("El token de GitHub no es válido o ha caducado (HTTP 401). Revísalo en Preferencias.")
+            )
+        return resultado
 
     def _pull_proyecto(
         self, proyecto_id: int, columnas_a_opciones: dict[int, str | None]
@@ -338,6 +368,28 @@ class GitHubSyncManager:
             resultado.recursos_creados += 1
             return nuevo_recurso
 
+        def _aplicar_asignados(tarea_id: int, remotos: list[str]) -> None:
+            """Fusión a tres bandas de los asignados (base = los del último sync): se añade
+            lo que GitHub añadió, se quita lo que GitHub quitó y se respeta lo que solo se
+            tocó en local (ya sea porque aún está pendiente de envío)."""
+            base = self._store.asignados_base_github(tarea_id)
+            remotos_min = {login.lower() for login in remotos}
+            locales = self._store.listar_recursos_de_tarea(tarea_id)
+            ids_locales = {r.id for r in locales}
+            for login in remotos:
+                rec = _asegurar_recurso(login)
+                if rec.id in ids_locales:
+                    continue
+                if base is not None and login.lower() in base:
+                    continue  # lo quitó el usuario en local y aún no se ha enviado
+                self._store.asignar_recurso(tarea_id, rec.id)
+            if base is not None:
+                for rec in locales:
+                    login = (rec.github_login or "").lower()
+                    if login and login in base and login not in remotos_min:
+                        self._store.quitar_asignacion_tarea_recurso(tarea_id, rec.id)
+            self._store.guardar_asignados_base_github(tarea_id, list(remotos_min))
+
         def _en_conflicto(tarea: Tarea) -> bool:
             # Si la tarea se editó en local después del último sync con GitHub, un pull
             # no debe pisar esos cambios en silencio: se deja para que el usuario decida
@@ -400,10 +452,27 @@ class GitHubSyncManager:
             if tarea_existente:
                 if _en_conflicto(tarea_existente):
                     conflicto_item = True
-                    resultado.conflictos.append(
-                        f"'{tarea_existente.titulo}' se editó en local después del último "
-                        "sync: no se han traído los cambios de GitHub para no perder los tuyos."
-                    )
+                    remotos_item: dict[str, object] = {"titulo": item.title}
+                    if item.body:
+                        remotos_item["descripcion"] = item.body
+                    if estado_id is not None:
+                        remotos_item["estado_id"] = estado_id
+                    if fecha_inicio:
+                        remotos_item["fecha_inicio"] = fecha_inicio
+                    remotos_item["duracion_dias"] = duracion_dias
+                    if item.target_date:
+                        remotos_item["fecha_fin_planificada"] = item.target_date
+                    if nivel_prioridad is not None:
+                        remotos_item["prioridad"] = nivel_prioridad
+                    if tipo_remoto is not None:
+                        remotos_item["tipo"] = tipo_remoto
+                    if not self._fusionar_campos(
+                        tarea_existente, remotos_item, estados_existentes, resultado
+                    ):
+                        resultado.conflictos.append(
+                            f"'{tarea_existente.titulo}' se editó en local después del último "
+                            "sync: no se han traído los cambios de GitHub para no perder los tuyos."
+                        )
                     tarea_id = tarea_existente.id
                 else:
                     # Actualizar campos locales si han cambiado
@@ -479,14 +548,9 @@ class GitHubSyncManager:
                 )
             self._enlazar_hito(tarea_id, hitos_de, None, item.milestone_title, conflicto_item)
 
-            # Asignaciones (solo añade recursos nuevos, nunca quita: seguro ante conflicto)
-            if item.assignees:
-                recursos_tarea = self._store.listar_recursos_de_tarea(tarea_id)
-                asignados_ids = {r.id for r in recursos_tarea}
-                for asignee in item.assignees:
-                    rec = _asegurar_recurso(asignee)
-                    if rec.id not in asignados_ids:
-                        self._store.asignar_recurso(tarea_id, rec.id)
+            # Asignaciones: fusión a tres bandas con la base del último sync
+            if item.assignees is not None:
+                _aplicar_asignados(tarea_id, item.assignees)
 
         # 3. Si hay un repo configurado, sincronizar los issues restantes del repo
         if repo_name:
@@ -522,10 +586,18 @@ class GitHubSyncManager:
                     if tarea_existente:
                         if _en_conflicto(tarea_existente):
                             conflicto_issue = True
-                            resultado.conflictos.append(
-                                f"'{tarea_existente.titulo}' se editó en local después del "
-                                "último sync: no se han traído los cambios de GitHub."
-                            )
+                            remotos_issue: dict[str, object] = {"titulo": title}
+                            if body:
+                                remotos_issue["descripcion"] = body
+                            if is_closed:
+                                remotos_issue["porcentaje_completado"] = 100
+                            if not self._fusionar_campos(
+                                tarea_existente, remotos_issue, estados_existentes, resultado
+                            ):
+                                resultado.conflictos.append(
+                                    f"'{tarea_existente.titulo}' se editó en local después del "
+                                    "último sync: no se han traído los cambios de GitHub."
+                                )
                             t_id = tarea_existente.id
                         else:
                             modificada = False
@@ -579,13 +651,18 @@ class GitHubSyncManager:
                             {e["name"]: e["color"] for e in etiquetas_issue if e.get("color")},
                         )
 
-                    if assignees:
-                        recursos_tarea = self._store.listar_recursos_de_tarea(t_id)
-                        asignados_ids = {r.id for r in recursos_tarea}
-                        for login in assignees:
-                            rec = _asegurar_recurso(login)
-                            if rec.id not in asignados_ids:
-                                self._store.asignar_recurso(t_id, rec.id)
+                    _aplicar_asignados(t_id, assignees)
+                self._archivar_borradas_en_github(
+                    proyecto_id,
+                    owner,
+                    repo_name,
+                    procesados_issues | {i.get("number") for i in issues_repo},
+                    completo=len(issues_repo) < 100,
+                    resultado=resultado,
+                )
+                self._pull_jerarquia_y_dependencias(
+                    proyecto_id, owner, repo_name, issues_repo, resultado
+                )
             except Exception as e:
                 log.exception("Error al sincronizar issues de repositorio")
                 resultado.errores.append(f"Error sincronizando issues de {owner}/{repo_name}: {e}")
@@ -609,6 +686,207 @@ class GitHubSyncManager:
                 self._store.purgar_estado_temporal_si_vacio(estado_temporal.id)
 
         return resultado
+
+    @staticmethod
+    def _etiquetas_campo() -> dict[str, str]:
+        return {
+            "titulo": _("título"),
+            "descripcion": _("descripción"),
+            "estado_id": _("columna"),
+            "fecha_inicio": _("fecha de inicio"),
+            "duracion_dias": _("duración"),
+            "fecha_fin_planificada": _("fecha de fin"),
+            "prioridad": _("prioridad"),
+            "tipo": _("tipo"),
+            "porcentaje_completado": _("avance"),
+        }
+
+    def _fusionar_campos(
+        self,
+        tarea: Tarea,
+        remotos: dict[str, object],
+        estados: list[EstadoTablero],
+        resultado: SyncResult,
+    ) -> bool:
+        """Fusión por campo de una tarea editada en local desde el último sync. Con la base
+        del último sync: lo que solo cambió en GitHub se trae, lo que solo cambió en local se
+        conserva (se enviará) y solo lo cambiado en ambos lados, a valores distintos, es un
+        conflicto real (gana lo local y se avisa). Devuelve False si no hay base (tarea
+        anterior a esta función): el llamador mantiene el criterio de tarea completa."""
+        base = self._store.base_campos_github(tarea.id)
+        if base is None:
+            return False
+        modificada = False
+        etiquetas = self._etiquetas_campo()
+        en_conflicto: list[str] = []
+        for campo, remoto in remotos.items():
+            local = getattr(tarea, campo)
+            if remoto == local:
+                continue
+            if campo in base and local == base[campo]:
+                if campo == "estado_id":
+                    completado.al_cambiar_de_columna(tarea, remoto, estados)
+                setattr(tarea, campo, remoto)
+                modificada = True
+            elif campo in base and remoto == base[campo]:
+                continue
+            else:
+                en_conflicto.append(etiquetas.get(campo, campo))
+        if modificada:
+            self._store.actualizar_tarea(tarea)
+            resultado.tareas_actualizadas += 1
+        self._store.guardar_base_campos_github(tarea.id, {**base, **remotos})
+        if en_conflicto:
+            resultado.conflictos.append(
+                _(
+                    "«{titulo}»: {campos} se cambió en local y en GitHub; se mantiene la "
+                    "versión local."
+                ).format(titulo=tarea.titulo, campos=", ".join(en_conflicto))
+            )
+        return True
+
+    @staticmethod
+    def _numero_de_url_issue(url: str | None, owner: str, repo: str) -> int | None:
+        """Número de un issue de este repositorio a partir de su URL de API, o None."""
+        prefijo = f"/repos/{owner}/{repo}/issues/".lower()
+        if not url or prefijo not in url.lower():
+            return None
+        try:
+            return int(url.rstrip("/").rsplit("/", 1)[1])
+        except (IndexError, ValueError):
+            return None
+
+    def _pull_jerarquia_y_dependencias(
+        self, proyecto_id: int, owner: str, repo: str, issues: list[dict], resultado: SyncResult
+    ) -> None:
+        """Trae de GitHub los subissues (padre de cada issue) y las dependencias («blocked
+        by»). Solo añade o cambia: quitar un padre o una dependencia en GitHub no se
+        refleja en local (sin base no se distingue de un enlace que nunca se llegó a
+        enviar). Una tarea con cambios locales sin enviar conserva su padre."""
+        try:
+            tareas = self._store.listar_tareas(proyecto_id)
+            por_numero = {t.github_issue_number: t for t in tareas if t.github_issue_number}
+            for issue in issues:
+                tarea = por_numero.get(issue.get("number"))
+                num_padre = self._numero_de_url_issue(issue.get("parent_issue_url"), owner, repo)
+                padre = por_numero.get(num_padre) if num_padre else None
+                if not (tarea and padre) or padre.id in (tarea.id, tarea.padre_id):
+                    continue
+                if tarea.actualizado and (
+                    not tarea.github_synced_at or tarea.actualizado > tarea.github_synced_at
+                ):
+                    continue
+                if self._es_descendiente(tareas, padre.id, tarea.id):
+                    continue  # el nuevo padre cuelga de la tarea: cerraría un ciclo
+                tarea.padre_id = padre.id
+                self._store.actualizar_tarea(tarea)
+                self._store.marcar_sincronizada_github(tarea.id)
+                resultado.tareas_actualizadas += 1
+
+            existentes = {
+                (d.tarea_origen_id, d.tarea_destino_id)
+                for d in self._store.listar_dependencias(proyecto_id)
+            }
+            for issue in issues:
+                destino = por_numero.get(issue.get("number"))
+                if not destino or not (issue.get("issue_dependencies_summary") or {}).get(
+                    "total_blocked_by"
+                ):
+                    continue
+                for bloqueante in self._client.listar_bloqueos(owner, repo, destino.github_issue_number):
+                    origen = por_numero.get(
+                        self._numero_de_url_issue(bloqueante.get("url"), owner, repo)
+                    )
+                    if not origen or (origen.id, destino.id) in existentes:
+                        continue
+                    try:
+                        self._store.crear_dependencia(origen.id, destino.id)
+                        existentes.add((origen.id, destino.id))
+                    except (CicloDependenciaError, ValueError):
+                        log.info("Dependencia %s -> %s ignorada (ciclo)", origen.id, destino.id)
+        except Exception as e:
+            log.exception("Error al traer la jerarquía y las dependencias")
+            resultado.errores.append(
+                f"Error trayendo la jerarquía y las dependencias de {owner}/{repo}: {e}"
+            )
+
+    @staticmethod
+    def _es_descendiente(tareas: list[Tarea], tarea_id: int, ancestro_id: int) -> bool:
+        """`tarea_id` cuelga (a cualquier nivel) de `ancestro_id`."""
+        padres = {t.id: t.padre_id for t in tareas}
+        actual = padres.get(tarea_id)
+        visitadas: set[int] = set()
+        while actual is not None and actual not in visitadas:
+            if actual == ancestro_id:
+                return True
+            visitadas.add(actual)
+            actual = padres.get(actual)
+        return False
+
+    def _enviar_dependencias(self, owner: str, repo: str, tarea: Tarea) -> None:
+        """Refleja en GitHub las dependencias locales de la tarea (las que la bloquean y las
+        que ella bloquea) como «blocked by», si ambos extremos tienen issue. Un fallo aquí no
+        invalida el resto del envío. Quitar una dependencia en local no la quita en GitHub."""
+        try:
+            tareas = {t.id: t for t in self._store.listar_tareas(tarea.proyecto_id)}
+            remotos: dict[int, set[int]] = {}  # issue destino -> issues que ya la bloquean
+            for dep in self._store.listar_dependencias(tarea.proyecto_id):
+                if tarea.id not in (dep.tarea_origen_id, dep.tarea_destino_id):
+                    continue
+                origen, destino = tareas.get(dep.tarea_origen_id), tareas.get(dep.tarea_destino_id)
+                if not (origen and destino and origen.github_issue_number and destino.github_issue_number):
+                    continue
+                num_destino = destino.github_issue_number
+                if num_destino not in remotos:
+                    remotos[num_destino] = {
+                        b.get("number") for b in self._client.listar_bloqueos(owner, repo, num_destino)
+                    }
+                if origen.github_issue_number in remotos[num_destino]:
+                    continue
+                id_origen = self._client.obtener_issue(
+                    owner, repo, origen.github_issue_number
+                ).get("id")
+                if id_origen:
+                    self._client.anadir_bloqueo(owner, repo, num_destino, id_origen)
+        except Exception:
+            log.warning(
+                "No se pudieron enviar las dependencias de la tarea %s", tarea.id, exc_info=True
+            )
+
+    def _archivar_borradas_en_github(
+        self,
+        proyecto_id: int,
+        owner: str,
+        repo_name: str,
+        vistos: set[int | None],
+        completo: bool,
+        resultado: SyncResult,
+    ) -> None:
+        """Una tarea cuyo issue ya no existe en GitHub (borrado) se archiva en local, nunca se
+        borra, y se avisa. Solo se actúa con el listado de issues completo (la API trae 100
+        por llamada: con más, que falte un issue no prueba nada), y cada candidata se
+        confirma pidiendo su issue (404/410). Las editadas en local sin enviar se respetan."""
+        if not completo:
+            log.info("Listado de issues truncado: no se buscan tareas borradas en GitHub")
+            return
+        for tarea in self._store.listar_tareas(proyecto_id):
+            numero = tarea.github_issue_number
+            if not numero or numero in vistos or not tarea.github_synced_at:
+                continue
+            if tarea.actualizado and tarea.actualizado > tarea.github_synced_at:
+                continue
+            try:
+                self._client.obtener_issue(owner, repo_name, numero)
+            except GitHubNotFoundError:
+                self._store.archivar_tarea(tarea.id)
+                resultado.avisos.append(
+                    _(
+                        "El issue #{numero} de la tarea «{titulo}» ya no existe en GitHub: "
+                        "se ha archivado la tarea en local."
+                    ).format(numero=numero, titulo=tarea.titulo)
+                )
+            except GitHubError:
+                log.warning("No se pudo comprobar el issue #%s", numero, exc_info=True)
 
     def _pull_milestones(
         self, proyecto_id: int, owner: str, repo_name: str, resultado: SyncResult
@@ -1334,12 +1612,30 @@ class GitHubSyncManager:
         tarea.github_item_id = item_id
         return True
 
+    def _asignados_para_issue(
+        self, tarea_id: int, locales: list[str], remotos_raw: list[dict] | None
+    ) -> list[str] | None:
+        """Asignados que se mandan al issue: lo que hay en GitHub ahora, sin lo que el
+        usuario quitó en local desde el último sync, más lo que añadió. Así una
+        desasignación local se propaga y un asignado puesto en GitHub no se pisa. Si no se
+        pudo leer lo remoto, se manda solo lo local (como antes)."""
+        if not isinstance(remotos_raw, list):
+            return locales or None
+        remotos = [a["login"] for a in remotos_raw if isinstance(a, dict) and a.get("login")]
+        base = self._store.asignados_base_github(tarea_id) or set()
+        locales_min = {login.lower() for login in locales}
+        quitados = base - locales_min
+        finales = [login for login in remotos if login.lower() not in quitados]
+        presentes = {login.lower() for login in finales}
+        finales += [login for login in locales if login.lower() not in presentes]
+        return finales
+
     def push_tarea(self, tarea_id: int) -> bool:
         """Envía o actualiza una tarea local en GitHub (Issue o Item de Project V2)."""
         with _BLOQUEO_PROYECTO:
             return self._push_tarea(tarea_id)
 
-    def _push_tarea(self, tarea_id: int) -> bool:
+    def _push_tarea(self, tarea_id: int, avisar: bool = True) -> bool:
         tarea = self._store.obtener_tarea(tarea_id)
         if not tarea:
             return False
@@ -1363,13 +1659,15 @@ class GitHubSyncManager:
             # 1. Si ya tiene issue number asociado, actualizar el issue en GitHub
             if tarea.github_issue_number and repo:
                 estado_issue = "closed" if tarea.porcentaje_completado >= 100 else "open"
+                asignados_envio: list[str] | None = asignados or None
                 try:
-                    remotas = [
-                        e["name"]
-                        for e in self._client.obtener_issue(
-                            owner, repo, tarea.github_issue_number
-                        ).get("labels", [])
-                    ]
+                    issue_remoto = self._client.obtener_issue(
+                        owner, repo, tarea.github_issue_number
+                    )
+                    remotas = [e["name"] for e in issue_remoto.get("labels", [])]
+                    asignados_envio = self._asignados_para_issue(
+                        tarea.id, asignados, issue_remoto.get("assignees")
+                    )
                     etiquetas: list[str] | None = self._etiquetas_para_issue(
                         owner, repo, tarea, remotas
                     )
@@ -1385,10 +1683,11 @@ class GitHubSyncManager:
                     titulo=tarea.titulo,
                     body=tarea.descripcion,
                     state=estado_issue,
-                    assignees=asignados or None,
+                    assignees=asignados_envio,
                     labels=etiquetas,
                     **self._tipo_para_issue(owner, repo, tarea),
                 )
+                self._store.guardar_asignados_base_github(tarea.id, asignados)
                 if etiquetas is not None:
                     self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)
             elif repo and not tarea.github_issue_number:
@@ -1404,6 +1703,7 @@ class GitHubSyncManager:
                     **({"labels": etiquetas} if etiquetas else {}),
                 )
                 self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)
+                self._store.guardar_asignados_base_github(tarea.id, asignados)
                 # Solo el vínculo: reescribir toda la fila con la copia leída al empezar el envío
                 # pisaría lo que el usuario haya editado mientras tanto.
                 self._store.vincular_issue_github(tarea.id, res.get("number"), res.get("html_url"))
@@ -1523,9 +1823,12 @@ class GitHubSyncManager:
             if repo and tarea.github_issue_number:
                 self._enviar_campos_issue(owner, repo, tarea)
                 self._enviar_jerarquia(owner, repo, tarea)
+                self._enviar_dependencias(owner, repo, tarea)
 
             self._store.marcar_sincronizada_github(tarea_id)
             return True
         except Exception:
             log.exception("Error al hacer push de tarea %s hacia GitHub", tarea_id)
+            if avisar:
+                _avisar_fallo_envio(tarea.titulo)
             return False
