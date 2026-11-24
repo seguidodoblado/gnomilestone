@@ -698,8 +698,8 @@ class KanbanView(Gtk.Box):
                 tarea, estado_id, self._store.listar_estados(tarea.proyecto_id)
             )
             tarea.estado_id = estado_id
-            self._store.actualizar_tarea(tarea)
-            self._push_a_github(tarea_id)
+            for id_envio in (tarea_id, *self._store.actualizar_tarea(tarea)):
+                self._push_a_github(id_envio)
             if estado_anterior_id is not None:
                 # Si era la columna temporal «Sin estado» y se ha quedado vacía, se borra
                 # sola (igual que GitHub oculta su «No Status» al vaciarse).

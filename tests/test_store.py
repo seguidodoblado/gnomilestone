@@ -912,3 +912,31 @@ def test_nombre_informe_prefiere_el_usuario_de_github():
     sin_login = Recurso(2, 1, "Ana López")
     assert con_login.nombre_informe == "seguidodoblado"
     assert sin_login.nombre_informe == "Ana López"
+
+
+def test_la_padre_se_completa_y_se_reabre_con_sus_subtareas(store):
+    proyecto = store.crear_proyecto("Padres")
+    estados = store.listar_estados(proyecto.id)  # las columnas por defecto del proyecto
+    pendiente = next(e for e in estados if not e.es_final)
+    hecho = next(e for e in estados if e.es_final)
+    padre = store.crear_tarea(proyecto.id, "Padre", estado_id=pendiente.id)
+    a = store.crear_tarea(proyecto.id, "A", padre_id=padre.id, estado_id=pendiente.id)
+    b = store.crear_tarea(proyecto.id, "B", padre_id=padre.id, estado_id=pendiente.id)
+
+    a.porcentaje_completado = 100
+    assert store.actualizar_tarea(a) == []  # falta B: la padre no cambia
+    assert store.obtener_tarea(padre.id).estado_id == pendiente.id
+
+    b.porcentaje_completado = 100
+    assert store.actualizar_tarea(b) == [padre.id]
+    completada = store.obtener_tarea(padre.id)
+    assert (completada.porcentaje_completado, completada.estado_id) == (100, hecho.id)
+    assert completada.fecha_fin_real
+
+    b = store.obtener_tarea(b.id)
+    b.porcentaje_completado = 40
+    b.estado_id = pendiente.id
+    assert store.actualizar_tarea(b) == [padre.id]
+    reabierta = store.obtener_tarea(padre.id)
+    assert (reabierta.porcentaje_completado, reabierta.estado_id) == (0, pendiente.id)
+    assert reabierta.fecha_fin_real is None

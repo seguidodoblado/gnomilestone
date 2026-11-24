@@ -1170,7 +1170,7 @@ class TaskDialog(Gtk.Window):
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
             tarea.hito_id = hito_id
-            self._store.actualizar_tarea(tarea)
+            self._padres_cambiados = self._store.actualizar_tarea(tarea)
             if estado_anterior_id is not None and estado_anterior_id != estado_id:
                 self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)
 
@@ -1187,7 +1187,8 @@ class TaskDialog(Gtk.Window):
         if proyecto and (proyecto.github_repo_name or proyecto.github_project_v2_id):
             def _push() -> None:
                 try:
-                    GitHubSyncManager(self._store).push_tarea(tarea.id)
+                    for tarea_id in (tarea.id, *getattr(self, "_padres_cambiados", [])):
+                        GitHubSyncManager(self._store).push_tarea(tarea_id)
                 except Exception as e:  # noqa: BLE001 - la sincronización no debe bloquear el guardado
                     log.debug("Error enviando tarea a GitHub: %s", e)
 

@@ -519,7 +519,7 @@ class GitHubSyncManager:
                         modificada = True
 
                     if modificada:
-                        self._store.actualizar_tarea(tarea_existente)
+                        self._store.actualizar_tarea(tarea_existente, propagar=False)
                         resultado.tareas_actualizadas += 1
                     self._store.marcar_sincronizada_github(tarea_existente.id)
                     tarea_id = tarea_existente.id
@@ -614,7 +614,7 @@ class GitHubSyncManager:
                                 tarea_existente.github_url = url
                                 modificada = True
                             if modificada:
-                                self._store.actualizar_tarea(tarea_existente)
+                                self._store.actualizar_tarea(tarea_existente, propagar=False)
                                 resultado.tareas_actualizadas += 1
                             self._store.marcar_sincronizada_github(tarea_existente.id)
                             t_id = tarea_existente.id
@@ -733,7 +733,7 @@ class GitHubSyncManager:
             else:
                 en_conflicto.append(etiquetas.get(campo, campo))
         if modificada:
-            self._store.actualizar_tarea(tarea)
+            self._store.actualizar_tarea(tarea, propagar=False)
             resultado.tareas_actualizadas += 1
         self._store.guardar_base_campos_github(tarea.id, {**base, **remotos})
         if en_conflicto:
@@ -779,7 +779,7 @@ class GitHubSyncManager:
                 if self._es_descendiente(tareas, padre.id, tarea.id):
                     continue  # el nuevo padre cuelga de la tarea: cerraría un ciclo
                 tarea.padre_id = padre.id
-                self._store.actualizar_tarea(tarea)
+                self._store.actualizar_tarea(tarea, propagar=False)
                 self._store.marcar_sincronizada_github(tarea.id)
                 resultado.tareas_actualizadas += 1
 

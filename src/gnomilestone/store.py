@@ -6,6 +6,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from gnomilestone import completado, ganttcalc
 from gnomilestone.i18n import _
 from gnomilestone.models import (
     ESTADOS_NOTA,
@@ -1453,7 +1454,9 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE tarea SET github_item_id = ? WHERE id = ?", (item_id, tarea_id))
 
-    def actualizar_tarea(self, tarea: Tarea) -> None:
+    def actualizar_tarea(self, tarea: Tarea, propagar: bool = True) -> list[int]:
+        """Guarda la tarea. Devuelve los ids de las tareas padre que se han completado o reabierto
+        por este cambio (ver `_sincronizar_padre`), para que quien llama las envíe a GitHub."""
         with closing(self._connect()) as db, db:
             fila_anterior = db.execute("SELECT * FROM tarea WHERE id = ?", (tarea.id,)).fetchone()
             anterior = _tarea_de_fila(fila_anterior) if fila_anterior else None
@@ -1513,6 +1516,40 @@ class Store:
                         self._registrar_historial_db(
                             db, tarea.id, tipo, campo, viejo, nuevo, detalle
                         )
+        return self._sincronizar_padre(tarea) if propagar else []
+
+    def _sincronizar_padre(self, hijo: Tarea) -> list[int]:
+        """Una tarea con subtareas es un resumen: cuando todas sus hojas llegan al 100 % se
+        completa sola (100 %, fecha de fin real y columna de completadas, y así hacia arriba) y,
+        si una vuelve a bajar del 100 %, se reabre: recupera su % anterior y sale de esa columna.
+        Devuelve los ids de las padres cambiadas."""
+        if hijo.padre_id is None:
+            return []
+        padre = self.obtener_tarea(hijo.padre_id)
+        if padre is None:
+            return []
+        agregado = ganttcalc.progreso_resumen(
+            self.listar_tareas(padre.proyecto_id, incluir_archivadas=True)
+        ).get(padre.id)
+        if agregado is None:
+            return []
+        if agregado >= 100 and padre.porcentaje_completado < 100:
+            padre.porcentaje_previo = padre.porcentaje_completado
+            padre.porcentaje_completado = 100
+            padre.fecha_fin_real = completado.fecha_fin_real_para(100, padre.fecha_fin_real)
+        elif agregado < 100 and padre.porcentaje_completado >= 100:
+            previo = padre.porcentaje_previo
+            padre.porcentaje_completado = previo if previo is not None and previo < 100 else 0
+            padre.porcentaje_previo = None
+            padre.fecha_fin_real = completado.fecha_fin_real_para(
+                padre.porcentaje_completado, padre.fecha_fin_real
+            )
+            estados = self.listar_estados(padre.proyecto_id)
+            if padre.estado_id == completado.id_columna_final(estados):
+                padre.estado_id = next((e.id for e in estados if not e.es_final), padre.estado_id)
+        else:
+            return []
+        return [padre.id, *self.actualizar_tarea(padre)]
 
     @staticmethod
     def _nombre_estado_db(db: sqlite3.Connection, estado_id: int | None) -> str | None:
