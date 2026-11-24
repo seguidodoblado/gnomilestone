@@ -208,7 +208,7 @@ class ResumenUso:
 def resumen_uso(filas: list[FilaUso], hoy: date | None = None) -> ResumenUso:
     """Resumen agregado: personas con algún día por encima del 100 % y días en que el
     equipo supera su capacidad (ver `carga_equipo_por_dia`), en total y en el mes de `hoy`."""
-    hoy = hoy or date.today()  # noqa: DTZ011 - día local del usuario
+    hoy = hoy or date.today()
     carga = carga_equipo_por_dia(filas)
     dias = [dia for dia, valor in carga.items() if valor > 100]
     return ResumenUso(
