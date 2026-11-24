@@ -151,3 +151,27 @@ def test_hermanas_si_pueden_sobrecargar():
     assert filas[0].carga_maxima == 200
 
     assert filas[0].sobrecargado
+
+
+def test_global_suma_personas_del_mismo_nombre_entre_proyectos():
+    from gnomilestone.resource_usage import construir_filas_uso_global, resumen_uso
+
+    ana1 = Recurso(id=1, proyecto_id=1, nombre="Ana")
+    ana2 = Recurso(id=2, proyecto_id=2, nombre="ana")
+    t1 = _tarea(10, "A", "2026-11-02", 2)
+    t2 = Tarea(id=20, proyecto_id=2, titulo="B", fecha_inicio="2026-11-02", duracion_dias=2)
+    filas = construir_filas_uso_global(
+        [ana1, ana2],
+        [t1, t2],
+        [Asignacion(1, 10, 1, 60), Asignacion(2, 20, 2, 60)],
+        {1: "P1", 2: "P2"},
+    )
+    assert len(filas) == 1
+    assert filas[0].carga_maxima == 120
+    assert filas[0].sobrecargado
+    assert {s.proyecto for s in filas[0].segmentos} == {"P1", "P2"}
+    resumen = resumen_uso(filas, date(2026, 11, 20))
+    assert resumen.personas_sobrecargadas == 1
+    assert resumen.dias_sobrecarga_equipo == 2
+    assert resumen.dias_sobrecarga_equipo_mes == 2
+
