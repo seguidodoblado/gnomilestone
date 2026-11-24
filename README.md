@@ -11,6 +11,7 @@
   <a href="https://github.com/seguidodoblado/gnomilestone/blob/main/COPYING"><img alt="license" src="https://img.shields.io/github/license/seguidodoblado/gnomilestone"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="last commit" src="https://img.shields.io/github/last-commit/seguidodoblado/gnomilestone"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/commits/main/"><img alt="total commits" src="https://img.shields.io/github/commit-activity/t/seguidodoblado/gnomilestone"></a>
+  <a href="https://github.com/seguidodoblado/gnomilestone/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/seguidodoblado/gnomilestone/total"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/seguidodoblado/gnomilestone?style=flat"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone/issues"><img alt="issues" src="https://img.shields.io/github/issues/seguidodoblado/gnomilestone"></a>
   <a href="https://github.com/seguidodoblado/gnomilestone"><img alt="language" src="https://img.shields.io/github/languages/top/seguidodoblado/gnomilestone"></a>
@@ -48,15 +49,18 @@ proyecto (notas, diagramas y líneas de tiempo).
   de prioridad, tipo y etiquetas), Tablero Kanban (columnas configurables, tarjetas
   arrastrables, subtareas como cápsulas con su progreso), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
-  zoom y propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita
-  de las personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el
-  tiempo de las personas, con sobrecarga marcada en rojo).
+  zoom, regla de fechas de dos niveles, botón «Hoy», desplazamiento arrastrando el fondo y
+  propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita de las
+  personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el tiempo
+  de las personas, agrupada por persona y plegable, con carga diaria en verde/azul/rojo,
+  buscador y resumen de sobrecarga).
 - **Recursos**: cada persona es una tarjeta de visita con su cargo, email y teléfono y
   tres tablas editables (equipos con su hardware, medios con licencias y accesos, y
   lugares de trabajo con su dirección), plegables y con el contorno del color de su
   avatar; el nombre, el email público y el avatar se pueden traer de GitHub.
-- **Gantt global**: superpone los proyectos elegidos en un único diagrama para
-  detectar solapes entre ellos.
+- **Vista global**: el Gantt global superpone los proyectos elegidos en un único
+  diagrama para detectar solapes entre ellos, y el Uso global suma la ocupación de cada
+  persona (agrupada por nombre) en todos los proyectos elegidos.
 - **Informes**: panel visual por proyecto en cinco pestañas: Resumen (estado general y
   riesgo temporal), Flujo de trabajo (tareas por estado, ritmo de trabajo, tiempo medio
   y acumulación por columna), Planificación (burndown/burnup, desviación, fechas
@@ -153,15 +157,18 @@ diagrams and timelines).
   with priority, type and label columns), Kanban board (configurable columns, draggable
   cards, subtasks as capsules showing their progress), Gantt (bars with
   progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
-  propagation to children and dependents), Resources (business cards of the
-  people, with their equipment, media and places) and Resource usage (people's occupancy
-  over time, with overload marked in red).
+  propagation to children and dependents, two-level date ruler, a “Today” button and
+  panning by dragging the background), Resources (business cards of the people, with their
+  equipment, media and places) and Resource usage (people's occupancy over time, grouped
+  per person and foldable, with daily load in green/blue/red, a search box and an overload
+  summary).
 - **Resources**: each person is a business card with their role, email and phone and
   three editable tables (equipment with its hardware data, media with licenses and
   access, and workplaces with their address), foldable and outlined in the color of
   their avatar; the name, public email and avatar can be fetched from GitHub.
-- **Global Gantt**: overlays the chosen projects on a single chart to spot overlaps
-  between them.
+- **Global view**: the global Gantt overlays the chosen projects on a single chart to spot
+  overlaps between them, and the global Usage adds up each person's occupancy (grouped by
+  name) across all the chosen projects.
 - **Reports**: a visual panel per project in five tabs: Summary (general status and time
   risk), Workflow (tasks per status, work rhythm, average time and accumulation per
   column), Planning (burndown/burnup, deviation, planned versus actual dates and

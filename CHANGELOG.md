@@ -9,6 +9,10 @@ en este archivo.
 
 - Vista **Uso global** (#13): en la vista global, junto al Gantt, suma la ocupación de cada persona en los proyectos elegidos (se agrupan por nombre), con el proyecto de cada tarea en el lateral
 - Gantt y Uso: el lienzo cubre al menos seis meses a cada lado de hoy, así que se puede recorrer el calendario hacia atrás y hacia delante aunque las tareas sean recientes; el Uso se centra en hoy al abrir un proyecto (como el Gantt) y ambos tienen un botón «Hoy»
+- Regla de fechas de dos niveles en el Gantt y el Uso (mes y año arriba, día o semana abajo; año y mes en Trimestral y Anual), con la etiqueta del periodo que sigue al borde visible, meses alternos con un tinte suave, líneas de cuadrícula al ritmo de la regla y una pastilla «Hoy»
+- En las escalas anchas las barras pequeñas (8 px como mínimo) llevan el título a su derecha, tras la bandera de la fecha límite, y un tooltip con título, fechas, duración, avance y asignados al pasar por una barra (en Uso, título con su proyecto, fechas y dedicación)
+- Se puede arrastrar el fondo o la regla del Gantt y del Uso con el ratón para moverse entre fechas; si se empieza sobre una barra del Gantt, se mueve la tarea
+- El panel de personas del Uso es redimensionable y recuerda su ancho (`uso_panel_ancho`); sin ajustar, arranca lo bastante ancho para leer el nombre más largo
 - La vista Uso agrupa por persona: una cabecera con su carga diaria y la flecha para plegar o desplegar sus tareas (plegadas por defecto en el Uso global). Además tiene un buscador por persona y un resumen del proyecto (personas sobrecargadas y días de sobrecarga del equipo, en total y este mes)
 - Las notas de «Contexto del proyecto» (Visión general) llevan un icono propio, como los de la barra lateral de GitHub: libro para README, corazón sobre una mano para el código de conducta, dos personas para «Contribuyendo», balanza para la licencia y escudo para la seguridad. Se reconocen por el título, en español o en inglés (`README`, `Código de conducta`/`Code of conduct`, `Contribuyendo`/`Contributing`, `Licencia`/`License`/`COPYING`, `Seguridad`/`Security policy`), y son iconos simbólicos propios en `assets/icons`
 - Las tablas Markdown de las notas se ven como tabla (#82): cabecera en negrita, alineación por columna (`:--`, `:-:`, `--:`), formato en línea y enlaces `[[…]]`/`#N` en las celdas, y scroll horizontal si no caben. Una tabla dentro de un bloque de código sigue siendo código
@@ -21,6 +25,8 @@ en este archivo.
 
 ### Fixed
 
+- El Gantt no se podía desplazar en horizontal en proyectos con el lienzo más ancho que la vista (la regla de fechas, con política de scroll `NEVER`, fijaba el tamaño de página al ancho completo): el centrado en hoy no movía el eje. Ahora la regla usa `EXTERNAL`, también en Uso
+- Los tooltips de las barras, banderas e hitos aparecían lejos del cursor (incluso en otro monitor) con el lienzo ancho; ahora los muestra el contenedor con scroll, que tiene el tamaño de la vista
 - La tilde (tecla muerta) quedaba «flotando» en cualquier campo de texto hasta pasar a otro campo o borrar hacia atrás, llevándose además la última letra, con avisos `IBUS-WARNING … Type 'h' is not supported` en la terminal: IBus 1.5.29 con GTK4 no confirma la tecla muerta. La aplicación usa ahora el método de entrada integrado de GTK (`GTK_IM_MODULE=simple`) cuando la sesión usa `ibus`, a costa de los motores de IBus que componen caracteres (japonés, chino, coreano…); el resto de métodos no se tocan
 
 ## [0.1.0] - 2026-11-15
