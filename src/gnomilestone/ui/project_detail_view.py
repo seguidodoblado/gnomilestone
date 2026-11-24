@@ -174,10 +174,7 @@ class ProjectDetailView(Gtk.Box):
         self._recursos = ResourceView(store, on_changed=self.refrescar)
         self._vista_stack.add_named(self._recursos, "recursos")
 
-        self._uso = ResourceUsageView(
-            on_editar_tarea=self._on_editar_tarea,
-            on_dedicacion_changed=self._on_dedicacion_changed,
-        )
+        self._uso = ResourceUsageView(on_editar_tarea=self._on_editar_tarea)
         self._vista_stack.add_named(self._uso, "uso")
         self._informes_con_archivadas = bool(
             settings.read_settings().get("informes_incluir_archivadas", False)
@@ -238,6 +235,7 @@ class ProjectDetailView(Gtk.Box):
     def mostrar_proyecto(self, proyecto: Proyecto) -> None:
         if self._proyecto is None or self._proyecto.id != proyecto.id:
             self._gantt.pedir_centrado()  # otro proyecto: el eje vuelve a empezar en hoy
+            self._uso.pedir_centrado()
         self._proyecto = proyecto
         self.refrescar()
 
@@ -313,10 +311,6 @@ class ProjectDetailView(Gtk.Box):
         ajustes = settings.read_settings()
         ajustes["informes_incluir_archivadas"] = incluir
         settings.write_settings(ajustes)
-        self.refrescar()
-
-    def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
-        self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
         self.refrescar()
 
     def _on_tarea_arrastrada(self, tarea_id: int, nueva_fecha_iso: str, nueva_duracion_dias: int) -> None:

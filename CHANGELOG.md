@@ -7,12 +7,16 @@ en este archivo.
 
 ### Added
 
+- Vista **Uso global** (#13): en la vista global, junto al Gantt, suma la ocupación de cada persona en los proyectos elegidos (se agrupan por nombre), con el proyecto de cada tarea en el lateral
+- Gantt y Uso: el lienzo cubre al menos seis meses a cada lado de hoy, así que se puede recorrer el calendario hacia atrás y hacia delante aunque las tareas sean recientes; el Uso se centra en hoy al abrir un proyecto (como el Gantt) y ambos tienen un botón «Hoy»
+- La vista Uso agrupa por persona: una cabecera con su carga diaria y la flecha para plegar o desplegar sus tareas (plegadas por defecto en el Uso global). Además tiene un buscador por persona y un resumen del proyecto (personas sobrecargadas y días de sobrecarga del equipo, en total y este mes)
 - Las notas de «Contexto del proyecto» (Visión general) llevan un icono propio, como los de la barra lateral de GitHub: libro para README, corazón sobre una mano para el código de conducta, dos personas para «Contribuyendo», balanza para la licencia y escudo para la seguridad. Se reconocen por el título, en español o en inglés (`README`, `Código de conducta`/`Code of conduct`, `Contribuyendo`/`Contributing`, `Licencia`/`License`/`COPYING`, `Seguridad`/`Security policy`), y son iconos simbólicos propios en `assets/icons`
 - Las tablas Markdown de las notas se ven como tabla (#82): cabecera en negrita, alineación por columna (`:--`, `:-:`, `--:`), formato en línea y enlaces `[[…]]`/`#N` en las celdas, y scroll horizontal si no caben. Una tabla dentro de un bloque de código sigue siendo código
 - Las casillas de las listas de tareas (`- [ ]`) se pueden marcar y desmarcar pulsándolas en la Vista previa del editor; el cambio se escribe en el texto de la nota
 
 ### Changed
 
+- Vista Uso (#13): la leyenda pasa a cuadraditos de color con etiqueta corta y el tinte de fondo de cada persona usa la misma escala verde/azul/rojo que la franja de equipo; un clic en una barra abre directamente la tarea, sin el popover de dedicación (se edita en el diálogo de la tarea)
 - Las fichas de persona de Recursos se dibujan plegadas la primera vez que aparecen (la elección del usuario se respeta después), y las cinco secciones del árbol de Documentación arrancan plegadas
 
 ### Fixed

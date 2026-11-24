@@ -330,3 +330,31 @@ def test_marcas_regla_semanas_y_dias():
     assert all(t == "dia" for _f, t in semanal)
     diario = marcas_regla(origen, 80.0, 400)
     assert [f for f, _t in diario][:2] == [date(2026, 11, 8), date(2026, 11, 9)]
+
+
+def test_cobertura_amplia_el_rango_alrededor_de_hoy():
+    from datetime import timedelta
+
+    from gnomilestone.ganttcalc import COBERTURA_DIAS, fin_con_cobertura, origen_con_cobertura
+
+    hoy = date(2026, 11, 24)
+    # Tareas antiguas: manda el origen de los datos; recientes: manda la cobertura.
+    assert origen_con_cobertura(date(2025, 1, 1), hoy) == date(2025, 1, 1)
+    assert origen_con_cobertura(date(2026, 11, 20), hoy) == hoy - timedelta(days=COBERTURA_DIAS)
+    assert fin_con_cobertura(date(2026, 12, 1), hoy) == hoy + timedelta(days=COBERTURA_DIAS + 1)
+    assert fin_con_cobertura(date(2028, 1, 1), hoy) == date(2028, 1, 1)
+
+
+def test_niveles_regla_por_escala():
+    origen = date(2026, 11, 18)  # miércoles
+    diario = ganttcalc.niveles_regla(origen, 80.0, 800)
+    assert diario.inferior[0][0] == origen and len(diario.inferior) >= 10
+    assert diario.superior[0][0] == origen  # el primer mes arranca en el origen visible
+    mensual = ganttcalc.niveles_regla(origen, 18.0, 1500)
+    assert all(f.weekday() == 0 for f in mensual.cuadricula)  # lunes
+    assert mensual.cuadricula[0] == date(2026, 11, 23)
+    trimestral = ganttcalc.niveles_regla(origen, 8.0, 1500)
+    assert [f.day for f in trimestral.cuadricula] == [1] * len(trimestral.cuadricula)
+    assert trimestral.superior[0][1] == "2026"
+    anual = ganttcalc.niveles_regla(origen, 4.0, 1500)
+    assert anual.inferior[0][0] == date(2026, 12, 1)

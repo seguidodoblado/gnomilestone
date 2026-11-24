@@ -12,11 +12,13 @@ from gnomilestone.models import Proyecto
 from gnomilestone.store import Store
 from gnomilestone.ui.about import build_about_dialog
 from gnomilestone.ui.global_gantt_view import GlobalGanttView
+from gnomilestone.ui.global_usage_view import GlobalUsageView
 from gnomilestone.ui.project_detail_view import ProjectDetailView
 from gnomilestone.ui.project_list_view import ProjectListView
 from gnomilestone.usuarios import inicializar_usuario_actual
 
 _GLOBE_ICON = Path(__file__).resolve().parent.parent / "assets" / "globe-symbolic.svg"
+_ANCHO_PANEL_PROYECTOS = 420  # ancho inicial de la lista de proyectos (se puede arrastrar)
 
 
 def _globe_icon_path() -> Path:
@@ -62,7 +64,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_titlebar(header)
         self._global_button = global_button
 
-        self._paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, position=300)
+        self._paned = Gtk.Paned(
+            orientation=Gtk.Orientation.HORIZONTAL, position=_ANCHO_PANEL_PROYECTOS
+        )
         self._project_list = ProjectListView(self._store, on_select=self._on_project_selected)
         self._paned.set_start_child(self._project_list)
         self._paned.set_resize_start_child(False)
@@ -81,7 +85,17 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self._detail_stack.add_named(self._project_detail, "detail")
         self._global_gantt = GlobalGanttView(self._store)
-        self._detail_stack.add_named(self._global_gantt, "global")
+        self._global_uso = GlobalUsageView(self._store)
+        global_stack = Gtk.Stack(hexpand=True, vexpand=True, hhomogeneous=False, vhomogeneous=False)
+        global_stack.add_titled(self._global_gantt, "gantt", _("Gantt"))
+        global_stack.add_titled(self._global_uso, "uso", _("Uso"))
+        conmutador = Gtk.StackSwitcher(
+            stack=global_stack, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=2
+        )
+        global_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        global_page.append(conmutador)
+        global_page.append(global_stack)
+        self._detail_stack.add_named(global_page, "global")
         self._detail_stack.set_visible_child_name("empty")
         self._paned.set_end_child(self._detail_stack)
         self._paned.set_resize_end_child(True)
@@ -181,13 +195,14 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._paned.set_resize_start_child(False)
                 self._paned.set_shrink_start_child(False)
             self._project_list.set_visible(True)
-            self._paned.set_position(300)
+            self._paned.set_position(_ANCHO_PANEL_PROYECTOS)
         else:
             self._paned.set_start_child(None)
 
     def _on_global_toggled(self, button: Gtk.ToggleButton) -> None:
         if button.get_active():
             self._global_gantt.refrescar_proyectos()
+            self._global_uso.refrescar_proyectos()
             self._detail_stack.set_visible_child_name("global")
         elif self._proyecto_actual is not None:
             self._detail_stack.set_visible_child_name("detail")

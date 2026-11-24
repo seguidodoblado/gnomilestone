@@ -25,6 +25,7 @@ class SegmentoUso:
     fecha_inicio: date
     duracion_dias: int
     porcentaje_dedicacion: int
+    proyecto: str = ""  # solo en la vista global: de qué proyecto es la tarea
 
     @property
     def fecha_fin(self) -> date:
@@ -77,11 +78,13 @@ def construir_filas_uso(
     recursos: list[Recurso],
     tareas: list[Tarea],
     asignaciones: list[Asignacion],
+    nombres_proyecto: dict[int, str] | None = None,
 ) -> list[FilaUso]:
     """Una fila por recurso (orden de `recursos`), con segmentos datados y métricas de carga.
 
     Las hijas no suman si el mismo recurso ya está asignado a un ancestro.
     Dos hermanas (o tareas sin ancestro común asignado) sí pueden solaparse y sobrecargar.
+    Con `nombres_proyecto` (id de proyecto → nombre) cada segmento lleva el de su proyecto.
     """
     tareas_por_id = {tarea.id: tarea for tarea in tareas}
     asignaciones_por_recurso: dict[int, list[Asignacion]] = {}
@@ -106,6 +109,7 @@ def construir_filas_uso(
                     fecha_inicio=parse_fecha(tarea.fecha_inicio),
                     duracion_dias=duracion_efectiva(tarea),
                     porcentaje_dedicacion=asignacion.porcentaje_dedicacion,
+                    proyecto=(nombres_proyecto or {}).get(tarea.proyecto_id, ""),
                 )
             )
         segmentos.sort(key=lambda s: (s.fecha_inicio, s.titulo, s.tarea_id))
@@ -156,3 +160,61 @@ def rango_fechas(filas: list[FilaUso]) -> tuple[date, date] | None:
     if not inicios:
         return None
     return min(inicios), max(fines)
+
+
+def construir_filas_uso_global(
+    recursos: list[Recurso],
+    tareas: list[Tarea],
+    asignaciones: list[Asignacion],
+    nombres_proyecto: dict[int, str],
+) -> list[FilaUso]:
+    """Una fila por persona (mismo nombre, sin distinguir mayúsculas) sumando todos los
+    proyectos recibidos, para ver su ocupación real aunque esté dada de alta por proyecto.
+
+    Los recursos con el mismo nombre se tratan como la misma persona; si coinciden en una
+    misma tarea, la asignación cuenta una sola vez.
+    """
+    canonico: dict[str, Recurso] = {}
+    id_canonico: dict[int, int] = {}
+    for recurso in sorted(recursos, key=lambda r: (r.nombre.casefold(), r.id)):
+        clave = recurso.nombre.strip().casefold()
+        id_canonico[recurso.id] = canonico.setdefault(clave, recurso).id
+    fusionadas: dict[tuple[int, int], Asignacion] = {}
+    for asignacion in asignaciones:
+        destino = id_canonico.get(asignacion.recurso_id)
+        if destino is None:
+            continue
+        clave = (asignacion.tarea_id, destino)
+        previa = fusionadas.get(clave)
+        if previa is None or asignacion.porcentaje_dedicacion > previa.porcentaje_dedicacion:
+            fusionadas[clave] = Asignacion(
+                id=asignacion.id,
+                tarea_id=asignacion.tarea_id,
+                recurso_id=destino,
+                porcentaje_dedicacion=asignacion.porcentaje_dedicacion,
+            )
+    return construir_filas_uso(
+        list(canonico.values()), tareas, list(fusionadas.values()), nombres_proyecto
+    )
+
+
+@dataclass(frozen=True)
+class ResumenUso:
+    personas_sobrecargadas: int
+    dias_sobrecarga_equipo: int
+    dias_sobrecarga_equipo_mes: int  # los que caen en el mes de la fecha de referencia
+
+
+def resumen_uso(filas: list[FilaUso], hoy: date | None = None) -> ResumenUso:
+    """Resumen agregado: personas con algún día por encima del 100 % y días en que el
+    equipo supera su capacidad (ver `carga_equipo_por_dia`), en total y en el mes de `hoy`."""
+    hoy = hoy or date.today()  # noqa: DTZ011 - día local del usuario
+    carga = carga_equipo_por_dia(filas)
+    dias = [dia for dia, valor in carga.items() if valor > 100]
+    return ResumenUso(
+        personas_sobrecargadas=sum(1 for fila in filas if fila.sobrecargado),
+        dias_sobrecarga_equipo=len(dias),
+        dias_sobrecarga_equipo_mes=sum(
+            1 for dia in dias if (dia.year, dia.month) == (hoy.year, hoy.month)
+        ),
+    )

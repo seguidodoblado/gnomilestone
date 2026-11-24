@@ -9,8 +9,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo
 
-from gnomilestone import ganttcalc, theme
-from gnomilestone.i18n import N_, _
+from gnomilestone import ganttcalc, settings, theme
+from gnomilestone.i18n import N_, _, formatear_fecha_local
 from gnomilestone.models import Tarea
 from gnomilestone.resource_usage import (
     FilaUso,
@@ -18,9 +18,17 @@ from gnomilestone.resource_usage import (
     carga_equipo_por_dia,
     carga_por_dia,
     rango_fechas,
+    resumen_uso,
 )
 from gnomilestone.ui import limite_dibujo
+from gnomilestone.ui.arrastre_desplazamiento import instalar_arrastre
 from gnomilestone.ui.avatar_widget import AvatarWidget
+from gnomilestone.ui.regla_dibujo import (
+    ALTURA_REGLA,
+    color_fondo,
+    dibujar_bandas,
+    dibujar_regla,
+)
 
 _PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
 _ESCALAS = (
@@ -31,10 +39,15 @@ _ESCALAS = (
     ("Anual", N_("Anual"), 4.0),
 )
 _ALTURA_FILA = 48
-_ALTURA_REGLA = 28
+_ALTURA_REGLA = ALTURA_REGLA
+_ANCHO_MIN_BARRA = 8.0  # una tarea de un día en escalas anchas sigue siendo visible
+_ZOOM_ETIQUETA_FUERA = 40.0  # por debajo (Semanal y más ancho) las barras pequeñas llevan el título fuera
+_ANCHO_BARRA_CON_ETIQUETA = 120.0
 _ALTURA_CARGA_EQUIPO = 14
 _MARGEN_DIAS = 3
-_ANCHO_LATERAL = 220
+_ANCHO_LATERAL = 386  # respaldo del panel de personas (se puede arrastrar)
+_ANCHO_MIN_LATERAL = 220
+_ANCHO_MAX_LATERAL = 480
 _COLOR_HOY = (0.86, 0.2, 0.2)
 _COLOR_SOBRECARGA = (0.86, 0.2, 0.2)
 _COLOR_CARGA_OK = (0.18, 0.6, 0.32)
@@ -104,35 +117,68 @@ class _ReglaFechas(Gtk.DrawingArea):
         super().__init__(content_height=_ALTURA_REGLA)
         self.fecha_origen = date.today()
         self.px_por_dia = 24.0
+        self.ajuste_horizontal: Gtk.Adjustment | None = None  # desplazamiento, para etiquetas
         self.set_draw_func(self._draw)
 
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, _height: int) -> None:
-        color_marca = _color_texto(self)
-        color_texto = _color_texto_fecha(self)
-        cr.select_font_face("sans-serif", 0, 1)
-        cr.set_font_size(12)
-        marcas = ganttcalc.marcas_regla(self.fecha_origen, self.px_por_dia, width)
-        for indice, (fecha, tipo) in enumerate(marcas):
-            x = ganttcalc.fecha_a_x(fecha, self.fecha_origen, self.px_por_dia)
-            cr.set_source_rgba(*color_marca, 0.4)
-            cr.set_line_width(1)
-            cr.move_to(x, _ALTURA_REGLA - 6)
-            cr.line_to(x, _ALTURA_REGLA)
-            cr.stroke()
-            cr.set_source_rgba(*color_texto, 0.95)
-            cr.move_to(x + 2, _ALTURA_REGLA - 9)
-            cr.show_text(ganttcalc.etiqueta_marca(fecha, tipo, primera=indice == 0))
-
-        x_hoy = ganttcalc.fecha_a_x(date.today(), self.fecha_origen, self.px_por_dia)
-        if 0 <= x_hoy <= width:
-            cr.set_source_rgba(*_COLOR_HOY, 0.9)
-            cr.set_line_width(2)
-            cr.move_to(x_hoy, 0)
-            cr.line_to(x_hoy, _ALTURA_REGLA)
-            cr.stroke()
+        dibujar_regla(
+            cr,
+            width,
+            self.fecha_origen,
+            self.px_por_dia,
+            _color_texto(self),
+            _color_texto_fecha(self),
+            x_visible=self.ajuste_horizontal.get_value() if self.ajuste_horizontal else 0.0,
+        )
 
 
 _UMBRAL_CARGA_NORMAL = 70  # por debajo: poca carga (verde); desde aquí hasta 100: normal (azul)
+
+
+def _rgba_carga(porcentaje: int, intensidad: float = 1.0) -> tuple[float, float, float, float]:
+    """Color de la escala única de carga (verde poca, azul normal, rojo sobrecarga).
+
+    La usan la franja de equipo y el tinte de fondo por persona, para que signifiquen lo
+    mismo. `intensidad` (0-1) atenúa el color, p. ej. para el fondo tras las barras.
+    """
+    if porcentaje > 100:
+        alpha = min(0.4 + (porcentaje - 100) / 250, 0.95)
+        return (*_COLOR_SOBRECARGA, alpha * intensidad)
+    if porcentaje >= _UMBRAL_CARGA_NORMAL:
+        return (*_COLOR_CARGA_NORMAL, 0.55 * intensidad)
+    return (*_COLOR_CARGA_OK, 0.55 * intensidad)
+
+
+class _Leyenda(Gtk.Box):
+    """Cuadraditos de color + etiqueta corta de la escala de carga."""
+
+    def __init__(self) -> None:
+        super().__init__(spacing=12)
+        for porcentaje, texto in (
+            (0, _("Poca carga")),
+            (_UMBRAL_CARGA_NORMAL, _("Normal")),
+            (101, _("Sobrecarga (>100 %)")),
+        ):
+            item = Gtk.Box(spacing=4)
+            muestra = Gtk.DrawingArea(
+                content_width=12, content_height=12, valign=Gtk.Align.CENTER
+            )
+            muestra.set_draw_func(self._pintar, porcentaje)
+            item.append(muestra)
+            etiqueta = Gtk.Label(label=texto)
+            etiqueta.add_css_class("caption")
+            etiqueta.add_css_class("dim-label")
+            item.append(etiqueta)
+            self.append(item)
+        self.set_tooltip_text(
+            _("Franja superior y fondo de cada persona: carga del día sobre su capacidad")
+        )
+
+    @staticmethod
+    def _pintar(_area: Gtk.DrawingArea, cr, ancho: int, alto: int, porcentaje: int) -> None:
+        cr.set_source_rgba(*_rgba_carga(porcentaje)[:3], 0.9)
+        cr.rectangle(0, 0, ancho, alto)
+        cr.fill()
 
 
 class _BarraCargaEquipo(Gtk.DrawingArea):
@@ -168,41 +214,34 @@ class _BarraCargaEquipo(Gtk.DrawingArea):
             x = ganttcalc.fecha_a_x(dia, self.fecha_origen, self.px_por_dia)
             if x + self.px_por_dia < 0 or x > width:
                 continue
-            if porcentaje > 100:
-                alpha = min(0.4 + (porcentaje - 100) / 250, 0.95)
-                cr.set_source_rgba(*_COLOR_SOBRECARGA, alpha)
-            elif porcentaje >= _UMBRAL_CARGA_NORMAL:
-                cr.set_source_rgba(*_COLOR_CARGA_NORMAL, 0.55)
-            else:
-                cr.set_source_rgba(*_COLOR_CARGA_OK, 0.55)
+            cr.set_source_rgba(*_rgba_carga(porcentaje))
             cr.rectangle(x, 0, self.px_por_dia, height)
             cr.fill()
 
 
 class _LienzoUso(Gtk.DrawingArea):
-    """Barras de asignación por persona; el fondo del día se tiñe si hay sobrecarga."""
+    """Barras de asignación por persona; el fondo del día se tiñe con la escala de carga."""
 
     def __init__(
         self,
         on_editar_tarea: Callable[[int], None] | None = None,
-        on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
     ) -> None:
         super().__init__()
         self.ruler = _ReglaFechas()
         self._filas: list[FilaUso] = []
-        self._click_pendiente: int | None = None
-        self._filas_dibujo: list[tuple[FilaUso, SegmentoUso | None]] = []
+        # Cabecera de persona (segmento None, True) y, si está desplegada, una fila por
+        # tarea (segmento, False).
+        self._filas_dibujo: list[tuple[FilaUso, SegmentoUso | None, bool]] = []
         self._tareas: dict[int, Tarea] = {}
         self.px_por_dia = 24.0
         self.fecha_origen = date.today()
         self._on_editar_tarea = on_editar_tarea
-        self._on_dedicacion_changed = on_dedicacion_changed
         self.set_draw_func(self._draw)
 
         if on_editar_tarea is not None:
-            doble_clic = Gtk.GestureClick(button=1)
-            doble_clic.connect("released", self._on_clic)
-            self.add_controller(doble_clic)
+            clic = Gtk.GestureClick(button=1)
+            clic.connect("released", self._on_clic)
+            self.add_controller(clic)
 
         motion = Gtk.EventControllerMotion()
         motion.connect("motion", self._on_motion)
@@ -216,19 +255,26 @@ class _LienzoUso(Gtk.DrawingArea):
         self.queue_draw()
         self.ruler.queue_draw()
 
-    def actualizar(self, filas: list[FilaUso], tareas_por_id: dict[int, Tarea] | None = None) -> None:
+    def actualizar(
+        self,
+        filas: list[FilaUso],
+        tareas_por_id: dict[int, Tarea] | None = None,
+        plegadas: set[int] | None = None,
+    ) -> None:
         self._filas = filas
         self._tareas = tareas_por_id or {}
-        self._filas_dibujo = [
-            (fila, segmento)
-            for fila in filas
-            for segmento in (fila.segmentos or (None,))
-        ]
+        plegadas = plegadas or set()
+        self._filas_dibujo = []
+        for fila in filas:
+            self._filas_dibujo.append((fila, None, True))
+            if fila.recurso.id not in plegadas:
+                self._filas_dibujo.extend((fila, segmento, False) for segmento in fila.segmentos)
         rango = rango_fechas(filas)
-        if rango is None:
-            self.fecha_origen = date.today() - timedelta(days=_MARGEN_DIAS)
-        else:
-            self.fecha_origen = rango[0] - timedelta(days=_MARGEN_DIAS)
+        hoy = date.today()
+        origen = hoy if rango is None else rango[0]
+        self.fecha_origen = ganttcalc.origen_con_cobertura(
+            origen - timedelta(days=_MARGEN_DIAS), hoy
+        )
         self.ruler.fecha_origen = self.fecha_origen
         self._recalcular_tamano()
         self.queue_draw()
@@ -237,7 +283,7 @@ class _LienzoUso(Gtk.DrawingArea):
     def _fecha_fin(self) -> date:
         rango = rango_fechas(self._filas)
         if rango is None:
-            return self.fecha_origen + timedelta(days=30)
+            return ganttcalc.fin_con_cobertura(self.fecha_origen + timedelta(days=30), date.today())
         fin = rango[1]
         # Una fecha límite posterior a la última barra debe seguir cabiendo en el lienzo.
         for fila in self._filas:
@@ -245,7 +291,7 @@ class _LienzoUso(Gtk.DrawingArea):
                 tarea = self._tareas.get(segmento.tarea_id)
                 if tarea is not None and tarea.fecha_limite:
                     fin = max(fin, ganttcalc.parse_fecha(tarea.fecha_limite) + timedelta(days=1))
-        return fin + timedelta(days=_MARGEN_DIAS)
+        return ganttcalc.fin_con_cobertura(fin + timedelta(days=_MARGEN_DIAS), date.today())
 
     def ancho_total(self) -> int:
         dias = max((self._fecha_fin() - self.fecha_origen).days, 1)
@@ -259,18 +305,18 @@ class _LienzoUso(Gtk.DrawingArea):
 
     def _draw(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
         color_guia = _color_texto(self)
-        # Guías verticales semanales.
-        dias = int(width / self.px_por_dia) + 2
-        for indice in range(0, dias, 7):
-            x = indice * self.px_por_dia
-            cr.set_source_rgba(*color_guia, 0.08)
-            cr.set_line_width(1)
+        # Bandas por mes y guías al ritmo de la regla (días, semanas o meses según la escala).
+        dibujar_bandas(cr, width, height, self.fecha_origen, self.px_por_dia, color_guia)
+        cr.set_source_rgba(*color_guia, 0.08)
+        cr.set_line_width(1)
+        for fecha in ganttcalc.niveles_regla(self.fecha_origen, self.px_por_dia, width).cuadricula:
+            x = ganttcalc.fecha_a_x(fecha, self.fecha_origen, self.px_por_dia)
             cr.move_to(x, 0)
             cr.line_to(x, height)
-            cr.stroke()
+        cr.stroke()
 
         limites: list[tuple[float, float, float, limite_dibujo.Color]] = []
-        for indice, (fila, segmento) in enumerate(self._filas_dibujo):
+        for indice, (fila, segmento, cabecera) in enumerate(self._filas_dibujo):
             y = indice * _ALTURA_FILA
             # Separador de fila.
             cr.set_source_rgba(*color_guia, 0.12)
@@ -281,15 +327,16 @@ class _LienzoUso(Gtk.DrawingArea):
 
             carga = carga_por_dia(fila.segmentos)
             for dia, porcentaje in carga.items():
-                if porcentaje <= 100:
-                    continue
                 x = ganttcalc.fecha_a_x(dia, self.fecha_origen, self.px_por_dia)
-                cr.set_source_rgba(*_COLOR_SOBRECARGA, min(0.18 + (porcentaje - 100) / 400, 0.45))
+                # Misma escala que la franja de equipo; en la cabecera de persona es el
+                # resumen de su carga, y en las filas de tarea un fondo suave tras las barras.
+                cr.set_source_rgba(*_rgba_carga(porcentaje, 0.9 if cabecera else 0.35))
                 cr.rectangle(x, y, self.px_por_dia, _ALTURA_FILA)
                 cr.fill()
 
             if segmento is not None:
                 self._dibujar_barra(cr, segmento, y)
+                self._dibujar_etiqueta_fuera(cr, segmento, y)
                 self._anotar_limite(limites, segmento, y)
 
         # Las fechas límite al final, para que la bandera quede por encima de las barras.
@@ -313,14 +360,14 @@ class _LienzoUso(Gtk.DrawingArea):
             return
         x_barra_fin = ganttcalc.fecha_a_x(
             segmento.fecha_inicio, self.fecha_origen, self.px_por_dia
-        ) + ganttcalc.ancho_duracion(segmento.duracion_dias, self.px_por_dia)
+        ) + self._ancho_barra(segmento)
         limites.append(
             (x_barra_fin, x_limite, y_fila + _ALTURA_FILA / 2, limite_dibujo.color_limite(tarea))
         )
 
     def _tarea_limite_en(self, x: float, y: float) -> Tarea | None:
         """Tarea cuya bandera de fecha límite está bajo el puntero, si hay alguna."""
-        for indice, (_fila, segmento) in enumerate(self._filas_dibujo):
+        for indice, (_fila, segmento, _cab) in enumerate(self._filas_dibujo):
             if segmento is None or not indice * _ALTURA_FILA <= y < (indice + 1) * _ALTURA_FILA:
                 continue
             tarea = self._tareas.get(segmento.tarea_id)
@@ -333,9 +380,42 @@ class _LienzoUso(Gtk.DrawingArea):
                 return tarea
         return None
 
+    def _ancho_barra(self, segmento: SegmentoUso) -> float:
+        return max(
+            ganttcalc.ancho_duracion(segmento.duracion_dias, self.px_por_dia), _ANCHO_MIN_BARRA
+        )
+
+    def _dibujar_etiqueta_fuera(self, cr, segmento: SegmentoUso, y_fila: int) -> None:
+        """Título y dedicación a la derecha de una barra demasiado pequeña para llevarlos
+        dentro (escalas anchas), tras la bandera de la fecha límite si la hay."""
+        ancho_barra = self._ancho_barra(segmento)
+        if self.px_por_dia >= _ZOOM_ETIQUETA_FUERA or ancho_barra >= _ANCHO_BARRA_CON_ETIQUETA:
+            return
+        layout = PangoCairo.create_layout(cr)
+        layout.set_font_description(self.get_pango_context().get_font_description())
+        layout.set_text(f"{segmento.titulo} ({segmento.porcentaje_dedicacion}%)", -1)
+        layout.set_width(Pango.units_from_double(260))
+        layout.set_ellipsize(Pango.EllipsizeMode.END)
+        ancho, alto = layout.get_pixel_size()
+        x = ganttcalc.fecha_a_x(segmento.fecha_inicio, self.fecha_origen, self.px_por_dia)
+        x_texto = x + ancho_barra + 6
+        tarea = self._tareas.get(segmento.tarea_id)
+        if tarea is not None and tarea.fecha_limite:
+            x_texto = max(
+                x_texto,
+                limite_dibujo.x_limite(tarea.fecha_limite, self.fecha_origen, self.px_por_dia) + 14,
+            )
+        centro_y = y_fila + _ALTURA_FILA / 2
+        cr.set_source_rgba(*color_fondo(), 0.85)
+        cr.rectangle(x_texto - 2, centro_y - alto / 2 - 1, ancho + 4, alto + 2)
+        cr.fill()
+        cr.set_source_rgba(*_color_texto_fecha(self), 0.95)
+        cr.move_to(x_texto, centro_y - alto / 2)
+        PangoCairo.show_layout(cr, layout)
+
     def _dibujar_barra(self, cr, segmento: SegmentoUso, y_fila: int) -> None:
         x = ganttcalc.fecha_a_x(segmento.fecha_inicio, self.fecha_origen, self.px_por_dia)
-        ancho = ganttcalc.ancho_duracion(segmento.duracion_dias, self.px_por_dia)
+        ancho = self._ancho_barra(segmento)
         margen = 8
         alto = _ALTURA_FILA - 2 * margen
         y = y_fila + margen
@@ -373,7 +453,7 @@ class _LienzoUso(Gtk.DrawingArea):
         # el lienzo puede tener desplazamiento vertical y las filas pueden cambiar al
         # reconstruirse tras filtrar completadas.
         encontrados: list[SegmentoUso] = []
-        for indice, (_fila, segmento_fila) in enumerate(self._filas_dibujo):
+        for indice, (_fila, segmento_fila, _cab) in enumerate(self._filas_dibujo):
             if segmento_fila is None:
                 continue
             y0 = indice * _ALTURA_FILA
@@ -382,7 +462,7 @@ class _LienzoUso(Gtk.DrawingArea):
             x0 = ganttcalc.fecha_a_x(
                 segmento_fila.fecha_inicio, self.fecha_origen, self.px_por_dia
             )
-            x1 = x0 + ganttcalc.ancho_duracion(segmento_fila.duracion_dias, self.px_por_dia)
+            x1 = x0 + self._ancho_barra(segmento_fila)
             if x0 <= x <= x1:
                 encontrados.append(segmento_fila)
         if encontrados:
@@ -391,89 +471,40 @@ class _LienzoUso(Gtk.DrawingArea):
 
     def _on_motion_leave(self, _controller: Gtk.EventControllerMotion) -> None:
         self.set_cursor_from_name(None)
-        self.set_tooltip_text(None)
 
     def _on_motion(self, _controller: Gtk.EventControllerMotion, x: float, y: float) -> None:
         self.set_cursor_from_name("pointer" if self._segmento_en(x, y) else None)
+
+    def texto_tooltip(self, x: float, y: float) -> str | None:
+        """Tooltip bajo (x, y), en coordenadas del lienzo: la fecha límite si el puntero está
+        en su bandera; si no, los datos de la barra. Lo muestra el ScrolledWindow que
+        contiene el lienzo (anclado a este widget, tan ancho, GTK lo colocaría mal)."""
         tarea = self._tarea_limite_en(x, y)
-        self.set_tooltip_text(limite_dibujo.texto_limite(tarea) if tarea is not None else None)
-
-    def _on_clic(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
+        if tarea is not None:
+            return limite_dibujo.texto_limite(tarea)
         segmento = self._segmento_en(x, y)
-        if segmento is None:
-            return
-        if n_press == 2 and self._on_editar_tarea is not None:
-            if self._click_pendiente is not None:
-                GLib.source_remove(self._click_pendiente)
-                self._click_pendiente = None
-            self._on_editar_tarea(segmento.tarea_id)
-        elif n_press == 1:
-            if self._click_pendiente is not None:
-                GLib.source_remove(self._click_pendiente)
-            self._click_pendiente = GLib.timeout_add(
-                250, self._mostrar_menu_dedicacion_pendiente, segmento, x, y
-            )
+        return self._texto_segmento(segmento) if segmento is not None else None
 
-    def _mostrar_menu_dedicacion_pendiente(
-        self, segmento: SegmentoUso, x: float, y: float
-    ) -> bool:
-        self._click_pendiente = None
-        self._mostrar_menu_dedicacion(segmento, x, y)
-        return False
-
-    def _mostrar_menu_dedicacion(self, segmento: SegmentoUso, x: float, y: float) -> None:
-        popover = Gtk.Popover()
-        popover.set_parent(self)
-        caja = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
-            spacing=8,
-            margin_top=10,
-            margin_bottom=10,
-            margin_start=12,
-            margin_end=12,
+    def _texto_segmento(self, segmento: SegmentoUso) -> str:
+        """Tooltip de una barra: título (con su proyecto), fechas y dedicación."""
+        fin = segmento.fecha_fin - timedelta(days=1)
+        titulo = f"{segmento.proyecto} · {segmento.titulo}" if segmento.proyecto else segmento.titulo
+        return "\n".join(
+            [
+                titulo,
+                _("{inicio} → {fin} · {n} día(s)").format(
+                    inicio=formatear_fecha_local(segmento.fecha_inicio.isoformat()),
+                    fin=formatear_fecha_local(fin.isoformat()),
+                    n=segmento.duracion_dias,
+                ),
+                _("{pct} % de dedicación").format(pct=segmento.porcentaje_dedicacion),
+            ]
         )
-        titulo = Gtk.Label(label=segmento.titulo, xalign=0)
-        titulo.add_css_class("heading")
-        caja.append(titulo)
-        valor = Gtk.Label(label=f"{segmento.porcentaje_dedicacion} %", xalign=0)
-        caja.append(valor)
-        escala = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
-        escala.set_value(segmento.porcentaje_dedicacion)
-        escala.set_digits(0)
-        escala.set_size_request(180, -1)
-        escala.set_hexpand(False)
 
-        def _cambio(slider: Gtk.Scale) -> None:
-            porcentaje = round(slider.get_value())
-            valor.set_text(f"{porcentaje} %")
-
-        escala.connect("value-changed", _cambio)
-        caja.append(escala)
-        popover.set_child(caja)
-        popover.set_has_arrow(True)
-        rectangulo = Gdk.Rectangle()
-        rectangulo.x = int(x)
-        rectangulo.y = int(y)
-        rectangulo.width = 1
-        rectangulo.height = 1
-        popover.set_pointing_to(rectangulo)
-
-        def _guardar_al_cerrar(_popover: Gtk.Popover) -> None:
-            if self._on_dedicacion_changed is not None:
-                self._on_dedicacion_changed(
-                    segmento.tarea_id,
-                    self._recurso_id_de_segmento(segmento),
-                    round(escala.get_value()),
-                )
-
-        popover.connect("closed", _guardar_al_cerrar)
-        popover.popup()
-
-    def _recurso_id_de_segmento(self, segmento: SegmentoUso) -> int:
-        for fila in self._filas:
-            if segmento in fila.segmentos:
-                return fila.recurso.id
-        return 0
+    def _on_clic(self, _gesture: Gtk.GestureClick, _n_press: int, x: float, y: float) -> None:
+        segmento = self._segmento_en(x, y)
+        if segmento is not None and self._on_editar_tarea is not None:
+            self._on_editar_tarea(segmento.tarea_id)
 
 
 class ResourceUsageView(Gtk.Box):
@@ -482,15 +513,23 @@ class ResourceUsageView(Gtk.Box):
     def __init__(
         self,
         on_editar_tarea: Callable[[Tarea], None] | None = None,
-        on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
+        plegar_inicial: bool = False,
     ) -> None:
         _asegurar_css_carga()
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._on_editar_tarea = on_editar_tarea
         self._tareas_por_id: dict[int, Tarea] = {}
         self._indice_zoom = _PASOS_ZOOM.index(80.0)  # vista diaria por defecto
-        self._on_dedicacion_changed = on_dedicacion_changed
         self._filas: list[FilaUso] = []
+        self._filtro = ""
+        # Personas con sus tareas plegadas (ids de recurso); `_conocidas` evita volver a
+        # plegar al refrescar a quien el usuario ya desplegó.
+        # Como en el Gantt: el eje se centra en hoy al cargar un proyecto, no en cada refresco.
+        self._centrado_pendiente = True
+        self.connect("map", lambda *_a: self._pedir_centrado_si_hace_falta())
+        self._plegar_inicial = plegar_inicial
+        self._plegadas: set[int] = set()
+        self._conocidas: set[int] = set()
 
         toolbar = Gtk.Box(spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
         zoom_out = Gtk.Button(icon_name="zoom-out-symbolic", tooltip_text=_("Alejar"))
@@ -499,6 +538,10 @@ class ResourceUsageView(Gtk.Box):
         zoom_in = Gtk.Button(icon_name="zoom-in-symbolic", tooltip_text=_("Acercar"))
         zoom_in.connect("clicked", self._on_zoom_in)
         toolbar.append(zoom_in)
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        hoy_boton = Gtk.Button(label=_("Hoy"), tooltip_text=_("Ir a la fecha de hoy"))
+        hoy_boton.connect("clicked", lambda _b: GLib.idle_add(self._centrar_en_hoy))
+        toolbar.append(hoy_boton)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         grupo_escalas: Gtk.ToggleButton | None = None
         for etiqueta, texto, px_por_dia in _ESCALAS:
@@ -512,18 +555,17 @@ class ResourceUsageView(Gtk.Box):
             boton_escala.connect("clicked", self._on_escala, px_por_dia)
             toolbar.append(boton_escala)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
-        leyenda = Gtk.Label(
-            label=_(
-                "Rojo de fondo: más del 100 % de dedicación ese día · "
-                "Franja superior: carga del equipo (verde poca, azul normal, rojo sobrecarga)"
-            ),
-            xalign=0,
-            hexpand=True,
-        )
-        leyenda.add_css_class("dim-label")
-        leyenda.add_css_class("caption")
-        toolbar.append(leyenda)
+        toolbar.append(_Leyenda())
+        espacio = Gtk.Box(hexpand=True)
+        toolbar.append(espacio)
+        self._buscar = Gtk.SearchEntry(placeholder_text=_("Buscar persona…"), width_chars=18)
+        self._buscar.connect("search-changed", self._on_buscar)
+        toolbar.append(self._buscar)
         self.append(toolbar)
+
+        self._resumen = Gtk.Label(xalign=0, margin_start=12, margin_bottom=6)
+        self._resumen.add_css_class("caption")
+        self.append(self._resumen)
 
         self._vacio = Gtk.Label(
             label=_("Aún no hay recursos. Asígalos al crear o editar una tarea."),
@@ -535,13 +577,29 @@ class ResourceUsageView(Gtk.Box):
         self._vacio.add_css_class("dim-label")
         self.append(self._vacio)
 
-        self._panel = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, vexpand=True, hexpand=True)
+        # Gtk.Paned, como en el Gantt: el reparto entre el lateral y el lienzo se ajusta
+        # arrastrando el divisor y se recuerda entre sesiones.
+        self._timeout_guardar_ancho: int | None = None
+        self._ultimo_ancho_guardado: int | None = None
+        guardado = settings.read_settings().get("uso_panel_ancho")
+        self._ajustar_ancho_a_nombres = guardado is None
+        ancho_panel = guardado if guardado is not None else _ANCHO_LATERAL
+        self._panel = Gtk.Paned(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            position=ancho_panel,
+            vexpand=True,
+            hexpand=True,
+        )
+        self._panel.connect("notify::position", self._on_posicion_panel)
         self.append(self._panel)
 
         # EXTERNAL (no NEVER): con NEVER la lista pide alto para todas sus filas y, con
         # muchas, la ventana crece hacia abajo. La barra vertical la muestra el lienzo.
+        # El ancho lo decide el Paned: con EXTERNAL el texto de las filas no fuerza ancho.
         lateral_scroller = Gtk.ScrolledWindow(
-            vscrollbar_policy=Gtk.PolicyType.EXTERNAL, width_request=_ANCHO_LATERAL, vexpand=True
+            vscrollbar_policy=Gtk.PolicyType.EXTERNAL,
+            hscrollbar_policy=Gtk.PolicyType.EXTERNAL,
+            vexpand=True,
         )
         self._lateral = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         # Espacio bajo la regla de fechas del lienzo.
@@ -559,24 +617,27 @@ class ResourceUsageView(Gtk.Box):
         self._lista = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self._lateral.append(self._lista)
         lateral_scroller.set_child(self._lateral)
-        self._panel.append(lateral_scroller)
+        self._panel.set_start_child(lateral_scroller)
+        self._panel.set_resize_start_child(False)
+        self._panel.set_shrink_start_child(False)
 
         canvas_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
         self._lienzo = _LienzoUso(
             on_editar_tarea=self._on_editar_desde_lienzo,
-            on_dedicacion_changed=self._on_dedicacion_changed,
         )
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
 
+        # EXTERNAL (no NEVER): con NEVER la regla pide el ancho completo del lienzo y, al
+        # compartir ajuste con él, anula el desplazamiento horizontal (ver GanttView).
         ruler_scroller = Gtk.ScrolledWindow(
-            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.NEVER
+            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.EXTERNAL
         )
         ruler_scroller.set_child(self._lienzo.ruler)
         canvas_box.append(ruler_scroller)
 
         self._barra_equipo = _BarraCargaEquipo()
         equipo_scroller = Gtk.ScrolledWindow(
-            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.NEVER
+            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.EXTERNAL
         )
         equipo_scroller.set_child(self._barra_equipo)
         canvas_box.append(equipo_scroller)
@@ -588,6 +649,10 @@ class ResourceUsageView(Gtk.Box):
             vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
         )
         self._canvas_scroller.set_child(self._lienzo)
+        instalar_arrastre(self._canvas_scroller)
+        instalar_arrastre(ruler_scroller, vertical=False)
+        self._canvas_scroller.set_has_tooltip(True)
+        self._canvas_scroller.connect("query-tooltip", self._on_query_tooltip)
         # Cada scroll conserva su propio ajuste (compartirlo provoca bucles de layout, como
         # en el Gantt); solo se sincroniza la posición.
         self._sincronizando_scroll = False
@@ -596,9 +661,15 @@ class ResourceUsageView(Gtk.Box):
         adj_lateral.connect("value-changed", self._sincronizar_scroll, adj_lienzo)
         adj_lienzo.connect("value-changed", self._sincronizar_scroll, adj_lateral)
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
+        self._lienzo.ruler.ajuste_horizontal = self._canvas_scroller.get_hadjustment()
+        self._canvas_scroller.get_hadjustment().connect(
+            "value-changed", lambda _a: self._lienzo.ruler.queue_draw()
+        )
         equipo_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         canvas_box.append(self._canvas_scroller)
-        self._panel.append(canvas_box)
+        self._panel.set_end_child(canvas_box)
+        self._panel.set_resize_end_child(True)
+        self._panel.set_shrink_end_child(False)
 
         scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
         scroll.connect("scroll", self._on_scroll)
@@ -614,11 +685,118 @@ class ResourceUsageView(Gtk.Box):
             self._mostrar_contenido(False)
             return
         self._mostrar_contenido(True)
-        self._reconstruir_lista()
-        self._lienzo.actualizar(filas, self._tareas_por_id)
+        if self._ajustar_ancho_a_nombres:
+            self._ajustar_ancho_a_nombres = False
+            self._ancho_para_nombres(filas)
+        nuevas = {f.recurso.id for f in filas} - self._conocidas
+        self._conocidas |= nuevas
+        if self._plegar_inicial:
+            self._plegadas |= nuevas
+        self._actualizar_resumen()
+        self._aplicar_filtro()
+        self._pedir_centrado_si_hace_falta()
+
+    def _ancho_para_nombres(self, filas: list[FilaUso]) -> None:
+        """Sin ancho guardado por el usuario, el panel arranca lo bastante ancho para leer
+        el nombre más largo (sin guardarlo: es solo el valor inicial)."""
+        mayor = 0
+        for fila in filas:
+            ancho, _alto = self.create_pango_layout(fila.recurso.nombre).get_pixel_size()
+            mayor = max(mayor, ancho)
+        # Margen, flecha, avatar y separaciones de la cabecera, más algo de holgura.
+        ancho_panel = max(_ANCHO_MIN_LATERAL, min(mayor + 110, _ANCHO_MAX_LATERAL))
+        self._ultimo_ancho_guardado = ancho_panel
+        self._panel.set_position(ancho_panel)
+
+    def _on_posicion_panel(self, panel: Gtk.Paned, _pspec) -> None:
+        pos = panel.get_position()
+        if pos <= 80 or self._ultimo_ancho_guardado == pos:
+            return
+        self._ultimo_ancho_guardado = pos
+        if self._timeout_guardar_ancho is not None:
+            GLib.source_remove(self._timeout_guardar_ancho)
+        self._timeout_guardar_ancho = GLib.timeout_add(300, self._guardar_ancho_panel, pos)
+
+    def _guardar_ancho_panel(self, pos: int) -> bool:
+        self._timeout_guardar_ancho = None
+        config = settings.read_settings()
+        config["uso_panel_ancho"] = pos
+        settings.write_settings(config)
+        return False
+
+    def _on_query_tooltip(self, scroller: Gtk.ScrolledWindow, x, y, _teclado, tooltip) -> bool:
+        punto = scroller.translate_coordinates(self._lienzo, x, y)  # incluye el desplazamiento
+        if punto is None:
+            return False
+        texto = self._lienzo.texto_tooltip(*punto)
+        if not texto:
+            return False
+        tooltip.set_text(texto)
+        return True
+
+    def pedir_centrado(self) -> None:
+        """Al cambiar de proyecto: la próxima carga de filas vuelve a centrar el eje en hoy."""
+        self._centrado_pendiente = True
+
+    def _pedir_centrado_si_hace_falta(self) -> None:
+        if self._centrado_pendiente and self._filas:
+            GLib.idle_add(self._centrado_inicial)
+
+    def _centrado_inicial(self) -> bool:
+        if not self._centrado_pendiente:
+            return False
+        if self._canvas_scroller.get_hadjustment().get_page_size() <= 0:
+            return False  # vista oculta: sigue pendiente hasta que se muestre
+        self._centrado_pendiente = False
+        return self._centrar_en_hoy()
+
+    def _centrar_en_hoy(self) -> bool:
+        adj = self._canvas_scroller.get_hadjustment()
+        if adj.get_page_size() <= 0:
+            return False  # sin asignar aún: no re-registrar el idle (consumiría CPU)
+        hoy_x = ganttcalc.fecha_a_x(date.today(), self._lienzo.fecha_origen, self._lienzo.px_por_dia)
+        valor = max(0.0, hoy_x - adj.get_page_size() * 0.35)
+        adj.set_value(min(valor, max(0.0, adj.get_upper() - adj.get_page_size())))
+        return False
+
+    def _filas_visibles(self) -> list[FilaUso]:
+        if not self._filtro:
+            return self._filas
+        return [f for f in self._filas if self._filtro in f.recurso.nombre.casefold()]
+
+    def _aplicar_filtro(self) -> None:
+        visibles = self._filas_visibles()
+        self._reconstruir_lista(visibles)
+        self._lienzo.actualizar(visibles, self._tareas_por_id, self._plegadas)
         self._actualizar_barra_equipo()
 
+    def _on_buscar(self, entry: Gtk.SearchEntry) -> None:
+        self._filtro = entry.get_text().strip().casefold()
+        if self._filas:
+            self._aplicar_filtro()
+
+    def _actualizar_resumen(self) -> None:
+        resumen = resumen_uso(self._filas)
+        if not resumen.personas_sobrecargadas and not resumen.dias_sobrecarga_equipo:
+            self._resumen.set_label(_("Sin sobrecarga de personas ni de equipo."))
+            self._resumen.remove_css_class("error")
+            self._resumen.add_css_class("dim-label")
+            return
+        self._resumen.remove_css_class("dim-label")
+        self._resumen.add_css_class("error")
+        self._resumen.set_label(
+            _(
+                "{personas} persona(s) sobrecargada(s) · {dias} día(s) de sobrecarga del "
+                "equipo ({mes} este mes)"
+            ).format(
+                personas=resumen.personas_sobrecargadas,
+                dias=resumen.dias_sobrecarga_equipo,
+                mes=resumen.dias_sobrecarga_equipo_mes,
+            )
+        )
+
     def _actualizar_barra_equipo(self) -> None:
+        # La franja es del equipo completo: el buscador solo filtra las filas.
         carga = carga_equipo_por_dia(self._filas)
         self._barra_equipo.set_zoom(self._lienzo.px_por_dia)
         self._barra_equipo.actualizar(carga, self._lienzo.fecha_origen, self._lienzo.ancho_total())
@@ -627,13 +805,18 @@ class ResourceUsageView(Gtk.Box):
         self._panel.set_visible(visible)
         self._vacio.set_visible(not visible)
 
-    def _reconstruir_lista(self) -> None:
+    def _reconstruir_lista(self, filas: list[FilaUso]) -> None:
         while (hijo := self._lista.get_first_child()) is not None:
             self._lista.remove(hijo)
-        for fila in self._filas:
-            segmentos = fila.segmentos or (None,)
-            for segmento in segmentos:
-                self._lista.append(self._fila_lateral(fila, segmento))
+        for fila in filas:
+            self._lista.append(self._fila_lateral(fila, None))
+            if fila.recurso.id not in self._plegadas:
+                for segmento in fila.segmentos:
+                    self._lista.append(self._fila_lateral(fila, segmento))
+
+    def _alternar_plegado(self, recurso_id: int) -> None:
+        self._plegadas ^= {recurso_id}
+        self._aplicar_filtro()
 
     def _fila_lateral(self, fila: FilaUso, segmento: SegmentoUso | None = None) -> Gtk.Widget:
         caja = Gtk.Box(
@@ -643,7 +826,23 @@ class ResourceUsageView(Gtk.Box):
             height_request=_ALTURA_FILA,
             valign=Gtk.Align.CENTER,
         )
-        caja.append(AvatarWidget(fila.recurso, size=28))
+        if segmento is None:
+            plegada = fila.recurso.id in self._plegadas
+            if fila.segmentos:
+                flecha = Gtk.Button(
+                    icon_name="pan-end-symbolic" if plegada else "pan-down-symbolic",
+                    tooltip_text=_("Mostrar tareas") if plegada else _("Ocultar tareas"),
+                    valign=Gtk.Align.CENTER,
+                )
+                flecha.add_css_class("flat")
+                flecha.add_css_class("circular")
+                flecha.connect("clicked", lambda _b, rid=fila.recurso.id: self._alternar_plegado(rid))
+                caja.append(flecha)
+            else:
+                caja.append(Gtk.Box(width_request=34))
+            caja.append(AvatarWidget(fila.recurso, size=28))
+        else:
+            caja.append(Gtk.Box(width_request=34))
         textos = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, hexpand=True, valign=Gtk.Align.CENTER)
         nombre = Gtk.Label(
             label=fila.recurso.nombre if segmento is None else f"↳ {segmento.titulo}",
@@ -653,6 +852,8 @@ class ResourceUsageView(Gtk.Box):
         textos.append(nombre)
         if segmento is not None:
             meta = _("{pct} % de dedicación").format(pct=segmento.porcentaje_dedicacion)
+            if segmento.proyecto:
+                meta = f"{segmento.proyecto} · {meta}"
         elif fila.segmentos:
             if fila.sobrecargado:
                 meta = _("{pct} % máx. · sobrecarga").format(pct=fila.carga_maxima)
@@ -701,6 +902,7 @@ class ResourceUsageView(Gtk.Box):
         )
         self._lienzo.set_zoom(px_por_dia)
         self._actualizar_barra_equipo()
+        GLib.idle_add(self._centrar_en_hoy)
 
     def _sincronizar_scroll(self, origen: Gtk.Adjustment, destino: Gtk.Adjustment) -> None:
         if self._sincronizando_scroll:

@@ -12,6 +12,7 @@ from gi.repository import Gdk, GLib, Gtk
 from gnomilestone import settings
 from gnomilestone.i18n import N_, _
 from gnomilestone.models import Dependencia, Hito, Tarea
+from gnomilestone.ui.arrastre_desplazamiento import instalar_arrastre
 from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.columnas_menu import aplicar_columnas_guardadas, crear_menu_columnas
 from gnomilestone.ui.gantt_drawing_area import GanttDrawingArea
@@ -89,6 +90,10 @@ class GanttView(Gtk.Box):
         zoom_in.connect("clicked", self._on_zoom_in)
         toolbar.append(zoom_in)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
+        hoy_boton = Gtk.Button(label=_("Hoy"), tooltip_text=_("Ir a la fecha de hoy"))
+        hoy_boton.connect("clicked", lambda _b: GLib.idle_add(self._centrar_en_hoy))
+        toolbar.append(hoy_boton)
+        toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         grupo_escalas: Gtk.ToggleButton | None = None
         for etiqueta, texto, px_por_dia in _ESCALAS:
             boton_escala = Gtk.ToggleButton(label=_(texto))
@@ -129,8 +134,11 @@ class GanttView(Gtk.Box):
         self._drawing_area.ruler.on_editar_hito = on_editar_hito
         self._drawing_area.set_zoom(_PASOS_ZOOM[self._indice_zoom])
 
+        # EXTERNAL (no NEVER): con NEVER la regla pide el ancho completo del lienzo y, al
+        # compartir ajuste con él, le fija el tamaño de página a ese ancho: no habría
+        # desplazamiento horizontal posible (ni «Hoy» podría mover el eje).
         ruler_scroller = Gtk.ScrolledWindow(
-            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.NEVER
+            vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.EXTERNAL
         )
         ruler_scroller.set_child(self._drawing_area.ruler)
         canvas_box.append(ruler_scroller)
@@ -150,7 +158,26 @@ class GanttView(Gtk.Box):
         adj_arbol.connect("value-changed", self._sincronizar_scroll, adj_lienzo)
         adj_lienzo.connect("value-changed", self._sincronizar_scroll, adj_arbol)
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
+        # La regla repinta al desplazarse: sus etiquetas de mes/año siguen el borde visible.
+        self._drawing_area.ruler.ajuste_horizontal = self._canvas_scroller.get_hadjustment()
+        self._canvas_scroller.get_hadjustment().connect(
+            "value-changed", lambda _a: self._drawing_area.ruler.queue_draw()
+        )
         canvas_box.append(self._canvas_scroller)
+        # Los tooltips de barras, banderas e hitos los muestran los ScrolledWindow (pequeños)
+        # y no el lienzo, de decenas de miles de píxeles de ancho: GTK ancla el tooltip al
+        # widget que lo pide y, con tanto ancho, aparecía lejos del cursor (incluso en otro
+        # monitor).
+        # Arrastrar el fondo (o la regla) desplaza el calendario; las barras, al ir primero,
+        # se siguen moviendo como tareas.
+        instalar_arrastre(self._canvas_scroller)
+        instalar_arrastre(ruler_scroller, vertical=False)
+        for scroller, destino in (
+            (self._canvas_scroller, self._drawing_area),
+            (ruler_scroller, self._drawing_area.ruler),
+        ):
+            scroller.set_has_tooltip(True)
+            scroller.connect("query-tooltip", self._on_query_tooltip, destino)
 
         panel.set_end_child(canvas_box)
         panel.set_resize_end_child(True)
@@ -173,6 +200,17 @@ class GanttView(Gtk.Box):
         self._hitos = hitos or []
         self._tree.set_filas(filas)
         # set_filas() ya dispara "items-changed" (vía _on_filas_cambiadas), que repinta el Gantt.
+
+    @staticmethod
+    def _on_query_tooltip(scroller: Gtk.ScrolledWindow, x, y, _teclado, tooltip, destino) -> bool:
+        punto = scroller.translate_coordinates(destino, x, y)  # incluye el desplazamiento
+        if punto is None:
+            return False
+        texto = destino.texto_tooltip(*punto)
+        if not texto:
+            return False
+        tooltip.set_text(texto)
+        return True
 
     def _sincronizar_scroll(self, origen: Gtk.Adjustment, destino: Gtk.Adjustment) -> None:
         if self._sincronizando_scroll:

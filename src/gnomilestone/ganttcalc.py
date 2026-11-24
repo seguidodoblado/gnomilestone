@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 from gnomilestone.models import Dependencia, Tarea
@@ -42,6 +42,82 @@ UMBRAL_REGLA_MESES = 8.0
 
 def _mes_siguiente(fecha: date) -> date:
     return (fecha.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+COBERTURA_DIAS = 183  # unos seis meses a cada lado de hoy
+
+
+def origen_con_cobertura(origen: date, hoy: date) -> date:
+    """Origen del lienzo: el de los datos, pero nunca más tarde que `hoy` menos la cobertura,
+    para poder desplazarse hacia atrás desde hoy aunque las tareas sean recientes."""
+    return min(origen, hoy - timedelta(days=COBERTURA_DIAS))
+
+
+def fin_con_cobertura(fin: date, hoy: date) -> date:
+    """Fin (exclusive) del lienzo: el de los datos, pero al menos `hoy` más la cobertura."""
+    return max(fin, hoy + timedelta(days=COBERTURA_DIAS + 1))
+
+
+@dataclass(frozen=True)
+class NivelesRegla:
+    """Marcas de la regla en dos niveles: `superior` (mes o año, con su etiqueta) e `inferior`
+    (día, semana o mes). Cada marca es (fecha de inicio, etiqueta); `cuadricula` son las
+    fechas de las líneas verticales del lienzo (las del nivel inferior)."""
+
+    superior: list[tuple[date, str]]
+    inferior: list[tuple[date, str]]
+
+    @property
+    def cuadricula(self) -> list[date]:
+        return [fecha for fecha, _etiqueta in self.inferior]
+
+
+# Zoom (px por día) desde el que la regla muestra días y desde el que muestra semanas.
+UMBRAL_REGLA_DIAS = 40.0
+UMBRAL_REGLA_SEMANAS = 12.0
+UMBRAL_REGLA_MES_CORTO = 6.0  # por debajo, los meses se abrevian (nov, dic…)
+
+
+def niveles_regla(fecha_origen: date, px_por_dia: float, ancho: float) -> NivelesRegla:
+    """Regla de dos niveles para un ancho en píxeles, según el zoom.
+
+    - Diario (≥ 40 px/día): arriba el mes y el año; abajo cada día («mar 24»).
+    - Semanal y Mensual (≥ 12): arriba el mes y el año; abajo cada lunes (su día del mes).
+    - Trimestral y Anual (< 12): arriba el año; abajo cada mes (abreviado a partir de 6 px/día
+      hacia abajo).
+    """
+    fin = fecha_origen + timedelta(days=int(ancho / px_por_dia) + 2)
+    superior: list[tuple[date, str]] = []
+    inferior: list[tuple[date, str]] = []
+    if px_por_dia >= UMBRAL_REGLA_SEMANAS:
+        mes = fecha_origen.replace(day=1)
+        while mes <= fin:
+            etiqueta = mes.strftime("%B %Y")
+            superior.append((max(mes, fecha_origen), etiqueta))
+            mes = _mes_siguiente(mes)
+        if px_por_dia >= UMBRAL_REGLA_DIAS:
+            dia = fecha_origen
+            while dia <= fin:
+                inferior.append((dia, dia.strftime("%a %d")))
+                dia += timedelta(days=1)
+        else:
+            dia = fecha_origen + timedelta(days=(7 - fecha_origen.weekday()) % 7)
+            while dia <= fin:
+                inferior.append((dia, str(dia.day)))
+                dia += timedelta(days=7)
+        return NivelesRegla(superior, inferior)
+    anio = fecha_origen.year
+    while date(anio, 1, 1) <= fin:
+        superior.append((max(date(anio, 1, 1), fecha_origen), str(anio)))
+        anio += 1
+    mes = fecha_origen.replace(day=1)
+    if mes < fecha_origen:
+        mes = _mes_siguiente(mes)
+    formato = "%b" if px_por_dia < UMBRAL_REGLA_MES_CORTO else "%B"
+    while mes <= fin:
+        inferior.append((mes, mes.strftime(formato)))
+        mes = _mes_siguiente(mes)
+    return NivelesRegla(superior, inferior)
 
 
 def marcas_regla(
