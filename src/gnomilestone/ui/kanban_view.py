@@ -10,7 +10,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, GObject, Graphene, Gtk, Pango
 
-from gnomilestone import completado
+from gnomilestone import completado, ganttcalc
 from gnomilestone.etiquetas import color_de_texto
 from gnomilestone.filtros import ocultar_completadas
 from gnomilestone.ganttcalc import VENCIDA
@@ -150,6 +150,7 @@ class KanbanView(Gtk.Box):
         self._indicador: Gtk.Box | None = None  # línea de destino del arrastre
         self._movimiento_en_tarjeta = False  # la tarjeta ya gestionó este movimiento
         self._n_movimientos = 0
+        self._progreso: dict[int, int] = {}  # % agregado de las tareas con subtareas
         # Autodesplazamiento mientras se arrastra una tarjeta cerca de un borde (ver
         # `_autodesplazar`): columna que se desplaza en vertical, tablero en horizontal.
         self._scroll_columna: Gtk.ScrolledWindow | None = None
@@ -212,6 +213,10 @@ class KanbanView(Gtk.Box):
 
         estados = self._store.listar_estados(self._proyecto_id)
         tareas = self._store.listar_tareas(self._proyecto_id)
+        # Igual que el Gantt, la Lista y el diálogo: una tarea con subtareas muestra el agregado.
+        self._progreso = ganttcalc.progreso_resumen(
+            self._store.listar_tareas(self._proyecto_id, incluir_archivadas=True)
+        )
         # Relación padre-hijo sobre todas las tareas (aunque se oculten las completadas).
         self._tareas_por_id = {t.id: t for t in tareas}
         self._hijas_de = {}
@@ -269,16 +274,20 @@ class KanbanView(Gtk.Box):
             _("Filtrando: {titulo}").format(titulo=self._tareas_por_id[tarea_id].titulo),
         )
 
+    def _porcentaje(self, tarea: Tarea) -> int:
+        """% a mostrar: el agregado de sus hojas si tiene subtareas y, si no, el suyo."""
+        return self._progreso.get(tarea.id, tarea.porcentaje_completado)
+
     def _crear_capsula(self, hija: Tarea) -> Gtk.Widget:
         """Cápsula de una subtarea: su título sobre una barra con su % completado.
         Al pulsarla, el tablero muestra solo esa subtarea."""
         capsula = CapsulaProgreso(
-            f"{hija.titulo} · {hija.porcentaje_completado}%",
-            min(hija.porcentaje_completado, 100) / 100,
+            f"{hija.titulo} · {self._porcentaje(hija)}%",
+            min(self._porcentaje(hija), 100) / 100,
         )
         capsula.set_cursor_from_name("pointer")
         capsula.set_tooltip_text(
-            f"{hija.titulo} · {hija.porcentaje_completado}%\n"
+            f"{hija.titulo} · {self._porcentaje(hija)}%\n"
             + _("Pulsa para ver solo esta subtarea")
         )
         self._al_pulsar(capsula, lambda: self._filtrar_por_subtarea(hija.id))
@@ -429,7 +438,7 @@ class KanbanView(Gtk.Box):
             tarjeta.prepend(fila_padre)
         hijas = self._hijas_de.get(tarea.id, [])
         if hijas:
-            hechas = sum(1 for h in hijas if h.porcentaje_completado >= 100)
+            hechas = sum(1 for h in hijas if self._porcentaje(h) >= 100)
             resumen = Gtk.Label(
                 label=_("Subtareas: {hechas}/{total}").format(hechas=hechas, total=len(hijas)),
                 xalign=0,
@@ -456,7 +465,7 @@ class KanbanView(Gtk.Box):
             info = Gtk.Label(
                 label=(
                     f"{formatear_fecha_local(tarea.fecha_inicio)} · "
-                    f"{tarea.duracion_dias}d · {tarea.porcentaje_completado}%"
+                    f"{tarea.duracion_dias}d · {self._porcentaje(tarea)}%"
                 )
                 + (_(" · vencida") if estado == VENCIDA else ""),
                 xalign=0,

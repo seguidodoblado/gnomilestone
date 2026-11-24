@@ -10,13 +10,13 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
-from gnomilestone import settings, tipos
+from gnomilestone import ganttcalc, settings, tipos
 from gnomilestone.ganttcalc import (
     PLANIFICADA_PASADA,
     VENCIDA,
     estado_vencimiento,
     parse_fecha,
-    progreso_medio,
+    progreso_proyecto,
 )
 from gnomilestone.i18n import _
 from gnomilestone.models import (
@@ -250,11 +250,14 @@ class ReportView(Gtk.Box):
         historial_bruto: list[HistorialTarea] | None = None,
     ) -> None:
         self._tareas = tareas
+        # Progreso y conteos del informe: solo el trabajo real (hojas); las tareas con subtareas
+        # son resúmenes y su avance se deriva de ellas.
+        self._hojas = ganttcalc.hojas(tareas)
         self._estados = estados
         self._recursos = recursos or []
         self._asignaciones = asignaciones or []
         reparto = sorted(
-            reparto_por_recurso(self._recursos, tareas, self._asignaciones),
+            reparto_por_recurso(self._recursos, self._hojas, self._asignaciones),
             key=lambda fila: (-fila.tareas, -fila.progreso_medio, fila.recurso.nombre_informe.casefold()),
         )
         sin_tareas = sum(fila.tareas == 0 for fila in reparto)
@@ -265,18 +268,18 @@ class ReportView(Gtk.Box):
         self._historial_bruto = historial_bruto or []
         hoy_local = datetime.now().astimezone().date()
         self._trabajo_tipos = trabajo_por_tipo(
-            self._recursos, tareas, self._asignaciones, self._tipos_completadas, hoy_local
+            self._recursos, self._hojas, self._asignaciones, self._tipos_completadas, hoy_local
         )
         try:
             dias_estancada = max(1, int(settings.read_settings().get("dias_estancada", 14)))
         except (TypeError, ValueError):
             dias_estancada = 14
         self._resultados_personas = resultados_por_recurso(
-            self._recursos, tareas, self._asignaciones, self._historial_bruto,
+            self._recursos, self._hojas, self._asignaciones, self._historial_bruto,
             estados[0].id if estados else None, hoy_local, dias_estancada,
         )
         asignadas = {a.tarea_id for a in self._asignaciones}
-        self._sin_asignar = sum(t.id not in asignadas for t in tareas)
+        self._sin_asignar = sum(t.id not in asignadas for t in self._hojas)
         self._tareas_semana = [
             tarea for tarea in tareas
             if tarea.fecha_inicio
@@ -305,9 +308,9 @@ class ReportView(Gtk.Box):
             for t in tareas
         )
         self._alertas = (vencidas, planificadas, proximas)
-        total = len(tareas)
-        completadas = sum(t.porcentaje_completado >= 100 for t in tareas)
-        progreso = progreso_medio(tareas)
+        total = len(self._hojas)
+        completadas = sum(t.porcentaje_completado >= 100 for t in self._hojas)
+        progreso = progreso_proyecto(self._hojas)
         self._summary.set_text(
             _("{total} tareas · {completadas} completadas · Progreso medio: {progreso:.0f}%").format(
                 total=total, completadas=completadas, progreso=progreso
@@ -423,7 +426,7 @@ class ReportView(Gtk.Box):
     def _alternar_tipos(self) -> None:
         self._tipos_completadas = not self._tipos_completadas
         self._trabajo_tipos = trabajo_por_tipo(
-            self._recursos, self._tareas, self._asignaciones, self._tipos_completadas,
+            self._recursos, self._hojas, self._asignaciones, self._tipos_completadas,
             datetime.now().astimezone().date(),
         )
         self._redibujar()
@@ -620,8 +623,7 @@ class ReportView(Gtk.Box):
     # ------------------------------------------------------------------
 
     def _draw_progress(self, cr, x, y, width, height) -> None:
-        tasks = self._tareas
-        avg = sum(t.porcentaje_completado for t in tasks) / len(tasks) if tasks else 0
+        avg = progreso_proyecto(self._hojas)
         bar_h = max(24, min(58, height - 90))
         bx, bw = x + 24, max(160, width - 48)
         by = y + 56 + max(0, (height - 56 - bar_h - 18) / 2)
@@ -654,12 +656,12 @@ class ReportView(Gtk.Box):
 
     def _draw_kpis(self, cr, x, y, width, height) -> None:
         """Fichas con las cifras clave del proyecto."""
-        tareas = self._tareas
+        tareas = self._hojas
         total = len(tareas)
         completadas = sum(t.porcentaje_completado >= 100 for t in tareas)
         en_curso = sum(0 < t.porcentaje_completado < 100 for t in tareas)
         sin_empezar = total - completadas - en_curso
-        progreso = progreso_medio(tareas)
+        progreso = progreso_proyecto(tareas)
         fichas = (
             (_("Total"), str(total), self._text_color),
             (_("Sin empezar"), str(sin_empezar), (0.52, 0.56, 0.63)),
@@ -747,7 +749,7 @@ class ReportView(Gtk.Box):
             counts.append(
                 (
                     estado.nombre,
-                    sum(t.estado_id == estado.id for t in self._tareas),
+                    sum(t.estado_id == estado.id for t in self._hojas),
                     self._hex_color(_PALETA_COLUMNAS[indice % len(_PALETA_COLUMNAS)]),
                 )
             )
@@ -1231,8 +1233,8 @@ class ReportView(Gtk.Box):
 
     def _draw_burnup(self, cr, x, y, width, height) -> None:
         """Curva burnup/burndown basada en las finalizaciones registradas en el historial."""
-        total = len(self._tareas)
-        progreso = sum(t.porcentaje_completado for t in self._tareas) / total if total else 0
+        total = len(self._hojas)
+        progreso = progreso_proyecto(self._hojas)
         x0, y0 = x + 42, y + 70
         ancho, alto = width - 70, max(110, height - 125)
         self._draw_mode_selector(

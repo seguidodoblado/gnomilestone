@@ -71,8 +71,12 @@ class TareaRow(GObject.Object):
         recursos: list[Recurso] | None = None,
         etiquetas: list[Etiqueta] | None = None,
         depende_de: list[str] | None = None,
+        progreso_agregado: int | None = None,
     ) -> None:
         super().__init__()
+        # % agregado de las hojas si la tarea tiene subtareas (el que dibuja el Gantt); None en
+        # una hoja, que usa el suyo. El % propio de una tarea con subtareas no se muestra.
+        self.progreso_agregado = progreso_agregado
         self.titulo = titulo
         self.depende_de: list[str] = depende_de or []  # títulos de las tareas origen
         self.hijos = hijos
@@ -130,12 +134,14 @@ class TareaRow(GObject.Object):
 
     @property
     def porcentaje_completado(self) -> int:
+        if self.progreso_agregado is not None:
+            return self.progreso_agregado
         return self.tarea.porcentaje_completado if self.tarea else 0
 
     @property
     def porcentaje_texto(self) -> str:
         """El % completado con su símbolo, para las columnas (vacío en filas sin tarea)."""
-        return f"{self.tarea.porcentaje_completado} %" if self.tarea else ""
+        return f"{self.porcentaje_completado} %" if self.tarea else ""
 
 
 def construir_filas(
@@ -144,8 +150,10 @@ def construir_filas(
     recursos_por_tarea: dict[int, list[Recurso]] | None = None,
     etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
     colores_estado: dict[int, str] | None = None,
+    progreso_resumen: dict[int, int] | None = None,
 ) -> list[TareaRow]:
     """Árbol de TareaRow (raíces con sus hijos anidados) a partir de una lista plana."""
+    progreso_resumen = progreso_resumen or {}
     recursos_por_tarea = recursos_por_tarea or {}
     etiquetas_por_tarea = etiquetas_por_tarea or {}
     colores_estado = colores_estado or {}
@@ -165,6 +173,7 @@ def construir_filas(
             estado_color=colores_estado.get(tarea.estado_id, ""),
             recursos=recursos_por_tarea.get(tarea.id, []),
             etiquetas=etiquetas_por_tarea.get(tarea.id, []),
+            progreso_agregado=progreso_resumen.get(tarea.id),
         )
 
     return [_construir(tarea) for tarea in hijos_por_padre.get(None, [])]

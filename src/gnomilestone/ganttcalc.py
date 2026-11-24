@@ -276,6 +276,24 @@ def progreso_medio(tareas: list[Tarea]) -> float:
     return sum(t.porcentaje_completado for t in tareas) / len(tareas) if tareas else 0
 
 
+def hojas(tareas: list[Tarea]) -> list[Tarea]:
+    """Las tareas que no tienen subtareas (en `tareas`): el trabajo real. Una tarea con
+    subtareas es un resumen y su avance se deriva de sus hojas."""
+    ids_padre = {t.padre_id for t in tareas if t.padre_id is not None}
+    return [t for t in tareas if t.id not in ids_padre]
+
+
+def progreso_proyecto(tareas: list[Tarea]) -> float:
+    """% completado del proyecto: el de sus hojas ponderado por duración, como el de una tarea
+    con subtareas (`progreso_resumen`). Las tareas con subtareas no cuentan por sí mismas."""
+    trabajo = hojas(tareas)
+    pesos = [max(t.duracion_dias, 1) for t in trabajo]
+    total = sum(pesos)
+    if not total:
+        return 0
+    return sum(p * t.porcentaje_completado for p, t in zip(pesos, trabajo, strict=True)) / total
+
+
 def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
     """% completado agregado de cada tarea con subtareas (resumen), para la barra fina
     del Gantt que lo muestra.

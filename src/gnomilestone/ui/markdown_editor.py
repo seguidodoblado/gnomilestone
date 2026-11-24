@@ -63,6 +63,7 @@ class MarkdownEditor(Gtk.Box):
             left_margin=6,
             right_margin=6,
         )
+        self._vista_edicion = vista_edicion
         teclas = Gtk.EventControllerKey()
         teclas.connect("key-pressed", self._on_tecla_edicion)
         vista_edicion.add_controller(teclas)
@@ -142,6 +143,12 @@ class MarkdownEditor(Gtk.Box):
         if ajuste is not None:
             GLib.idle_add(lambda: ajuste.set_value(valor) and False)
 
+    def _devolver_foco(self) -> None:
+        """Tras un botón de la barra, el cursor vuelve al texto para seguir escribiendo."""
+        vista = getattr(self, "_vista_edicion", None)
+        if vista is not None:
+            vista.grab_focus()
+
     def _crear_barra_formato(self) -> Gtk.Box:
         barra = Gtk.Box(spacing=4)
         botones = (
@@ -154,10 +161,12 @@ class MarkdownEditor(Gtk.Box):
         for icono, tooltip, antes, despues, ejemplo in botones:
             boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
             boton.add_css_class("flat")
+            boton.set_focus_on_click(False)  # no roba el foco al texto
             boton.connect(
                 "clicked",
-                lambda _b, a=antes, d=despues, e=ejemplo: markdown_edicion.envolver(
-                    self._buffer, a, d, e
+                lambda _b, a=antes, d=despues, e=ejemplo: (
+                    markdown_edicion.envolver(self._buffer, a, d, e),
+                    self._devolver_foco(),
                 ),
             )
             barra.append(boton)
@@ -176,9 +185,13 @@ class MarkdownEditor(Gtk.Box):
             else:
                 boton = Gtk.Button(icon_name=icono, tooltip_text=tooltip)
             boton.add_css_class("flat")
+            boton.set_focus_on_click(False)  # no roba el foco al texto
             boton.connect(
                 "clicked",
-                lambda _b, p=prefijo: markdown_edicion.prefijar_lineas(self._buffer, p),
+                lambda _b, p=prefijo: (
+                    markdown_edicion.prefijar_lineas(self._buffer, p),
+                    self._devolver_foco(),
+                ),
             )
             barra.append(boton)
         return barra

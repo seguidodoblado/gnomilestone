@@ -195,6 +195,7 @@ class GlobalGanttView(Gtk.Box):
             if not self._mostrar_completadas_check.get_active():
                 tareas = ocultar_completadas(tareas)
             recursos_por_tarea = self._store.listar_recursos_por_tarea(proyecto_id)
+            progreso_proyecto = ganttcalc.progreso_resumen(tareas)
             fila_proyecto = TareaRow(
                 proyecto.nombre,
                 construir_filas(
@@ -203,10 +204,11 @@ class GlobalGanttView(Gtk.Box):
                     recursos_por_tarea,
                     self._store.listar_etiquetas_por_tarea(proyecto_id),
                     colores_de_estados(estados),
+                    progreso_proyecto,
                 ),
             )
             filas.append(fila_proyecto)
             dependencias.extend(self._store.listar_dependencias(proyecto_id))
-            progreso_resumen.update(ganttcalc.progreso_resumen(tareas))
+            progreso_resumen.update(progreso_proyecto)
             hitos.extend(hitos_con_estado(self._store.listar_hitos(proyecto_id), tareas))
         self._gantt.set_filas(filas, dependencias, progreso_resumen, hitos)

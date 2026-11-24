@@ -284,7 +284,9 @@ class TableView(Gtk.Box):
         recursos_por_tarea: dict[int, list[Recurso]] | None = None,
         etiquetas_por_tarea: dict[int, list[Etiqueta]] | None = None,
         dependencias: list[Dependencia] | None = None,
+        progreso_resumen: dict[int, int] | None = None,
     ) -> None:
+        progreso_resumen = progreso_resumen or {}
         recursos_por_tarea = recursos_por_tarea or {}
         titulos = {t.id: t.titulo for t in tareas}
         depende_de: dict[int, list[str]] = {}
@@ -326,6 +328,7 @@ class TableView(Gtk.Box):
                     recursos=recursos_por_tarea.get(tarea.id, []),
                     etiquetas=etiquetas_por_tarea.get(tarea.id, []),
                     depende_de=depende_de.get(tarea.id, []),
+                    progreso_agregado=progreso_resumen.get(tarea.id),
                 )
             )
         if id_seleccionada is not None:

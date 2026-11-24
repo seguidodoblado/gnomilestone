@@ -11,7 +11,13 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 from gnomilestone.documentacion import fecha_completada
-from gnomilestone.ganttcalc import VENCIDA, estado_vencimiento, fecha_fin_planificada, parse_fecha
+from gnomilestone.ganttcalc import (
+    VENCIDA,
+    estado_vencimiento,
+    fecha_fin_planificada,
+    parse_fecha,
+    progreso_proyecto,
+)
 from gnomilestone.models import (
     Asignacion,
     Dependencia,
@@ -108,7 +114,7 @@ def resumen_multi_proyecto(
     return {
         "proyectos": len([p for p in proyectos if not p.archivado]),
         "tareas": len(activas),
-        "progreso_medio": sum(t.porcentaje_completado for t in activas) / len(activas) if activas else 0,
+        "progreso_medio": progreso_proyecto(activas),
         "vencidas": vencidas,
     }
 

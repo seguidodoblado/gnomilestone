@@ -358,3 +358,19 @@ def test_niveles_regla_por_escala():
     assert trimestral.superior[0][1] == "2026"
     anual = ganttcalc.niveles_regla(origen, 4.0, 1500)
     assert anual.inferior[0][0] == date(2026, 12, 1)
+
+
+def test_el_progreso_del_proyecto_cuenta_solo_las_hojas_ponderadas_por_duracion():
+    from gnomilestone.ganttcalc import hojas, progreso_proyecto
+    from gnomilestone.models import Tarea
+
+    padre = Tarea(id=1, proyecto_id=1, titulo="Padre", porcentaje_completado=0, duracion_dias=1)
+    corta = Tarea(id=2, proyecto_id=1, titulo="A", padre_id=1, porcentaje_completado=100, duracion_dias=1)
+    larga = Tarea(id=3, proyecto_id=1, titulo="B", padre_id=1, porcentaje_completado=0, duracion_dias=3)
+    suelta = Tarea(id=4, proyecto_id=1, titulo="C", porcentaje_completado=100, duracion_dias=0)
+    tareas = [padre, corta, larga, suelta]
+
+    assert [t.id for t in hojas(tareas)] == [2, 3, 4]
+    # (1·100 + 3·0 + 1·100) / (1 + 3 + 1): el 0 % propio del padre no cuenta
+    assert progreso_proyecto(tareas) == 40
+    assert progreso_proyecto([]) == 0

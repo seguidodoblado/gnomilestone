@@ -9,7 +9,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, Pango
 
-from gnomilestone.ganttcalc import progreso_medio
+from gnomilestone.ganttcalc import progreso_proyecto
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto
 from gnomilestone.store import Store
@@ -103,7 +103,7 @@ class ProjectListView(Gtk.Box):
                 "pausado": _("Pausado"),
                 "completado": _("Completado"),
             }.get(proyecto.estado, proyecto.estado)
-            progreso = progreso_medio(por_proyecto[proyecto.id])
+            progreso = progreso_proyecto(por_proyecto[proyecto.id])
             estado += f" · {progreso:.0f} %"
             if proyecto.archivado:
                 estado += f" · {_('Archivado')}"
