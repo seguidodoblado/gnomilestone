@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import date
 
 import gi
 
@@ -321,21 +321,15 @@ class GanttView(Gtk.Box):
         self._pedir_centrado_si_hace_falta()
 
     def _on_escala(self, _button: Gtk.Button, etiqueta: str, px_por_dia: float) -> None:
+        # Igual que con la rueda: se ancla la fecha (hoy si se ve) antes de cambiar el zoom, y el
+        # lienzo la recoloca cuando ya tiene su nuevo ancho (se redimensiona en el siguiente
+        # fotograma, así que no se puede hacer de inmediato).
+        self._anclar_zoom()
         self._escala_activa = etiqueta
         self._drawing_area.set_zoom(px_por_dia)
         self._indice_zoom = min(
             range(len(_PASOS_ZOOM)), key=lambda i: abs(_PASOS_ZOOM[i] - px_por_dia)
         )
-        self._recentrar_tras_cambio_de_escala()
-
-    def _recentrar_tras_cambio_de_escala(self) -> None:
-        """Vuelve a centrar en hoy cuando el lienzo ya tiene su nuevo ancho.
-
-        Al cambiar de escala el lienzo se redimensiona en el siguiente fotograma: centrar de
-        inmediato lo acota al ancho anterior y «hoy» se pierde. Se deja pendiente y lo hace el
-        mismo mecanismo que el centrado inicial, que reintenta cuando el ajuste cambia."""
-        self._ancla_zoom = None
-        self._centrado_pendiente = True
         if self._tree.filas_visibles():
             self._pedir_centrado_si_hace_falta()
         else:
@@ -353,11 +347,8 @@ class GanttView(Gtk.Box):
 
     def _valor_hoy(self, adj: Gtk.Adjustment) -> float:
         """Desplazamiento horizontal que deja «hoy» a la vista (sin acotar al ancho actual)."""
-        hoy = date.today()
-        if self._escala_activa == "Semanal":
-            hoy -= timedelta(days=hoy.weekday())
-        hoy_x = (hoy - self._drawing_area.fecha_origen).days * self._drawing_area.px_por_dia
-        return max(0.0, hoy_x - adj.get_page_size() * (0.05 if self._escala_activa == "Semanal" else 0.35))
+        hoy_x = (date.today() - self._drawing_area.fecha_origen).days * self._drawing_area.px_por_dia
+        return max(0.0, hoy_x - adj.get_page_size() * 0.35)
 
     def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
         estado = controller.get_current_event_state()

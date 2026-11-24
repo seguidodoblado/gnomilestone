@@ -1036,15 +1036,14 @@ class ResourceUsageView(Gtk.Box):
         self._pedir_centrado_si_hace_falta()
 
     def _on_escala(self, _button: Gtk.ToggleButton, px_por_dia: float) -> None:
+        # Igual que con la rueda: se ancla la fecha (hoy si se ve) antes de cambiar el zoom y el
+        # lienzo la recoloca cuando ya tiene su nuevo ancho.
+        self._anclar_zoom()
         self._indice_zoom = min(
             range(len(_PASOS_ZOOM)), key=lambda i: abs(_PASOS_ZOOM[i] - px_por_dia)
         )
         self._lienzo.set_zoom(px_por_dia)
         self._actualizar_barra_equipo()
-        # El lienzo se redimensiona en el siguiente fotograma: se deja pendiente el centrado
-        # en hoy para cuando tenga su nuevo ancho (el mismo mecanismo que al abrir la vista).
-        self._ancla_zoom = None
-        self._centrado_pendiente = True
         if self._filas:
             self._pedir_centrado_si_hace_falta()
         else:
