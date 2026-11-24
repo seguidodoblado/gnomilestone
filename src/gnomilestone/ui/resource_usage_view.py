@@ -601,6 +601,7 @@ class ResourceUsageView(Gtk.Box):
         # plegar al refrescar a quien el usuario ya desplegó.
         # Como en el Gantt: el eje se centra en hoy al cargar un proyecto, no en cada refresco.
         self._centrado_pendiente = True
+        self._ancla_zoom: tuple[float, float] | None = None  # (días desde el origen, fracción de la vista)
         self.connect("map", lambda *_a: self._pedir_centrado_si_hace_falta())
         self._plegar_inicial = plegar_inicial
         self._plegadas: set[int] = set()
@@ -829,12 +830,36 @@ class ResourceUsageView(Gtk.Box):
         adj = self._canvas_scroller.get_hadjustment()
         if adj.get_page_size() <= 0:
             return False  # vista oculta: sigue pendiente hasta que se muestre
-        valor = self._valor_hoy(adj)
+        valor = self._valor_objetivo(adj)
         if valor > adj.get_upper() - adj.get_page_size() + 1:
             return False  # el lienzo aún no tiene su ancho final: «changed» lo reintenta
         self._centrado_pendiente = False
+        self._ancla_zoom = None
         adj.set_value(valor)
         return False
+
+    def _valor_objetivo(self, adj: Gtk.Adjustment) -> float:
+        """Dónde dejar el desplazamiento: según el ancla del zoom si lo hay y, si no, en hoy."""
+        if self._ancla_zoom is None:
+            return self._valor_hoy(adj)
+        dias, fraccion = self._ancla_zoom
+        return max(0.0, dias * self._lienzo.px_por_dia - fraccion * adj.get_page_size())
+
+    def _anclar_zoom(self) -> None:
+        """Antes de cambiar el zoom: recuerda qué fecha mantener en su sitio (hoy si se ve; si no,
+        la del centro de la vista), para que el zoom con la rueda no desplace lo que se mira."""
+        adj = self._canvas_scroller.get_hadjustment()
+        pagina = adj.get_page_size()
+        if pagina <= 0:
+            return
+        px = self._lienzo.px_por_dia
+        hoy_dias = (date.today() - self._lienzo.fecha_origen).days
+        hoy_x = hoy_dias * px - adj.get_value()
+        visible = 0 <= hoy_x <= pagina
+        fraccion = hoy_x / pagina if visible else 0.5
+        dias = hoy_dias if visible else (adj.get_value() + pagina / 2) / px
+        self._ancla_zoom = (dias, fraccion)
+        self._centrado_pendiente = True
 
     def _centrar_en_hoy(self) -> bool:
         adj = self._canvas_scroller.get_hadjustment()
@@ -977,14 +1002,18 @@ class ResourceUsageView(Gtk.Box):
             self._on_editar_tarea(tarea)
 
     def _on_zoom_in(self, _button: Gtk.Button | None = None) -> None:
+        self._anclar_zoom()
         self._indice_zoom = min(self._indice_zoom + 1, len(_PASOS_ZOOM) - 1)
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
         self._actualizar_barra_equipo()
+        self._pedir_centrado_si_hace_falta()
 
     def _on_zoom_out(self, _button: Gtk.Button | None = None) -> None:
+        self._anclar_zoom()
         self._indice_zoom = max(self._indice_zoom - 1, 0)
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
         self._actualizar_barra_equipo()
+        self._pedir_centrado_si_hace_falta()
 
     def _on_escala(self, _button: Gtk.ToggleButton, px_por_dia: float) -> None:
         self._indice_zoom = min(
@@ -992,7 +1021,14 @@ class ResourceUsageView(Gtk.Box):
         )
         self._lienzo.set_zoom(px_por_dia)
         self._actualizar_barra_equipo()
-        GLib.idle_add(self._centrar_en_hoy)
+        # El lienzo se redimensiona en el siguiente fotograma: se deja pendiente el centrado
+        # en hoy para cuando tenga su nuevo ancho (el mismo mecanismo que al abrir la vista).
+        self._ancla_zoom = None
+        self._centrado_pendiente = True
+        if self._filas:
+            self._pedir_centrado_si_hace_falta()
+        else:
+            GLib.idle_add(self._centrar_en_hoy)
 
     def _sincronizar_scroll(self, origen: Gtk.Adjustment, destino: Gtk.Adjustment) -> None:
         if self._sincronizando_scroll:

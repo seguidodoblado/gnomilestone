@@ -24,7 +24,7 @@ en este archivo.
 
 ### Changed
 
-- Vista Uso (#13): la leyenda pasa a cuadraditos de color con etiqueta corta y el tinte de fondo de cada persona usa la misma escala verde/azul/rojo que la franja de equipo; un clic en una barra abre directamente la tarea, sin el popover de dedicación (se edita en el diálogo de la tarea)
+- Vista Uso (#13): la leyenda pasa a cuadraditos de color con etiqueta corta y el tinte de fondo de cada persona usa la misma escala verde/azul/rojo que la franja de equipo; un clic en una barra abre el popover con el deslizador de dedicación (también en el Uso global) y el doble clic abre la tarea
 - Las fichas de persona de Recursos se dibujan plegadas la primera vez que aparecen (la elección del usuario se respeta después), y las cinco secciones del árbol de Documentación arrancan plegadas
 
 - Tras un pull, una tarea editada en local ya no se queda en conflicto si su envío previo funciona: gana lo local y solo hay conflicto cuando el envío falla (#60)
@@ -33,6 +33,8 @@ en este archivo.
 
 ### Fixed
 
+- El Gantt mostraba un 0 % en una tarea con subtareas al plegarla (se dibujaba como una hoja con su % propio): la barra plegada, que sigue siendo una barra normal, usa ahora el progreso agregado de sus subtareas, el mismo que la píldora desplegada, y su tooltip lo indica («calculado desde sus subtareas»)
+- La ventana de edición de una tarea con subtareas mostraba su % propio guardado (0 %) y no el del Gantt: ahora muestra el agregado, con el deslizador y los botones de porcentaje desactivados y la nota «Calculado a partir de sus subtareas»; «Completar» se oculta y el agregado no se guarda en la tarea, así que el historial no registra cambios de progreso falsos
 - La tilde (tecla muerta) quedaba «flotando» en cualquier campo de texto hasta pasar a otro campo o borrar hacia atrás, llevándose además la última letra, con avisos `IBUS-WARNING … Type 'h' is not supported` en la terminal: IBus 1.5.29 con GTK4 no confirma la tecla muerta. La aplicación usa ahora el método de entrada integrado de GTK (`GTK_IM_MODULE=simple`) cuando la sesión usa `ibus`, a costa de los motores de IBus que componen caracteres (japonés, chino, coreano…); el resto de métodos no se tocan
 
 ## [0.1.0] - 2026-11-15
