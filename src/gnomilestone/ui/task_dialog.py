@@ -11,7 +11,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 
-from gnomilestone import completado, tipos
+from gnomilestone import completado, ganttcalc, tipos
 from gnomilestone.etiquetas import color_automatico, color_de_texto
 from gnomilestone.historial import titulo_evento
 from gnomilestone.i18n import _, formatear_fecha_local
@@ -378,7 +378,9 @@ class TaskDialog(Gtk.Window):
                 _("Marcarla al 100 %, moverla a la columna de completadas y guardar")
             )
             self._completar_button.connect("clicked", self._on_completar)
-            self._completar_button.set_visible(self._porcentaje_scale.get_value() < 100)
+            self._completar_button.set_visible(
+                self._progreso_agregado is None and self._porcentaje_scale.get_value() < 100
+            )
             acciones.append(self._completar_button)
         save_button = Gtk.Button(label=_("Guardar"))
         save_button.add_css_class("suggested-action")
@@ -638,7 +640,14 @@ class TaskDialog(Gtk.Window):
         self._porcentaje_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
         self._porcentaje_scale.set_digits(0)
         self._porcentaje_scale.set_hexpand(True)
-        self._porcentaje_scale.set_value(tarea.porcentaje_completado if tarea else 0)
+        # Una tarea con subtareas no tiene un % propio: es el agregado de sus hojas (el mismo
+        # que dibuja el Gantt). Se muestra, pero no se edita ni se guarda.
+        self._progreso_agregado = self._calcular_progreso_agregado(tarea)
+        self._porcentaje_scale.set_value(
+            self._progreso_agregado
+            if self._progreso_agregado is not None
+            else (tarea.porcentaje_completado if tarea else 0)
+        )
         self._porcentaje_label = Gtk.Label(width_chars=5)
         self._porcentaje_scale.connect("value-changed", self._on_porcentaje_cambio)
         self._on_porcentaje_cambio(self._porcentaje_scale)
@@ -653,6 +662,27 @@ class TaskDialog(Gtk.Window):
             boton.connect("clicked", lambda _b, v=valor: self._porcentaje_scale.set_value(v))
             rapidos.append(boton)
         box.append(rapidos)
+        if self._progreso_agregado is not None:
+            self._porcentaje_scale.set_sensitive(False)
+            rapidos.set_sensitive(False)
+            ayuda = Gtk.Label(
+                label=_("Calculado a partir de sus subtareas."), xalign=0, wrap=True
+            )
+            ayuda.add_css_class("dim-label")
+            box.append(ayuda)
+
+    def _calcular_progreso_agregado(self, tarea: Tarea | None) -> int | None:
+        """% agregado de las hojas de la tarea, o None si no tiene subtareas."""
+        if tarea is None:
+            return None
+        todas = self._store.listar_tareas(tarea.proyecto_id, incluir_archivadas=True)
+        return ganttcalc.progreso_resumen(todas).get(tarea.id)
+
+    def _porcentaje_a_guardar(self) -> int:
+        """% que cuenta al guardar: el que ya tenía si es un resumen (el agregado no se guarda)."""
+        if self._progreso_agregado is not None and self._tarea is not None:
+            return self._tarea.porcentaje_completado
+        return round(self._porcentaje_scale.get_value())
 
 
     def _construir_asignaciones(self, tarea: Tarea | None) -> None:
@@ -880,7 +910,7 @@ class TaskDialog(Gtk.Window):
         self._porcentaje_label.set_text(f"{round(escala.get_value())} %")
         boton = getattr(self, "_completar_button", None)
         if boton is not None:
-            boton.set_visible(round(escala.get_value()) < 100)
+            boton.set_visible(self._progreso_agregado is None and round(escala.get_value()) < 100)
 
     def _on_completar(self, _button: Gtk.Button) -> None:
         self._porcentaje_scale.set_value(100)
@@ -1007,7 +1037,7 @@ class TaskDialog(Gtk.Window):
         """Dependencias marcadas que no están al 100 %, si este guardado completa la tarea."""
         final = completado.id_columna_final(self._estados)
         estado_id = self._estados[self._estado_dropdown.get_selected()].id if self._estados else None
-        completa_ahora = round(self._porcentaje_scale.get_value()) >= 100 or (
+        completa_ahora = self._porcentaje_a_guardar() >= 100 or (
             final is not None and estado_id == final
         )
         ya_completa = self._tarea is not None and self._tarea.porcentaje_completado >= 100
@@ -1091,7 +1121,7 @@ class TaskDialog(Gtk.Window):
             duracion = self._duracion_entre(fecha, fecha_fin)
         else:
             duracion = int(self._duracion_spin.get_value())
-        porcentaje = round(self._porcentaje_scale.get_value())
+        porcentaje = self._porcentaje_a_guardar()
         fecha_fin_inicial = self._fin_inicial.valor or fecha_fin
         fecha_fin_real = completado.fecha_fin_real_para(porcentaje, self._fin_real.valor)
         if (

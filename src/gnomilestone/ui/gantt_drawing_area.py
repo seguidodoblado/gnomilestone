@@ -437,6 +437,11 @@ class GanttDrawingArea(Gtk.DrawingArea):
     def _texto_limite(self, tarea: Tarea) -> str:
         return limite_dibujo.texto_limite(tarea)
 
+    def _progreso_mostrado(self, tarea: Tarea) -> int:
+        """% que se dibuja en la barra: el agregado de sus hojas si la tarea tiene subtareas
+        (también plegada, cuando se ve como barra normal), y el propio si es una hoja."""
+        return self._progreso_resumen.get(tarea.id, tarea.porcentaje_completado)
+
     def _texto_tarea(self, tarea: Tarea, recursos: list) -> str:
         """Tooltip de una barra: título, fechas y duración, avance y asignados."""
         fecha_inicio, duracion = self._valores_mostrados(tarea)
@@ -449,7 +454,11 @@ class GanttDrawingArea(Gtk.DrawingArea):
                 fin=formatear_fecha_local(fin.isoformat()),
                 n=dias,
             ),
-            _("{pct} % completado").format(pct=tarea.porcentaje_completado),
+            (
+                _("{pct} % completado (calculado desde sus subtareas)")
+                if tarea.id in self._progreso_resumen
+                else _("{pct} % completado")
+            ).format(pct=self._progreso_mostrado(tarea)),
         ]
         if recursos:
             lineas.append(_("Asignados: {nombres}").format(nombres=", ".join(r.nombre for r in recursos)))
@@ -713,7 +722,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
             cr.clip()
             cr.set_source_rgba(*color_acento, 0.55)
             cr.paint()
-            relleno = ancho_barra * (tarea.porcentaje_completado / 100)
+            relleno = ancho_barra * (self._progreso_mostrado(tarea) / 100)
             if relleno > 0:
                 cr.set_source_rgba(*color_acento, 1.0)
                 cr.rectangle(x, y_barra, relleno, alto_barra)
@@ -733,7 +742,7 @@ class GanttDrawingArea(Gtk.DrawingArea):
                 y_barra,
                 alto_barra,
                 tema_oscuro,
-                tarea.porcentaje_completado,
+                self._progreso_mostrado(tarea),
             )
 
             posiciones[tarea.id] = (x, x + ancho_barra, centro_y)
