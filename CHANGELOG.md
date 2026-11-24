@@ -21,6 +21,7 @@ en este archivo.
 - Fusión por campo (#60): si una tarea se edita en local y en GitHub entre dos sincronizaciones, ya no se descarta todo lo de GitHub. Cada campo (título, descripción, columna, fechas, duración, prioridad, tipo y avance) se trae si solo cambió en GitHub, se conserva si solo cambió en local y solo se avisa —ganando lo local— cuando cambió en los dos lados a valores distintos. Las tareas anteriores a este cambio mantienen el criterio de tarea completa hasta su siguiente sincronización
 - Jerarquía y dependencias con GitHub (#60): al sincronizar se trae el padre de cada subissue y las dependencias «blocked by» entre las tareas del proyecto (sin cerrar ciclos ni duplicar), y al enviar una tarea sus dependencias locales se marcan como «blocked by» en GitHub. Quitar un padre o una dependencia en un lado no se propaga al otro
 - Decisión sobre el % de avance (#60): no se sincroniza con GitHub. Projects no tiene un campo propio de porcentaje (solo uno calculado y de solo lectura a partir de los subissues) y obligaría a crear un campo numérico a mano en cada tablero; el avance sigue siendo local y, al pasar una tarea a la columna de completadas, cierra el issue
+- Autodesplazamiento al arrastrar una tarjeta en el Tablero: cerca del borde superior o inferior de una columna esta se desplaza sola, y cerca del lateral lo hace el tablero, con velocidad proporcional a la cercanía del borde. Antes no se podía arrastrar más allá de lo visible
 
 ### Changed
 
@@ -30,6 +31,7 @@ en este archivo.
 - Tras un pull, una tarea editada en local ya no se queda en conflicto si su envío previo funciona: gana lo local y solo hay conflicto cuando el envío falla (#60)
 - Los Gantt y el Uso se abrían sin centrarse en hoy cuando el lienzo aún no tenía su ancho final al mostrarse la vista: el centrado inicial queda pendiente y se reintenta cuando el ajuste cambia, y solo se da por hecho si hay sitio para dejar hoy a la vista
 - Con un token de GitHub no válido, la sincronización muestra un solo aviso («El token no es válido o ha caducado») en vez de repetir el error 401 de cada recurso (#60)
+- El zoom con Ctrl y la rueda del Gantt y del Uso llega también a la escala Anual (4 px por día) y los botones de escala se marcan a medida que se alcanza su nivel con la rueda o con + y −; en los pasos intermedios que no tienen botón no se marca ninguno
 
 ### Fixed
 

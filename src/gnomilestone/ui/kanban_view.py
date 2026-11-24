@@ -8,7 +8,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, GLib, GObject, Graphene, Gtk, Pango
 
 from gnomilestone import completado
 from gnomilestone.etiquetas import color_de_texto
@@ -150,6 +150,12 @@ class KanbanView(Gtk.Box):
         self._indicador: Gtk.Box | None = None  # línea de destino del arrastre
         self._movimiento_en_tarjeta = False  # la tarjeta ya gestionó este movimiento
         self._n_movimientos = 0
+        # Autodesplazamiento mientras se arrastra una tarjeta cerca de un borde (ver
+        # `_autodesplazar`): columna que se desplaza en vertical, tablero en horizontal.
+        self._scroll_columna: Gtk.ScrolledWindow | None = None
+        self._velocidad_v = 0.0
+        self._velocidad_h = 0.0
+        self._temporizador_scroll: int | None = None
         # Filtro activo: ids de las tareas visibles y texto de la barra (None = sin filtro).
         self._filtro_ids: set[int] | None = None
         self._filtro_texto = ""
@@ -184,6 +190,7 @@ class KanbanView(Gtk.Box):
         )
         scroller = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         scroller.set_child(self._columnas_box)
+        self._scroll_tablero = scroller
         self.append(scroller)
 
     def mostrar_proyecto(self, proyecto_id: int, mostrar_completadas: bool = True) -> None:
@@ -503,9 +510,66 @@ class KanbanView(Gtk.Box):
         def _borrar() -> bool:
             if self._n_movimientos == n:
                 self._quitar_indicador()
+                self._detener_autodesplazamiento()
             return GLib.SOURCE_REMOVE
 
         GLib.timeout_add(150, _borrar)
+
+    # -- Autodesplazamiento al arrastrar ----------------------------------------------
+
+    _BORDE_SCROLL = 56.0  # px desde el borde en los que el arrastre empieza a desplazar
+    _VELOCIDAD_MAX = 18.0  # px por tick (30 ms) con el puntero justo en el borde
+
+    def _autodesplazar(
+        self, widget: Gtk.Widget, x: float, y: float, columna: Gtk.ScrolledWindow | None
+    ) -> None:
+        """Si el puntero está cerca del borde superior/inferior de la columna, o del lateral del
+        tablero, se desplaza sola: sin esto no se puede arrastrar más allá de lo visible.
+        (`x`, `y` son coordenadas de `widget`; `columna` es el ScrolledWindow de su lista.)"""
+        self._scroll_columna = columna
+        self._velocidad_v = self._velocidad_en_borde(columna, widget, x, y, vertical=True)
+        self._velocidad_h = self._velocidad_en_borde(self._scroll_tablero, widget, x, y, vertical=False)
+        if (self._velocidad_v or self._velocidad_h) and self._temporizador_scroll is None:
+            self._temporizador_scroll = GLib.timeout_add(30, self._tick_autodesplazamiento)
+        elif not (self._velocidad_v or self._velocidad_h):
+            self._detener_autodesplazamiento()
+
+    def _velocidad_en_borde(
+        self, scroller: Gtk.ScrolledWindow | None, widget: Gtk.Widget, x: float, y: float, vertical: bool
+    ) -> float:
+        if scroller is None:
+            return 0.0
+        punto = widget.compute_point(scroller, Graphene.Point().init(x, y))
+        if not punto[0]:
+            return 0.0
+        pos = punto[1].y if vertical else punto[1].x
+        tamano = scroller.get_height() if vertical else scroller.get_width()
+        if tamano <= 0:
+            return 0.0
+        if pos < self._BORDE_SCROLL:
+            return -self._VELOCIDAD_MAX * min(1.0, (self._BORDE_SCROLL - pos) / self._BORDE_SCROLL)
+        if pos > tamano - self._BORDE_SCROLL:
+            return self._VELOCIDAD_MAX * min(1.0, (pos - (tamano - self._BORDE_SCROLL)) / self._BORDE_SCROLL)
+        return 0.0
+
+    def _tick_autodesplazamiento(self) -> bool:
+        if not (self._velocidad_v or self._velocidad_h):
+            self._temporizador_scroll = None
+            return GLib.SOURCE_REMOVE
+        if self._velocidad_v and self._scroll_columna is not None:
+            ajuste = self._scroll_columna.get_vadjustment()
+            ajuste.set_value(ajuste.get_value() + self._velocidad_v)
+        if self._velocidad_h:
+            ajuste = self._scroll_tablero.get_hadjustment()
+            ajuste.set_value(ajuste.get_value() + self._velocidad_h)
+        return GLib.SOURCE_CONTINUE
+
+    def _detener_autodesplazamiento(self) -> None:
+        self._velocidad_v = 0.0
+        self._velocidad_h = 0.0
+        if self._temporizador_scroll is not None:
+            GLib.source_remove(self._temporizador_scroll)
+            self._temporizador_scroll = None
 
     def _quitar_indicador(self) -> None:
         if self._indicador is not None and self._indicador.get_parent() is not None:
@@ -528,6 +592,7 @@ class KanbanView(Gtk.Box):
     ) -> Gdk.DragAction:
         self._n_movimientos += 1
         self._movimiento_en_tarjeta = True  # la columna, que también lo recibe, no debe repetirlo
+        self._autodesplazar(tarjeta, _x, y, tarjeta.get_ancestor(Gtk.ScrolledWindow))
         lista = tarjeta.get_parent()
         if lista is None:
             return Gdk.DragAction.MOVE
@@ -543,9 +608,12 @@ class KanbanView(Gtk.Box):
         return Gdk.DragAction.MOVE
 
     def _on_movimiento_sobre_columna(
-        self, _objetivo: Gtk.DropTarget, _x: float, _y: float, lista: Gtk.Box
+        self, _objetivo: Gtk.DropTarget, x: float, y: float, lista: Gtk.Box
     ) -> Gdk.DragAction:
         self._n_movimientos += 1
+        scroll = lista.get_ancestor(Gtk.ScrolledWindow)
+        if scroll is not None:
+            self._autodesplazar(scroll.get_parent(), x, y, scroll)  # x, y son de la caja de la columna
         if self._movimiento_en_tarjeta:
             self._movimiento_en_tarjeta = False
             return Gdk.DragAction.MOVE
@@ -560,6 +628,7 @@ class KanbanView(Gtk.Box):
         self, _objetivo: Gtk.DropTarget, tarea_id: int, _x: float, y: float,
         tarjeta: Gtk.Widget, destino: Tarea,
     ) -> bool:
+        self._detener_autodesplazamiento()
         despues = self._es_mitad_inferior(tarjeta, y)
         self._quitar_indicador()
         return self._soltar(tarea_id, destino.estado_id, destino.id, despues)
@@ -578,6 +647,7 @@ class KanbanView(Gtk.Box):
 
 
     def _on_arrastre_terminado(self, origen: Gtk.DragSource, *_a) -> None:
+        self._detener_autodesplazamiento()
         self._quitar_indicador()
         # Suelta el icono del arrastre (un WidgetPaintable de la tarjeta): así no queda
         # apuntando a un widget que el refresco siguiente va a destruir.
@@ -592,6 +662,7 @@ class KanbanView(Gtk.Box):
 
     def _on_drop(self, _objetivo: Gtk.DropTarget, tarea_id: int, _x: float, _y: float, estado_id: int) -> bool:
         # Soltar en el hueco de la columna: la tarjeta pasa al final de ella.
+        self._detener_autodesplazamiento()
         self._quitar_indicador()
         tareas = self._store.listar_tareas(self._proyecto_id) if self._proyecto_id else []
         de_la_columna = [t for t in tareas if t.estado_id == estado_id and t.id != tarea_id]

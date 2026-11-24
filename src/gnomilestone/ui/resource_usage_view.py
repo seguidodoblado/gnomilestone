@@ -30,7 +30,7 @@ from gnomilestone.ui.regla_dibujo import (
     dibujar_regla,
 )
 
-_PASOS_ZOOM = (8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
+_PASOS_ZOOM = (4.0, 8.0, 12.0, 18.0, 24.0, 36.0, 54.0, 80.0)
 _ESCALAS = (
     ("Diario", N_("Diario"), 80.0),
     ("Semanal", N_("Semanal"), 36.0),
@@ -620,8 +620,10 @@ class ResourceUsageView(Gtk.Box):
         toolbar.append(hoy_boton)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         grupo_escalas: Gtk.ToggleButton | None = None
+        self._botones_escala: dict[float, tuple[str, Gtk.ToggleButton]] = {}
         for etiqueta, texto, px_por_dia in _ESCALAS:
             boton_escala = Gtk.ToggleButton(label=_(texto))
+            self._botones_escala[px_por_dia] = (etiqueta, boton_escala)
             boton_escala.add_css_class("linked")
             if grupo_escalas is None:
                 grupo_escalas = boton_escala
@@ -630,6 +632,11 @@ class ResourceUsageView(Gtk.Box):
             boton_escala.set_active(etiqueta == "Diario")
             boton_escala.connect("clicked", self._on_escala, px_por_dia)
             toolbar.append(boton_escala)
+        # Botón fuera de la barra, en el mismo grupo: al activarlo se desmarcan los demás (un nivel
+        # de zoom intermedio, sin escala propia, no marca ninguno).
+        self._sin_escala = Gtk.ToggleButton()
+        if grupo_escalas is not None:
+            self._sin_escala.set_group(grupo_escalas)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         toolbar.append(_Leyenda())
         espacio = Gtk.Box(hexpand=True)
@@ -1001,11 +1008,23 @@ class ResourceUsageView(Gtk.Box):
         if tarea is not None:
             self._on_editar_tarea(tarea)
 
+    def _sincronizar_botones_escala(self) -> None:
+        """Marca el botón de la escala a la que se ha llegado con la rueda o con + y −; si el
+        nivel de zoom no es el de ninguno (p. ej. 24 px por día), no se marca ninguno."""
+        escala = self._botones_escala.get(self._lienzo.px_por_dia)
+        if escala is None:
+            self._sin_escala.set_active(True)
+
+        else:
+            escala[1].set_active(True)
+
+
     def _on_zoom_in(self, _button: Gtk.Button | None = None) -> None:
         self._anclar_zoom()
         self._indice_zoom = min(self._indice_zoom + 1, len(_PASOS_ZOOM) - 1)
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
         self._actualizar_barra_equipo()
+        self._sincronizar_botones_escala()
         self._pedir_centrado_si_hace_falta()
 
     def _on_zoom_out(self, _button: Gtk.Button | None = None) -> None:
@@ -1013,6 +1032,7 @@ class ResourceUsageView(Gtk.Box):
         self._indice_zoom = max(self._indice_zoom - 1, 0)
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
         self._actualizar_barra_equipo()
+        self._sincronizar_botones_escala()
         self._pedir_centrado_si_hace_falta()
 
     def _on_escala(self, _button: Gtk.ToggleButton, px_por_dia: float) -> None:
