@@ -45,7 +45,11 @@ class GlobalUsageView(Gtk.Box):
         panel.append(self._completadas)
         self.append(panel)
 
-        self._uso = ResourceUsageView(on_editar_tarea=self._on_editar_tarea, plegar_inicial=True)
+        self._uso = ResourceUsageView(
+            on_editar_tarea=self._on_editar_tarea,
+            plegar_inicial=True,
+            on_dedicacion_changed=self._on_dedicacion_changed,
+        )
         self._uso.set_hexpand(True)
         self.append(self._uso)
 
@@ -55,6 +59,10 @@ class GlobalUsageView(Gtk.Box):
         TaskDialog(
             self.get_root(), self._store, tarea.proyecto_id, on_saved=self.actualizar, tarea=tarea
         ).present()
+
+    def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
+        self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
+        self.actualizar()
 
     def refrescar_proyectos(self) -> None:
         seleccionados = {id_ for id_, check in self._checks if check.get_active()}

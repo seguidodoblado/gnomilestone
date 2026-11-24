@@ -174,7 +174,10 @@ class ProjectDetailView(Gtk.Box):
         self._recursos = ResourceView(store, on_changed=self.refrescar)
         self._vista_stack.add_named(self._recursos, "recursos")
 
-        self._uso = ResourceUsageView(on_editar_tarea=self._on_editar_tarea)
+        self._uso = ResourceUsageView(
+            on_editar_tarea=self._on_editar_tarea,
+            on_dedicacion_changed=self._on_dedicacion_changed,
+        )
         self._vista_stack.add_named(self._uso, "uso")
         self._informes_con_archivadas = bool(
             settings.read_settings().get("informes_incluir_archivadas", False)
@@ -484,6 +487,10 @@ class ProjectDetailView(Gtk.Box):
         TaskDialog(
             self.get_root(), self._store, tarea.proyecto_id, on_saved=self.refrescar, tarea=tarea
         ).present()
+
+    def _on_dedicacion_changed(self, tarea_id: int, recurso_id: int, porcentaje: int) -> None:
+        self._store.actualizar_dedicacion(tarea_id, recurso_id, porcentaje)
+        self.refrescar()
 
     def _construir_menu_archivo(self) -> Gtk.MenuButton:
         """Menú «Archivo»: archivar las completadas y abrir la lista de archivadas."""

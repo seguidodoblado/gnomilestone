@@ -225,9 +225,11 @@ class _LienzoUso(Gtk.DrawingArea):
     def __init__(
         self,
         on_editar_tarea: Callable[[int], None] | None = None,
+        on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
     ) -> None:
         super().__init__()
         self.ruler = _ReglaFechas()
+        self._click_pendiente: int | None = None
         self._filas: list[FilaUso] = []
         # Cabecera de persona (segmento None, True) y, si está desplegada, una fila por
         # tarea (segmento, False).
@@ -236,9 +238,10 @@ class _LienzoUso(Gtk.DrawingArea):
         self.px_por_dia = 24.0
         self.fecha_origen = date.today()
         self._on_editar_tarea = on_editar_tarea
+        self._on_dedicacion_changed = on_dedicacion_changed
         self.set_draw_func(self._draw)
 
-        if on_editar_tarea is not None:
+        if on_editar_tarea is not None or on_dedicacion_changed is not None:
             clic = Gtk.GestureClick(button=1)
             clic.connect("released", self._on_clic)
             self.add_controller(clic)
@@ -501,10 +504,80 @@ class _LienzoUso(Gtk.DrawingArea):
             ]
         )
 
-    def _on_clic(self, _gesture: Gtk.GestureClick, _n_press: int, x: float, y: float) -> None:
+    def _on_clic(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
+        """Un clic sobre una barra abre el control de dedicación; el doble clic edita la tarea."""
         segmento = self._segmento_en(x, y)
-        if segmento is not None and self._on_editar_tarea is not None:
+        if segmento is None:
+            return
+        if n_press == 2 and self._on_editar_tarea is not None:
+            self._cancelar_click_pendiente()
             self._on_editar_tarea(segmento.tarea_id)
+        elif n_press == 1 and self._on_dedicacion_changed is not None:
+            # Se espera un instante por si es el primer clic de un doble clic.
+            self._cancelar_click_pendiente()
+            self._click_pendiente = GLib.timeout_add(
+                250, self._mostrar_menu_dedicacion_pendiente, segmento, x, y
+            )
+
+    def _cancelar_click_pendiente(self) -> None:
+        if self._click_pendiente is not None:
+            GLib.source_remove(self._click_pendiente)
+            self._click_pendiente = None
+
+    def _mostrar_menu_dedicacion_pendiente(self, segmento: SegmentoUso, x: float, y: float) -> bool:
+        self._click_pendiente = None
+        self._mostrar_menu_dedicacion(segmento, x, y)
+        return GLib.SOURCE_REMOVE
+
+    def _mostrar_menu_dedicacion(self, segmento: SegmentoUso, x: float, y: float) -> None:
+        popover = Gtk.Popover()
+        popover.set_parent(self)
+        caja = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8,
+            margin_top=10,
+            margin_bottom=10,
+            margin_start=12,
+            margin_end=12,
+        )
+        titulo = Gtk.Label(label=segmento.titulo, xalign=0)
+        titulo.add_css_class("heading")
+        caja.append(titulo)
+        valor = Gtk.Label(label=f"{segmento.porcentaje_dedicacion} %", xalign=0)
+        caja.append(valor)
+        escala = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 5)
+        escala.set_value(segmento.porcentaje_dedicacion)
+        escala.set_digits(0)
+        escala.set_size_request(180, -1)
+        escala.set_hexpand(False)
+        escala.connect("value-changed", lambda e: valor.set_text(f"{round(e.get_value())} %"))
+        caja.append(escala)
+        popover.set_child(caja)
+        popover.set_has_arrow(True)
+        rectangulo = Gdk.Rectangle()
+        rectangulo.x = int(x)
+        rectangulo.y = int(y)
+        rectangulo.width = 1
+        rectangulo.height = 1
+        popover.set_pointing_to(rectangulo)
+
+        def _guardar_al_cerrar(_popover: Gtk.Popover) -> None:
+            porcentaje = round(escala.get_value())
+            if self._on_dedicacion_changed is not None and porcentaje != segmento.porcentaje_dedicacion:
+                self._on_dedicacion_changed(
+                    segmento.tarea_id, self._recurso_id_de_segmento(segmento), porcentaje
+                )
+            # Destruir el popover mientras se cierra provoca avisos de GTK: se retira después.
+            GLib.idle_add(lambda: popover.unparent() or GLib.SOURCE_REMOVE)
+
+        popover.connect("closed", _guardar_al_cerrar)
+        popover.popup()
+
+    def _recurso_id_de_segmento(self, segmento: SegmentoUso) -> int:
+        for fila in self._filas:
+            if segmento in fila.segmentos:
+                return fila.recurso.id
+        return 0
 
 
 class ResourceUsageView(Gtk.Box):
@@ -514,10 +587,12 @@ class ResourceUsageView(Gtk.Box):
         self,
         on_editar_tarea: Callable[[Tarea], None] | None = None,
         plegar_inicial: bool = False,
+        on_dedicacion_changed: Callable[[int, int, int], None] | None = None,
     ) -> None:
         _asegurar_css_carga()
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._on_editar_tarea = on_editar_tarea
+        self._on_dedicacion_changed = on_dedicacion_changed
         self._tareas_por_id: dict[int, Tarea] = {}
         self._indice_zoom = _PASOS_ZOOM.index(80.0)  # vista diaria por defecto
         self._filas: list[FilaUso] = []
@@ -624,6 +699,7 @@ class ResourceUsageView(Gtk.Box):
         canvas_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
         self._lienzo = _LienzoUso(
             on_editar_tarea=self._on_editar_desde_lienzo,
+            on_dedicacion_changed=self._on_dedicacion_changed,
         )
         self._lienzo.set_zoom(_PASOS_ZOOM[self._indice_zoom])
 
