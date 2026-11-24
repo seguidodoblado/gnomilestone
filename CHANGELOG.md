@@ -33,6 +33,8 @@ en este archivo.
 
 ### Fixed
 
+- Al cambiar de escala (Diario, Semanal, Mensual, Trimestral, Anual) en el Gantt y en el Uso se perdía el día de hoy: se centraba contra el ancho anterior del lienzo, que se redimensiona en el siguiente fotograma. El centrado queda pendiente y se aplica cuando el lienzo tiene su nuevo ancho
+- El zoom con Ctrl y la rueda (y con los botones + y −) en el Gantt y en el Uso desplazaba lo que se estaba mirando: ahora conserva en su sitio la fecha de hoy si está a la vista y, si no, la del centro de la vista
 - El Gantt mostraba un 0 % en una tarea con subtareas al plegarla (se dibujaba como una hoja con su % propio): la barra plegada, que sigue siendo una barra normal, usa ahora el progreso agregado de sus subtareas, el mismo que la píldora desplegada, y su tooltip lo indica («calculado desde sus subtareas»)
 - La ventana de edición de una tarea con subtareas mostraba su % propio guardado (0 %) y no el del Gantt: ahora muestra el agregado, con el deslizador y los botones de porcentaje desactivados y la nota «Calculado a partir de sus subtareas»; «Completar» se oculta y el agregado no se guarda en la tarea, así que el historial no registra cambios de progreso falsos
 - La tilde (tecla muerta) quedaba «flotando» en cualquier campo de texto hasta pasar a otro campo o borrar hacia atrás, llevándose además la última letra, con avisos `IBUS-WARNING … Type 'h' is not supported` en la terminal: IBus 1.5.29 con GTK4 no confirma la tecla muerta. La aplicación usa ahora el método de entrada integrado de GTK (`GTK_IM_MODULE=simple`) cuando la sesión usa `ibus`, a costa de los motores de IBus que componen caracteres (japonés, chino, coreano…); el resto de métodos no se tocan
