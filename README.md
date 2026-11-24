@@ -86,7 +86,9 @@ proyecto (notas, diagramas y líneas de tiempo).
   tareas, enviar cambios de estado), de los campos del Project (incluidas las columnas
   del tablero y la prioridad), de las etiquetas (con su descripción) y de los comentarios;
   las tareas conservan su columna al pasar a un tablero de GitHub, y eliminar una tarea
-  borra también su issue.
+  borra también su issue. El botón de sincronizar envía antes lo pendiente, avisa de los envíos que fallan, fusiona cada
+  campo por separado cuando una tarea cambia a la vez en local y en GitHub, y también sincroniza los asignados, los subissues
+  y las dependencias «blocked by»; una tarea cuyo issue se borró en GitHub se archiva.
 - **Preferencias**: selector de idioma (Sistema/Español/English) y de tema
   (Sistema/Claro/Oscuro), persistidos en `~/.config/gnomilestone/settings.json`.
 
@@ -188,7 +190,9 @@ diagrams and timelines).
   Project), with two-way synchronization of Issues (pull and create tasks, push
   status changes), of the Project's fields (including the board columns and the
   priority), of labels (with their description) and of comments; tasks keep their column when
-  moving to a GitHub board, and deleting a task also deletes its issue.
+  moving to a GitHub board, and deleting a task also deletes its issue. The sync button sends what is pending first, reports pushes that fail, merges each
+  field separately when a task changes on both sides at once, and also syncs assignees, sub-issues and “blocked by”
+  dependencies; a task whose issue was deleted on GitHub is archived.
 - **Preferences**: language selector (System/Español/English) and theme selector
   (System/Light/Dark), persisted in `~/.config/gnomilestone/settings.json`.
 

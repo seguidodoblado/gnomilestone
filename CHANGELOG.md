@@ -28,6 +28,7 @@ en este archivo.
 - Las fichas de persona de Recursos se dibujan plegadas la primera vez que aparecen (la elección del usuario se respeta después), y las cinco secciones del árbol de Documentación arrancan plegadas
 
 - Tras un pull, una tarea editada en local ya no se queda en conflicto si su envío previo funciona: gana lo local y solo hay conflicto cuando el envío falla (#60)
+- Los Gantt y el Uso se abrían sin centrarse en hoy cuando el lienzo aún no tenía su ancho final al mostrarse la vista: el centrado inicial queda pendiente y se reintenta cuando el ajuste cambia, y solo se da por hecho si hay sitio para dejar hoy a la vista
 - Con un token de GitHub no válido, la sincronización muestra un solo aviso («El token no es válido o ha caducado») en vez de repetir el error 401 de cada recurso (#60)
 
 ### Fixed
