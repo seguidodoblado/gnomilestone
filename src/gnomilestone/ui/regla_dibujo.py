@@ -95,7 +95,7 @@ def dibujar_regla(
     cr.line_to(ancho, _ALTURA_NIVEL_SUPERIOR)
     cr.stroke()
 
-    x_hoy = ganttcalc.fecha_a_x(hoy or date.today(), fecha_origen, px_por_dia)  # noqa: DTZ011
+    x_hoy = ganttcalc.fecha_a_x(hoy or date.today(), fecha_origen, px_por_dia)
     if 0 <= x_hoy <= ancho:
         cr.set_source_rgba(*_COLOR_HOY, 0.9)
         cr.set_line_width(2)

@@ -160,6 +160,11 @@ class GanttView(Gtk.Box):
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         # La regla repinta al desplazarse: sus etiquetas de mes/año siguen el borde visible.
         self._drawing_area.ruler.ajuste_horizontal = self._canvas_scroller.get_hadjustment()
+        # Si al mostrarse la vista el lienzo aún no tenía su tamaño final, el centrado inicial
+        # queda pendiente y se reintenta cuando el ajuste cambia (ancho o página asignados).
+        self._canvas_scroller.get_hadjustment().connect(
+            "changed", lambda *_a: self._pedir_centrado_si_hace_falta()
+        )
         self._canvas_scroller.get_hadjustment().connect(
             "value-changed", lambda _a: self._drawing_area.ruler.queue_draw()
         )
@@ -249,10 +254,15 @@ class GanttView(Gtk.Box):
     def _centrado_inicial(self) -> bool:
         if not self._centrado_pendiente:
             return False
-        if self._canvas_scroller.get_hadjustment().get_page_size() <= 0:
+        adj = self._canvas_scroller.get_hadjustment()
+        if adj.get_page_size() <= 0:
             return False  # aún sin asignar (vista oculta): sigue pendiente hasta que se muestre
+        valor = self._valor_hoy(adj)
+        if valor > adj.get_upper() - adj.get_page_size() + 1:
+            return False  # el lienzo aún no tiene su ancho final: «changed» lo reintenta
         self._centrado_pendiente = False
-        return self._centrar_en_hoy()
+        adj.set_value(valor)
+        return False
 
     def _on_zoom_in(self, _button: Gtk.Button | None = None) -> None:
         self._indice_zoom = min(self._indice_zoom + 1, len(_PASOS_ZOOM) - 1)
@@ -276,13 +286,17 @@ class GanttView(Gtk.Box):
             # El lienzo aún no está asignado: no volver a registrar el idle sin fin,
             # porque eso mantiene la aplicación al 100 % de CPU.
             return False
+        valor = self._valor_hoy(adj)
+        adj.set_value(min(valor, max(0.0, adj.get_upper() - adj.get_page_size())))
+        return False
+
+    def _valor_hoy(self, adj: Gtk.Adjustment) -> float:
+        """Desplazamiento horizontal que deja «hoy» a la vista (sin acotar al ancho actual)."""
         hoy = date.today()
         if self._escala_activa == "Semanal":
             hoy -= timedelta(days=hoy.weekday())
         hoy_x = (hoy - self._drawing_area.fecha_origen).days * self._drawing_area.px_por_dia
-        valor = max(0.0, hoy_x - adj.get_page_size() * (0.05 if self._escala_activa == "Semanal" else 0.35))
-        adj.set_value(min(valor, max(0.0, adj.get_upper() - adj.get_page_size())))
-        return False
+        return max(0.0, hoy_x - adj.get_page_size() * (0.05 if self._escala_activa == "Semanal" else 0.35))
 
     def _on_scroll(self, controller: Gtk.EventControllerScroll, _dx: float, dy: float) -> bool:
         estado = controller.get_current_event_state()

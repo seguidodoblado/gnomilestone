@@ -738,6 +738,11 @@ class ResourceUsageView(Gtk.Box):
         adj_lienzo.connect("value-changed", self._sincronizar_scroll, adj_lateral)
         ruler_scroller.set_hadjustment(self._canvas_scroller.get_hadjustment())
         self._lienzo.ruler.ajuste_horizontal = self._canvas_scroller.get_hadjustment()
+        # Si al mostrarse la vista el lienzo aún no tenía su tamaño final, el centrado inicial
+        # queda pendiente y se reintenta cuando el ajuste cambia (ancho o página asignados).
+        self._canvas_scroller.get_hadjustment().connect(
+            "changed", lambda *_a: self._pedir_centrado_si_hace_falta()
+        )
         self._canvas_scroller.get_hadjustment().connect(
             "value-changed", lambda _a: self._lienzo.ruler.queue_draw()
         )
@@ -821,19 +826,28 @@ class ResourceUsageView(Gtk.Box):
     def _centrado_inicial(self) -> bool:
         if not self._centrado_pendiente:
             return False
-        if self._canvas_scroller.get_hadjustment().get_page_size() <= 0:
+        adj = self._canvas_scroller.get_hadjustment()
+        if adj.get_page_size() <= 0:
             return False  # vista oculta: sigue pendiente hasta que se muestre
+        valor = self._valor_hoy(adj)
+        if valor > adj.get_upper() - adj.get_page_size() + 1:
+            return False  # el lienzo aún no tiene su ancho final: «changed» lo reintenta
         self._centrado_pendiente = False
-        return self._centrar_en_hoy()
+        adj.set_value(valor)
+        return False
 
     def _centrar_en_hoy(self) -> bool:
         adj = self._canvas_scroller.get_hadjustment()
         if adj.get_page_size() <= 0:
             return False  # sin asignar aún: no re-registrar el idle (consumiría CPU)
-        hoy_x = ganttcalc.fecha_a_x(date.today(), self._lienzo.fecha_origen, self._lienzo.px_por_dia)
-        valor = max(0.0, hoy_x - adj.get_page_size() * 0.35)
+        valor = self._valor_hoy(adj)
         adj.set_value(min(valor, max(0.0, adj.get_upper() - adj.get_page_size())))
         return False
+
+    def _valor_hoy(self, adj: Gtk.Adjustment) -> float:
+        """Desplazamiento horizontal que deja «hoy» a la vista (sin acotar al ancho actual)."""
+        hoy_x = ganttcalc.fecha_a_x(date.today(), self._lienzo.fecha_origen, self._lienzo.px_por_dia)
+        return max(0.0, hoy_x - adj.get_page_size() * 0.35)
 
     def _filas_visibles(self) -> list[FilaUso]:
         if not self._filtro:
