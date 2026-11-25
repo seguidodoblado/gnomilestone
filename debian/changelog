@@ -1,3 +1,18 @@
+gnomilestone (0.2.0-1) noble; urgency=medium
+
+  * Sincronización con GitHub más completa: envío antes de traer, fusión
+    por campo, asignados, subissues y dependencias, y estados de issue
+    enlazados a las columnas del tablero.
+  * Progreso agregado de las tareas con subtareas en todas las vistas, y
+    la tarea padre se completa y se reabre sola.
+  * Tablero: autodesplazamiento al arrastrar, columnas del mismo ancho,
+    desplazamiento horizontal arrastrando el fondo y avatar, archivar y
+    eliminar en una columna a la derecha de la tarjeta.
+  * Vista Uso global, tablas Markdown en las notas y esquema de la base
+    de datos 47.
+
+ -- José Antonio Seguido Doblado <jose.antonio.seguido@gmail.com>  Wed, 25 Nov 2026 20:57:13 +0100
+
 gnomilestone (0.1.0-1) noble; urgency=medium
 
   * Primera versión: gestor de proyectos de escritorio para GNOME con proyectos,

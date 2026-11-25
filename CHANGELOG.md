@@ -5,6 +5,8 @@ en este archivo.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-25
+
 ### Added
 
 - Vista **Uso global** (#13): en la vista global, junto al Gantt, suma la ocupación de cada persona en los proyectos elegidos (se agrupan por nombre), con el proyecto de cada tarea en el lateral
