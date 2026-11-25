@@ -46,7 +46,8 @@ proyecto (notas, diagramas y líneas de tiempo).
 - **Vistas de un proyecto** (rail de iconos al estilo Planner): Lista (listado plano
   con indentación y tareas padre plegables, búsqueda y filtro por columna, con columnas
   de prioridad, tipo y etiquetas), Tablero Kanban (columnas configurables, tarjetas
-  arrastrables, subtareas como cápsulas con su progreso), Gantt
+  arrastrables, subtareas como cápsulas con su progreso, autodesplazamiento al arrastrar y
+  desplazamiento horizontal arrastrando el fondo), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
   zoom y propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita
   de las personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el
@@ -88,7 +89,9 @@ proyecto (notas, diagramas y líneas de tiempo).
   las tareas conservan su columna al pasar a un tablero de GitHub, y eliminar una tarea
   borra también su issue. El botón de sincronizar envía antes lo pendiente, avisa de los envíos que fallan, fusiona cada
   campo por separado cuando una tarea cambia a la vez en local y en GitHub, y también sincroniza los asignados, los subissues
-  y las dependencias «blocked by»; una tarea cuyo issue se borró en GitHub se archiva.
+  y las dependencias «blocked by»; una tarea cuyo issue se borró en GitHub se archiva. Cada columna del tablero puede enlazarse a un
+  estado de issue (Backlog, Todo, In progress, In review, Done, Not planned y Duplicate), que se envía con la tarea; las tareas en
+  «Not planned» o «Duplicate» no cuentan en el avance, y «Duplicate» pide el issue original.
 - **Preferencias**: selector de idioma (Sistema/Español/English) y de tema
   (Sistema/Claro/Oscuro), persistidos en `~/.config/gnomilestone/settings.json`.
 
@@ -153,7 +156,8 @@ diagrams and timelines).
 - **Views within a project** (Planner-style icon rail): List (flat listing with
   hierarchy indentation and foldable parent tasks, text search and board-column filter,
   with priority, type and label columns), Kanban board (configurable columns, draggable
-  cards, subtasks as capsules showing their progress), Gantt (bars with
+  cards, subtasks as capsules showing their progress, autoscroll while dragging and
+  horizontal scrolling by dragging the background), Gantt (bars with
   progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
   propagation to children and dependents), Resources (business cards of the
   people, with their equipment, media and places) and Resource usage (people's occupancy
@@ -192,7 +196,9 @@ diagrams and timelines).
   priority), of labels (with their description) and of comments; tasks keep their column when
   moving to a GitHub board, and deleting a task also deletes its issue. The sync button sends what is pending first, reports pushes that fail, merges each
   field separately when a task changes on both sides at once, and also syncs assignees, sub-issues and “blocked by”
-  dependencies; a task whose issue was deleted on GitHub is archived.
+  dependencies; a task whose issue was deleted on GitHub is archived. Each board column can be linked to an issue status
+  (Backlog, Todo, In progress, In review, Done, Not planned and Duplicate), which is sent with the task; tasks in “Not planned”
+  or “Duplicate” do not count in the progress, and “Duplicate” asks for the original issue.
 - **Preferences**: language selector (System/Español/English) and theme selector
   (System/Light/Dark), persisted in `~/.config/gnomilestone/settings.json`.
 
