@@ -958,3 +958,39 @@ def test_las_etiquetas_por_defecto_se_anaden_sin_tocar_las_que_ya_existen(store)
     assert por_nombre["good first issue"].color == "7057ff"
     assert propia.id == por_nombre["Bug"].id
     assert store.aplicar_etiquetas_por_defecto(proyecto.id) == []  # repetirlo no duplica
+
+
+def _padre_e_hija(store, inicio_hija, duracion_hija):
+    proyecto = store.crear_proyecto("Jerarquía")
+    padre = store.crear_tarea(
+        proyecto.id, "Padre", fecha_inicio="2026-10-04", fecha_fin_planificada="2026-10-05",
+        duracion_dias=2,
+    )
+    hija = store.crear_tarea(
+        proyecto.id, "Hija", padre_id=padre.id, fecha_inicio=inicio_hija,
+        duracion_dias=duracion_hija,
+    )
+    return proyecto, padre, hija
+
+
+def test_limitar_a_padre_recorta_hija_que_se_sale(store):
+    _proyecto, _padre, hija = _padre_e_hija(store, "2026-10-05", 2)
+    assert store.limitar_a_padre(hija) is True
+    assert (hija.fecha_inicio, hija.duracion_dias) == ("2026-10-05", 1)
+    assert hija.fecha_fin_planificada == "2026-10-05"
+    assert store.limitar_a_padre(hija) is False
+
+
+def test_limitar_descendientes_recorta_y_guarda_al_acortar_el_padre(store):
+    _proyecto, padre, hija = _padre_e_hija(store, "2026-10-04", 2)
+    padre.duracion_dias = 1
+    store.actualizar_tarea(padre)
+    assert store.limitar_descendientes(padre.id) == [hija.id]
+    assert store.obtener_tarea(hija.id).duracion_dias == 1
+
+
+def test_limitar_proyecto_a_jerarquia_corrige_lo_que_trae_el_pull(store):
+    proyecto, _padre, hija = _padre_e_hija(store, "2026-10-05", 2)
+    assert store.limitar_proyecto_a_jerarquia(proyecto.id) == [hija.id]
+    assert store.obtener_tarea(hija.id).duracion_dias == 1
+    assert store.limitar_proyecto_a_jerarquia(proyecto.id) == []

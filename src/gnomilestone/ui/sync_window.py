@@ -12,6 +12,7 @@ from gnomilestone.github import GitHubClient, GitHubError
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto
 from gnomilestone.store import Store
+from gnomilestone.sync import GitHubSyncManager
 
 log = logging.getLogger(__name__)
 
@@ -34,23 +35,31 @@ def _boton_con_icono(texto: str, icon_name: str) -> Gtk.Button:
     return boton
 
 
-class GitHubLinkDialog(Gtk.Window):
-    """Diálogo para vincular un proyecto local con un repositorio y/o Project V2 de GitHub."""
+class SyncWindow(Gtk.Window):
+    """Ventana de sincronización: una página por proveedor (ahora solo GitHub) con el vínculo
+    del proyecto y las plantillas propias de la plataforma."""
 
     def __init__(
         self, parent: Gtk.Window, store: Store, proyecto: Proyecto, on_linked: Callable[[], None]
     ) -> None:
         super().__init__(
-            title=_("Vincular con GitHub"),
+            title=_("Sincronización"),
             transient_for=parent,
             modal=True,
-            default_width=420,
+            default_width=480,
         )
         self._store = store
         self._proyecto = proyecto
         self._on_linked = on_linked
         self._client = GitHubClient()
 
+        pila = Gtk.Stack()
+        pila.add_titled(self._pagina_github(), "github", "GitHub")
+        # Con un segundo proveedor, aquí se añade un Gtk.StackSidebar junto a la pila.
+        self.set_child(pila)
+
+    def _pagina_github(self) -> Gtk.Widget:
+        proyecto = self._proyecto
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=12,
@@ -59,7 +68,6 @@ class GitHubLinkDialog(Gtk.Window):
             margin_start=16,
             margin_end=16,
         )
-        self.set_child(box)
 
         titulo = Gtk.Box(spacing=8)
         icono_titulo = Gtk.Image.new_from_icon_name("github-symbolic")
@@ -112,6 +120,23 @@ class GitHubLinkDialog(Gtk.Window):
         self._status_label.add_css_class("dim-label")
         box.append(self._status_label)
 
+        # Plantillas propias de GitHub
+        box.append(Gtk.Separator(margin_top=6))
+        box.append(_etiqueta_con_icono(_("Plantillas de GitHub"), "document-new-symbolic"))
+        flujo_btn = _boton_con_icono(
+            _("Usar el flujo de estados de GitHub"), "view-grid-symbolic"
+        )
+        flujo_btn.connect("clicked", self._on_aplicar_flujo)
+        box.append(flujo_btn)
+        etiquetas_btn = _boton_con_icono(
+            _("Añadir las etiquetas por defecto de GitHub"), "etiqueta-symbolic"
+        )
+        etiquetas_btn.connect("clicked", self._on_aplicar_etiquetas)
+        box.append(etiquetas_btn)
+        self._plantillas_label = Gtk.Label(xalign=0, wrap=True)
+        self._plantillas_label.add_css_class("dim-label")
+        box.append(self._plantillas_label)
+
         # Botón guardar
         btn_box = Gtk.Box(spacing=8, halign=Gtk.Align.END, margin_top=12)
         cancel_btn = _boton_con_icono(_("Cancelar"), "window-close-symbolic")
@@ -126,6 +151,7 @@ class GitHubLinkDialog(Gtk.Window):
 
         if owner_default:
             self._cargar_opciones()
+        return box
 
     def _on_owner_changed(self, _entry: Gtk.Entry) -> None:
         pass
@@ -191,3 +217,23 @@ class GitHubLinkDialog(Gtk.Window):
 
         self._on_linked()
         self.destroy()
+
+    def _on_aplicar_flujo(self, _button: Gtk.Button) -> None:
+        informe = self._store.aplicar_flujo_github(self._proyecto.id)
+        # Sin esto el siguiente pull traería de vuelta las columnas originales del Status.
+        GitHubSyncManager(self._store).push_columnas(self._proyecto.id)
+        self._plantillas_label.set_text(
+            _("Flujo aplicado: {c} columnas creadas, {r} renombradas, {k} conservadas.").format(
+                c=len(informe["creadas"]),
+                r=len(informe["renombradas"]),
+                k=len(informe["conservadas"]),
+            )
+        )
+        self._on_linked()
+
+    def _on_aplicar_etiquetas(self, _button: Gtk.Button) -> None:
+        creadas = self._store.aplicar_etiquetas_por_defecto(self._proyecto.id)
+        self._plantillas_label.set_text(
+            _("Etiquetas añadidas: {n}.").format(n=len(creadas))
+        )
+        self._on_linked()

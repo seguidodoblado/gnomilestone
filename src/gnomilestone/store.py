@@ -1516,6 +1516,50 @@ class Store:
         with closing(self._connect()) as db, db:
             db.execute("UPDATE tarea SET github_item_id = ? WHERE id = ?", (item_id, tarea_id))
 
+    def limitar_a_padre(self, tarea: Tarea) -> bool:
+        """Recorta (en el objeto recibido, sin guardarlo) el rango de la tarea al de su padre:
+        el padre manda. Devuelve True si ha cambiado algo. No hace nada si la tarea o su padre
+        no tienen fecha de inicio."""
+        if tarea.padre_id is None or not tarea.fecha_inicio:
+            return False
+        padre = self.obtener_tarea(tarea.padre_id)
+        if padre is None or not padre.fecha_inicio:
+            return False
+        fecha = ganttcalc.parse_fecha(tarea.fecha_inicio)
+        nueva_fecha, nueva_duracion = ganttcalc.limitar_hijo_a_padre(
+            fecha, tarea.duracion_dias, ganttcalc.parse_fecha(padre.fecha_inicio), padre.duracion_dias
+        )
+        if nueva_fecha == fecha and nueva_duracion == tarea.duracion_dias:
+            return False
+        tarea.fecha_inicio = ganttcalc.formatear_fecha(nueva_fecha)
+        tarea.duracion_dias = nueva_duracion
+        tarea.fecha_fin_planificada = ganttcalc.sincronizar_fin_planificado(tarea).fecha_fin_planificada
+        return True
+
+    def limitar_descendientes(self, tarea_id: int) -> list[int]:
+        """Recorta en cascada, y guarda, las subtareas (hijas, nietas…) que no quepan en el
+        rango actual de la tarea. Devuelve los ids de las que han cambiado."""
+        tarea = self.obtener_tarea(tarea_id)
+        if tarea is None or not tarea.fecha_inicio:
+            return []
+        cambiadas = ganttcalc.limitar_hijos_tras_redimensionar(
+            self.listar_tareas(tarea.proyecto_id),
+            tarea.id,
+            ganttcalc.parse_fecha(tarea.fecha_inicio),
+            tarea.duracion_dias,
+        )
+        for cambiada in cambiadas:
+            self.actualizar_tarea(cambiada, propagar=False)
+        return [c.id for c in cambiadas]
+
+    def limitar_proyecto_a_jerarquia(self, proyecto_id: int) -> list[int]:
+        """Recorta las subtareas del proyecto que se salgan del rango de su padre, de arriba
+        abajo (raíces primero). Devuelve los ids cambiados."""
+        cambiadas: list[int] = []
+        for raiz in [t for t in self.listar_tareas(proyecto_id) if t.padre_id is None]:
+            cambiadas += self.limitar_descendientes(raiz.id)
+        return cambiadas
+
     def actualizar_tarea(self, tarea: Tarea, propagar: bool = True) -> list[int]:
         """Guarda la tarea. Devuelve los ids de las tareas padre que se han completado o reabierto
         por este cambio (ver `_sincronizar_padre`), para que quien llama las envíe a GitHub."""

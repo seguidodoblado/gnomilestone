@@ -75,8 +75,8 @@ def _fecha_a_iso(fecha: GLib.DateTime) -> str:
 
 
 _COLOR_HITO = "#f2a61f"  # ámbar, el mismo de los hitos del Gantt y el Tablero
-_ANCHO_INICIAL = 720
-_ALTO_INICIAL = 860
+_ANCHO_INICIAL = 1000
+_ALTO_INICIAL = 960
 _ALTO_MINIMO = 640
 
 
@@ -92,6 +92,24 @@ def _alto_inicial(parent: Gtk.Window | None) -> int:
         return max(_ALTO_MINIMO, min(_ALTO_INICIAL, int(monitor.get_geometry().height * 0.9)))
     except (AttributeError, TypeError, GLib.Error):
         return _ALTO_MINIMO
+
+def _tamano_pantalla(parent: Gtk.Window | None) -> tuple[int, int] | None:
+    try:
+        display = Gdk.Display.get_default()
+        superficie = parent.get_surface() if parent is not None else None
+        monitor = display.get_monitor_at_surface(superficie) if superficie else None
+        if monitor is None:
+            monitor = display.get_monitors().get_item(0)
+        geometria = monitor.get_geometry()
+        return geometria.width, geometria.height
+    except (AttributeError, TypeError, GLib.Error):
+        return None
+
+
+def _ancho_inicial(parent: Gtk.Window | None) -> int:
+    """Ancho con el que se abre el diálogo, sin pasarse del 90 % del ancho de la pantalla."""
+    tamano = _tamano_pantalla(parent)
+    return _ANCHO_INICIAL if tamano is None else min(_ANCHO_INICIAL, int(tamano[0] * 0.9))
 
 
 class _SelectorFecha:
@@ -278,7 +296,7 @@ class TaskDialog(Gtk.Window):
     ) -> None:
         super().__init__(
             title=_("Editar tarea") if tarea else _("Nueva tarea"),
-            default_width=_ANCHO_INICIAL,
+            default_width=_ancho_inicial(parent),
             default_height=_alto_inicial(parent),
         )
         self.set_resizable(True)
@@ -1176,6 +1194,17 @@ class TaskDialog(Gtk.Window):
         ):
             porcentaje = 100  # una tarea nueva en la columna de completadas ya está completa
 
+        # El padre manda: una subtarea no puede salirse del rango de su tarea padre.
+        if padre_id is not None and fecha:
+            tmp = Tarea(
+                id=0, proyecto_id=self._proyecto_id, titulo=titulo, padre_id=padre_id,
+                fecha_inicio=fecha, duracion_dias=duracion,
+            )
+            if self._store.limitar_a_padre(tmp):
+                fecha, duracion = tmp.fecha_inicio, tmp.duracion_dias
+                fecha_fin = tmp.fecha_fin_planificada or fecha_fin
+                fecha_fin_inicial = self._fin_inicial.valor or fecha_fin
+
         if self._tarea is None:
             tarea = self._store.crear_tarea(
                 self._proyecto_id,
@@ -1221,6 +1250,8 @@ class TaskDialog(Gtk.Window):
             if self._es_estado_duplicado():
                 tarea.duplicado_de_id = self._original_elegido()
             self._padres_cambiados = self._store.actualizar_tarea(tarea)
+            # Y al revés: si el rango de esta tarea ha cambiado, sus subtareas se recortan.
+            self._store.limitar_descendientes(tarea.id)
             if estado_anterior_id is not None and estado_anterior_id != estado_id:
                 self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)
 

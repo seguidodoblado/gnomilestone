@@ -715,6 +715,8 @@ class GitHubSyncManager:
                 self._pull_jerarquia_y_dependencias(
                     proyecto_id, owner, repo_name, issues_repo, resultado
                 )
+                # El padre manda: las subtareas que traiga GitHub fuera de su rango se recortan.
+                self._store.limitar_proyecto_a_jerarquia(proyecto_id)
             except Exception as e:
                 log.exception("Error al sincronizar issues de repositorio")
                 resultado.errores.append(f"Error sincronizando issues de {owner}/{repo_name}: {e}")

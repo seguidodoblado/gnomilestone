@@ -120,7 +120,7 @@ class ProjectDetailView(Gtk.Box):
 
         self._github_link_button = Gtk.Button(
             icon_name="github-symbolic",
-            tooltip_text=_("Vincular con repositorio o proyecto de GitHub"),
+            tooltip_text=_("Sincronización: vínculo con GitHub y plantillas"),
         )
         self._github_link_button.connect("clicked", self._on_open_github_link)
         toolbar.append(self._github_link_button)
@@ -613,9 +613,9 @@ class ProjectDetailView(Gtk.Box):
     def _on_open_github_link(self, _button: Gtk.Button) -> None:
         if self._proyecto is None:
             return
-        from gnomilestone.ui.github_link_dialog import GitHubLinkDialog
+        from gnomilestone.ui.sync_window import SyncWindow
 
-        GitHubLinkDialog(
+        SyncWindow(
             self.get_root(), self._store, self._proyecto, on_linked=self.refrescar
         ).present()
 

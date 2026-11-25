@@ -60,6 +60,9 @@ class GanttView(Gtk.Box):
         self.connect("map", lambda *_a: self._pedir_centrado_si_hace_falta())
         self._tree.tree_model.connect("items-changed", self._on_filas_cambiadas)
         aplicar_columnas_guardadas(self._tree, "gantt_columnas_visibles")
+        # Al elegir una tarea en el panel izquierdo, el lienzo se desplaza a su barra.
+        self._cargando_filas = False
+        self._tree.get_model().connect("selection-changed", self._on_tarea_elegida)
 
         toolbar = Gtk.Box(spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
 
@@ -211,7 +214,11 @@ class GanttView(Gtk.Box):
         self._dependencias = dependencias
         self._progreso_resumen = progreso_resumen or {}
         self._hitos = hitos or []
-        self._tree.set_filas(filas)
+        self._cargando_filas = True  # la selección automática al recargar no debe mover el eje
+        try:
+            self._tree.set_filas(filas)
+        finally:
+            self._cargando_filas = False
         # set_filas() ya dispara "items-changed" (vía _on_filas_cambiadas), que repinta el Gantt.
 
     @staticmethod
@@ -250,6 +257,26 @@ class GanttView(Gtk.Box):
         )
         # Las tareas históricas no deben dejar la vista inicial semanas/meses atrás.
         self._pedir_centrado_si_hace_falta()
+
+    def _on_tarea_elegida(self, seleccion: Gtk.SingleSelection, _pos: int, _n: int) -> None:
+        if self._cargando_filas:
+            return
+        fila_arbol = seleccion.get_selected_item()
+        fila = fila_arbol.get_item() if fila_arbol is not None else None
+        if fila is None or fila.tarea is None:
+            return
+        rango = self._drawing_area.rango_x_de_tarea(fila.tarea.id)
+        if rango is None:
+            return
+        adj = self._canvas_scroller.get_hadjustment()
+        if adj.get_page_size() <= 0:
+            return
+        x_ini, x_fin = rango
+        visible_ini = adj.get_value()
+        if visible_ini <= x_ini and x_fin <= visible_ini + adj.get_page_size():
+            return  # ya se ve entera: no mover el eje sin necesidad
+        objetivo = x_ini - adj.get_page_size() * 0.25
+        adj.set_value(max(0.0, min(objetivo, adj.get_upper() - adj.get_page_size())))
 
     def pedir_centrado(self) -> None:
         """Al cambiar de proyecto: la próxima carga de filas vuelve a centrar el eje en hoy."""

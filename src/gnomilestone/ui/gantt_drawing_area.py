@@ -377,6 +377,17 @@ class GanttDrawingArea(Gtk.DrawingArea):
     def _ancho_barra(self, duracion_dias: int) -> float:
         return max(ganttcalc.ancho_duracion(duracion_dias, self.px_por_dia), _ANCHO_MIN_BARRA)
 
+    def rango_x_de_tarea(self, tarea_id: int) -> tuple[float, float] | None:
+        """(x inicial, x final) de la barra de la tarea en el lienzo, o None si no se dibuja."""
+        for fila, _profundidad in self._filas:
+            tarea = fila.tarea
+            if tarea is None or tarea.id != tarea_id or not tarea.fecha_inicio:
+                continue
+            fecha_inicio, duracion_dias = self._valores_mostrados(tarea)
+            x = ganttcalc.fecha_a_x(fecha_inicio, self.fecha_origen, self.px_por_dia)
+            return x, x + self._ancho_barra(duracion_dias)
+        return None
+
     def _tarea_en(self, x: float, y: float) -> tuple[Tarea, int] | None:
         indice = int(y // ALTURA_FILA)
         if indice < 0 or indice >= len(self._filas):
