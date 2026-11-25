@@ -171,3 +171,32 @@ def test_crear_y_actualizar_issue():
         res = client.actualizar_issue("user", "repo", 10, state="closed")
         assert res["state"] == "closed"
         req_mock.assert_called_with("repos/user/repo/issues/10", method="PATCH", data={"state": "closed"})
+
+
+def test_un_502_puntual_de_github_se_reintenta_en_una_mutacion_idempotente(monkeypatch):
+    import io
+    import urllib.error
+
+    from gnomilestone import github
+    from gnomilestone.github import GitHubClient, GitHubError
+
+    monkeypatch.setattr(github.time, "sleep", lambda _s: None)
+    cliente = GitHubClient(token="t")
+    llamadas = []
+
+    def abrir(_req):
+        llamadas.append(1)
+        if len(llamadas) < 3:
+            raise urllib.error.HTTPError("u", 502, "Bad Gateway", {}, io.BytesIO(b"<html>502</html>"))
+        return {"data": {"ok": True}}
+
+    monkeypatch.setattr(cliente, "_abrir", abrir)
+    mutacion = "mutation { updateProjectV2ItemFieldValue(input: {}) { clientMutationId } }"
+    assert cliente.graphql(mutacion) == {"ok": True}
+    assert len(llamadas) == 3
+
+    # Una mutación que no es idempotente no se reintenta: se falla a la primera.
+    llamadas.clear()
+    with __import__("pytest").raises(GitHubError):
+        cliente.graphql("mutation { createProjectV2Field(input: {}) { clientMutationId } }")
+    assert len(llamadas) == 1

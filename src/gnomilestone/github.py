@@ -5,6 +5,7 @@ import json
 import logging
 import shutil
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,6 +18,17 @@ log = logging.getLogger(__name__)
 
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
+
+# Errores de GitHub que suelen ser puntuales (pasarela caída o sobrecargada): se reintentan.
+_HTTP_TRANSITORIOS = (502, 503, 504)
+_ESPERA_REINTENTO = 1.5  # segundos; se multiplica por el nº de intento
+# Mutaciones de GraphQL que dan el mismo resultado si se repiten.
+_MUTACIONES_IDEMPOTENTES = (
+    "updateProjectV2ItemFieldValue",
+    "addProjectV2ItemById",
+    "setIssueFieldValue",
+    "setIssueStatus",
+)
 
 
 class GitHubError(Exception):
@@ -135,7 +147,11 @@ class GitHubClient:
         method: str = "GET",
         data: dict[str, Any] | None = None,
         extra_headers: dict[str, str] | None = None,
+        reintentar: bool | None = None,
     ) -> Any:
+        """`reintentar`: si un fallo de red o un 502/503/504 transitorio de GitHub se reintenta
+        (hasta 3 intentos). Por defecto solo en los métodos idempotentes (GET, PUT, PATCH,
+        DELETE): reintentar un POST que GitHub llegó a procesar duplicaría lo que crea."""
         url = (
             endpoint_or_url
             if endpoint_or_url.startswith("http")
@@ -155,16 +171,22 @@ class GitHubClient:
             headers["Content-Type"] = "application/json; charset=utf-8"
 
         req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
-        # Las lecturas (GET) son idempotentes: un fallo de red puntual se reintenta una vez.
-        intentos = 2 if method == "GET" else 1
+        if reintentar is None:
+            reintentar = method in ("GET", "PUT", "PATCH", "DELETE")
+        intentos = 3 if reintentar else 1
         for intento in range(1, intentos + 1):
             try:
                 return self._abrir(req)
             except urllib.error.HTTPError as err:
+                if err.code in _HTTP_TRANSITORIOS and intento < intentos:
+                    log.warning("HTTP %s de GitHub en %s; se reintenta (%s/%s)", err.code, url, intento, intentos)
+                    time.sleep(_ESPERA_REINTENTO * intento)
+                    continue
                 self._lanzar_http(err, url)
             except Exception as e:
                 if intento < intentos:
                     log.warning("Fallo de red llamando a %s (%s); se reintenta", url, e)
+                    time.sleep(_ESPERA_REINTENTO * intento)
                     continue
                 log.error("Fallo de red llamando a %s: %s", url, e)
                 raise GitHubError(f"Fallo de conexión con GitHub: {e}") from e
@@ -202,8 +224,13 @@ class GitHubClient:
         payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
+        # Las consultas y las mutaciones idempotentes se reintentan ante un 502 puntual; el
+        # resto (p. ej. crear un campo) no, para no duplicar lo que GitHub ya hubiera creado.
+        es_mutacion = query.lstrip().startswith("mutation")
+        reintentar = not es_mutacion or any(m in query for m in _MUTACIONES_IDEMPOTENTES)
         resp = self._request(
-            GITHUB_GRAPHQL_URL, method="POST", data=payload, extra_headers=extra_headers
+            GITHUB_GRAPHQL_URL, method="POST", data=payload, extra_headers=extra_headers,
+            reintentar=reintentar,
         )
         if not resp:
             raise GitHubError("Respuesta vacía de GraphQL")
