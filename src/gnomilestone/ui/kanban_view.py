@@ -373,7 +373,7 @@ class KanbanView(Gtk.Box):
 
     def _construir_tarjeta(self, tarea: Tarea, indice_columna: int) -> Gtk.Widget:
         tarjeta = Gtk.Box(
-            orientation=Gtk.Orientation.VERTICAL,
+            orientation=Gtk.Orientation.HORIZONTAL,
             spacing=4,
             margin_top=4,
             margin_bottom=6,
@@ -384,6 +384,17 @@ class KanbanView(Gtk.Box):
         tarjeta.add_css_class("activatable")
         tarjeta.add_css_class("gnomilestone-tarjeta")
         tarjeta.add_css_class(f"{_CLASE_COLUMNA_PREFIJO}{indice_columna % len(_PALETA_COLUMNAS)}")
+
+        # A la izquierda el contenido; a la derecha una columna con avatar, archivar y eliminar.
+        contenido = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
+        tarjeta.append(contenido)
+        lateral = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=4,
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.START,
+        )
+        tarjeta.append(lateral)
 
         recursos = self._store.listar_recursos_de_tarea(tarea.id)
 
@@ -405,7 +416,9 @@ class KanbanView(Gtk.Box):
             etiqueta.set_tooltip_text(aviso)
         fila_titulo.append(etiqueta)
         if recursos:
-            fila_titulo.append(fila_avatares(recursos, size=22, maximo=3))
+            avatares = fila_avatares(recursos, size=22, maximo=3)
+            avatares.set_halign(Gtk.Align.CENTER)  # centrados sobre los botones, no a la izquierda
+            lateral.append(avatares)
         if self._on_archivar_tarea is not None:
             archivar = Gtk.Button(
                 icon_name="archivar-symbolic",
@@ -413,7 +426,7 @@ class KanbanView(Gtk.Box):
                 has_frame=False,
             )
             archivar.connect("clicked", lambda _b, t=tarea: self._on_archivar_tarea(t))
-            fila_titulo.append(archivar)
+            lateral.append(archivar)
         if self._on_eliminar_tarea is not None:
             borrar = Gtk.Button(
                 icon_name="user-trash-symbolic",
@@ -421,8 +434,8 @@ class KanbanView(Gtk.Box):
                 has_frame=False,
             )
             borrar.connect("clicked", lambda _b, t=tarea: self._on_eliminar_tarea(t))
-            fila_titulo.append(borrar)
-        tarjeta.append(fila_titulo)
+            lateral.append(borrar)
+        contenido.append(fila_titulo)
 
         padre = self._tareas_por_id.get(tarea.padre_id) if tarea.padre_id else None
         if padre is not None:
@@ -443,7 +456,7 @@ class KanbanView(Gtk.Box):
                 + _("Pulsa para filtrar solo esta tarea y sus subtareas")
             )
             self._al_pulsar(fila_padre, lambda pid=padre.id: self._filtrar_por_padre(pid))
-            tarjeta.prepend(fila_padre)
+            contenido.prepend(fila_padre)
         hijas = self._hijas_de.get(tarea.id, [])
         if hijas:
             hechas = sum(1 for h in hijas if self._porcentaje(h) >= 100)
@@ -453,9 +466,9 @@ class KanbanView(Gtk.Box):
             )
             resumen.add_css_class("caption")
             resumen.add_css_class("dim-label")
-            tarjeta.append(resumen)
+            contenido.append(resumen)
             for hija in hijas:
-                tarjeta.append(self._crear_capsula(hija))
+                contenido.append(self._crear_capsula(hija))
 
         hito = self._store.obtener_hito(tarea.hito_id) if tarea.hito_id else None
         if hito is not None:
@@ -467,7 +480,7 @@ class KanbanView(Gtk.Box):
             )
             etiqueta_hito.add_css_class("caption")
             etiqueta_hito.set_tooltip_text(_("Hito al que contribuye"))
-            tarjeta.append(etiqueta_hito)
+            contenido.append(etiqueta_hito)
 
         if tarea.fecha_inicio:
             info = Gtk.Label(
@@ -480,7 +493,7 @@ class KanbanView(Gtk.Box):
             )
             info.add_css_class("caption")
             info.add_css_class("error" if estado == VENCIDA else "dim-label")
-            tarjeta.append(info)
+            contenido.append(info)
 
         etiquetas = self._store.listar_etiquetas_de_tarea(tarea.id)
         if etiquetas:
@@ -498,7 +511,7 @@ class KanbanView(Gtk.Box):
                     f"{GLib.markup_escape_text(e.nombre)} </span>"
                 )
                 fila_marcas.append(chip)
-            tarjeta.append(fila_marcas)
+            contenido.append(fila_marcas)
 
         if self._on_editar_tarea is not None:
             doble_clic = Gtk.GestureClick(button=1)

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.1.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-25 18:25+0100\n"
+"POT-Creation-Date: 2026-11-25 20:52+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -905,7 +905,6 @@ msgstr ""
 #: src/gnomilestone/ui/auditoria_view.py:53
 #: src/gnomilestone/ui/auditoria_view.py:75
 #: src/gnomilestone/ui/aviso_dependencias.py:26
-#: src/gnomilestone/ui/board_settings_dialog.py:98
 #: src/gnomilestone/ui/diagram_window.py:61
 #: src/gnomilestone/ui/diagram_window.py:252 src/gnomilestone/ui/dialogos.py:32
 #: src/gnomilestone/ui/documentation_view.py:1092
@@ -913,7 +912,7 @@ msgstr ""
 #: src/gnomilestone/ui/github_link_dialog.py:117
 #: src/gnomilestone/ui/global_gantt_view.py:97
 #: src/gnomilestone/ui/hito_dialog.py:91 src/gnomilestone/ui/hito_dialog.py:203
-#: src/gnomilestone/ui/labels_dialog.py:265
+#: src/gnomilestone/ui/labels_dialog.py:247
 #: src/gnomilestone/ui/mapeo_columnas_dialog.py:71
 #: src/gnomilestone/ui/note_window.py:92 src/gnomilestone/ui/note_window.py:223
 #: src/gnomilestone/ui/project_detail_view.py:375
@@ -958,7 +957,7 @@ msgstr ""
 #: src/gnomilestone/ui/documentation_view.py:1092
 #: src/gnomilestone/ui/global_gantt_view.py:97
 #: src/gnomilestone/ui/hito_dialog.py:86
-#: src/gnomilestone/ui/labels_dialog.py:265
+#: src/gnomilestone/ui/labels_dialog.py:247
 #: src/gnomilestone/ui/note_window.py:98 src/gnomilestone/ui/note_window.py:223
 #: src/gnomilestone/ui/project_detail_view.py:583
 #: src/gnomilestone/ui/project_list_view.py:211
@@ -1079,7 +1078,7 @@ msgid "Completar de todos modos"
 msgstr ""
 
 #: src/gnomilestone/ui/board_settings_dialog.py:23
-#: src/gnomilestone/ui/kanban_view.py:184
+#: src/gnomilestone/ui/kanban_view.py:185
 #: src/gnomilestone/ui/mapeo_columnas_dialog.py:28
 msgid "Columnas del tablero"
 msgstr ""
@@ -1094,55 +1093,30 @@ msgstr ""
 msgid "Nueva columna"
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:76
-#: src/gnomilestone/ui/board_settings_dialog.py:89
-msgid "Usar el flujo de estados de GitHub"
-msgstr ""
-
-#: src/gnomilestone/ui/board_settings_dialog.py:78
-msgid ""
-"Backlog, Todo, In progress, In review, Done, Not planned y Duplicate, "
-"enlazadas a los estados de los issues"
-msgstr ""
-
-#: src/gnomilestone/ui/board_settings_dialog.py:92
-msgid ""
-"Se reutilizan las columnas que ya hacen de alguna (Pendiente, En progreso, "
-"Hecho…) y se crean las que falten: Backlog, Todo, In progress, In review, "
-"Done, Not planned y Duplicate. Las tareas no cambian de columna. «Not "
-"planned» y «Duplicate» no cuentan en el progreso."
-msgstr ""
-
-#: src/gnomilestone/ui/board_settings_dialog.py:98
-#: src/gnomilestone/ui/labels_dialog.py:62
-#: src/gnomilestone/ui/task_dialog.py:139
-msgid "Aplicar"
-msgstr ""
-
-#: src/gnomilestone/ui/board_settings_dialog.py:133
+#: src/gnomilestone/ui/board_settings_dialog.py:95
 msgid "Columna de tareas completadas"
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:156
+#: src/gnomilestone/ui/board_settings_dialog.py:118
 msgid "Descripción (se sincroniza con GitHub)"
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:211
+#: src/gnomilestone/ui/board_settings_dialog.py:173
 msgid "No se puede eliminar la última columna mientras tenga tareas."
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:223
+#: src/gnomilestone/ui/board_settings_dialog.py:185
 msgid "Mover tareas antes de eliminar"
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:237
+#: src/gnomilestone/ui/board_settings_dialog.py:199
 #, python-brace-format
 msgid ""
 "«{nombre}» todavía tiene tareas. Elige a qué columna se mueven antes de "
 "eliminarla."
 msgstr ""
 
-#: src/gnomilestone/ui/board_settings_dialog.py:256
+#: src/gnomilestone/ui/board_settings_dialog.py:218
 msgid "Mover y eliminar"
 msgstr ""
 
@@ -1625,7 +1599,7 @@ msgid "Incluir en las vistas las tareas al 100 %"
 msgstr ""
 
 #: src/gnomilestone/ui/global_gantt_view.py:90
-#: src/gnomilestone/ui/kanban_view.py:413
+#: src/gnomilestone/ui/kanban_view.py:433
 #: src/gnomilestone/ui/project_detail_view.py:576
 #: src/gnomilestone/ui/task_dialog.py:1055
 #: src/gnomilestone/ui/task_tree_view.py:268
@@ -1718,53 +1692,58 @@ msgstr ""
 msgid "Acercar (Ctrl+rueda)"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:172
+#: src/gnomilestone/ui/kanban_view.py:173
 msgid "Quitar filtro"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:267
+#: src/gnomilestone/ui/kanban_view.py:274
 #, python-brace-format
 msgid "Filtrando: {titulo} y sus subtareas"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:275
+#: src/gnomilestone/ui/kanban_view.py:282
 #, python-brace-format
 msgid "Filtrando: {titulo}"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:292
+#: src/gnomilestone/ui/kanban_view.py:299
 msgid "Pulsa para ver solo esta subtarea"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:405
+#: src/gnomilestone/ui/kanban_view.py:425
 #: src/gnomilestone/ui/task_tree_view.py:267
 msgid "Archivar tarea"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:434
+#: src/gnomilestone/ui/kanban_view.py:454
 #, python-brace-format
 msgid "Subtarea de: {titulo}"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:436
+#: src/gnomilestone/ui/kanban_view.py:456
 msgid "Pulsa para filtrar solo esta tarea y sus subtareas"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:444
+#: src/gnomilestone/ui/kanban_view.py:464
 #, python-brace-format
 msgid "Subtareas: {hechas}/{total}"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:462
+#: src/gnomilestone/ui/kanban_view.py:482
 msgid "Hito al que contribuye"
 msgstr ""
 
-#: src/gnomilestone/ui/kanban_view.py:471
+#: src/gnomilestone/ui/kanban_view.py:491
 msgid " · vencida"
 msgstr ""
 
 #: src/gnomilestone/ui/labels_dialog.py:43
 msgid "Color de la etiqueta"
+msgstr ""
+
+#: src/gnomilestone/ui/labels_dialog.py:62
+#: src/gnomilestone/ui/task_dialog.py:139
+msgid "Aplicar"
 msgstr ""
 
 #: src/gnomilestone/ui/labels_dialog.py:90
@@ -1780,44 +1759,33 @@ msgstr ""
 msgid "Añadir etiqueta"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:131
-msgid "Añadir las etiquetas por defecto de GitHub"
-msgstr ""
-
-#: src/gnomilestone/ui/labels_dialog.py:133
-msgid ""
-"accessibility, bug, documentation, duplicate, enhancement, good first issue, "
-"help wanted, invalid, question y wontfix, con su color y su descripción; las "
-"que ya existan no se tocan"
-msgstr ""
-
-#: src/gnomilestone/ui/labels_dialog.py:155
+#: src/gnomilestone/ui/labels_dialog.py:137
 msgid "Este proyecto aún no tiene etiquetas."
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:183
+#: src/gnomilestone/ui/labels_dialog.py:165
 #, python-brace-format
 msgid "{n} tareas"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:183
+#: src/gnomilestone/ui/labels_dialog.py:165
 msgid "1 tarea"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:188
-#: src/gnomilestone/ui/labels_dialog.py:257
+#: src/gnomilestone/ui/labels_dialog.py:170
+#: src/gnomilestone/ui/labels_dialog.py:239
 msgid "Eliminar etiqueta"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:197
+#: src/gnomilestone/ui/labels_dialog.py:179
 msgid "Descripción (opcional)"
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:234
+#: src/gnomilestone/ui/labels_dialog.py:216
 msgid "Ya existe otra etiqueta con ese nombre."
 msgstr ""
 
-#: src/gnomilestone/ui/labels_dialog.py:260
+#: src/gnomilestone/ui/labels_dialog.py:242
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{nombre}»? Se quitará de las tareas que la "
