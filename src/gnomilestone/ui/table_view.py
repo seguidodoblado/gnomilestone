@@ -197,7 +197,7 @@ class TableView(Gtk.Box):
 
         self._colores_estado: dict[int, str] = {}
         self._ids_estado: list[int | None] = [None]
-        self._estado_dropdown = Gtk.DropDown.new_from_strings([_("Todas las columnas")])
+        self._estado_dropdown = Gtk.DropDown.new_from_strings([_("Todos los estados")])
         self._estado_dropdown.connect("notify::selected", self._on_filtro_estado_cambiado)
         _fabrica_filtro_estado = self._crear_fabrica_filtro_estado()
         self._estado_dropdown.set_factory(_fabrica_filtro_estado)
@@ -294,7 +294,7 @@ class TableView(Gtk.Box):
             if d.tarea_origen_id in titulos:
                 depende_de.setdefault(d.tarea_destino_id, []).append(titulos[d.tarea_origen_id])
         etiquetas_por_tarea = etiquetas_por_tarea or {}
-        etiquetas = [_("Todas las columnas")] + [estado.nombre for estado in estados]
+        etiquetas = [_("Todos los estados")] + [estado.nombre for estado in estados]
         self._ids_estado = [None] + [estado.id for estado in estados]
         self._colores_estado = colores_de_estados(estados)
         self._estado_dropdown.set_model(Gtk.StringList.new(etiquetas))

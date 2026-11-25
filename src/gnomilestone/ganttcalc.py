@@ -278,9 +278,10 @@ def progreso_medio(tareas: list[Tarea]) -> float:
 
 def hojas(tareas: list[Tarea]) -> list[Tarea]:
     """Las tareas que no tienen subtareas (en `tareas`): el trabajo real. Una tarea con
-    subtareas es un resumen y su avance se deriva de sus hojas."""
+    subtareas es un resumen y su avance se deriva de sus hojas. Las descartadas (en una columna
+    de «Not planned» o «Duplicate») no cuentan: ni son trabajo hecho ni pendiente."""
     ids_padre = {t.padre_id for t in tareas if t.padre_id is not None}
-    return [t for t in tareas if t.id not in ids_padre]
+    return [t for t in tareas if t.id not in ids_padre and not t.descartada]
 
 
 def progreso_proyecto(tareas: list[Tarea]) -> float:
@@ -313,6 +314,8 @@ def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
     def _peso_y_suma(tarea: Tarea) -> tuple[int, int]:
         hijos = hijos_por_padre.get(tarea.id, [])
         if not hijos:
+            if tarea.descartada:
+                return 0, 0  # cerrada sin completar: fuera del progreso de su padre
             peso = max(tarea.duracion_dias, 1)
             return peso, peso * tarea.porcentaje_completado
 
@@ -322,7 +325,8 @@ def progreso_resumen(tareas: list[Tarea]) -> dict[int, int]:
             peso, suma = _peso_y_suma(hijo)
             peso_total += peso
             suma_total += suma
-        resultado[tarea.id] = round(suma_total / peso_total) if peso_total else 0
+        if peso_total:  # si todas sus hojas están descartadas, no hay agregado: vale el suyo
+            resultado[tarea.id] = round(suma_total / peso_total)
         return peso_total, suma_total
 
     for raiz in hijos_por_padre.get(None, []):

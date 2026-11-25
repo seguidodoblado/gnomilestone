@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
-from gnomilestone import completado, contexto_github, ganttcalc
+from gnomilestone import completado, contexto_github, estado_issue, ganttcalc
 from gnomilestone.github import (
     GitHubClient,
     GitHubError,
@@ -16,7 +16,7 @@ from gnomilestone.github import (
 )
 from gnomilestone.hitos import esta_conseguido
 from gnomilestone.i18n import _
-from gnomilestone.models import EstadoTablero, Hito, Recurso, Tarea
+from gnomilestone.models import EstadoTablero, Etiqueta, Hito, Recurso, Tarea
 from gnomilestone.prioridad import nivel_desde_opcion, opcion_para_nivel
 from gnomilestone.store import ESTADOS_POR_DEFECTO, CicloDependenciaError, Store
 from gnomilestone.tipos import nombre_remoto, tipo_desde_github
@@ -72,6 +72,48 @@ class GitHubSyncManager:
         self._store = store
         self._client = client or GitHubClient()
         self._tipos_remotos: dict[tuple[str, str], list[str]] = {}
+        self._estados_issue: dict[tuple[str, str], list[dict]] = {}
+
+    def _enviar_estado_issue(
+        self, owner: str, repo: str, tarea: Tarea, node_id: str | None, nombre_actual: str | None
+    ) -> None:
+        """Pone al issue el estado de GitHub que le corresponde por su columna y progreso (ver
+        `estado_issue`). Es opcional: si el repositorio no ofrece estados, o falla, el resto del
+        envío sigue igual."""
+        if not node_id:
+            return
+        try:
+            clave = (owner, repo)
+            if clave not in self._estados_issue:
+                self._estados_issue[clave] = list(self._client.estados_issue(owner, repo))
+            categoria = estado_issue.categoria_estado_issue(
+                tarea, self._store.listar_estados(tarea.proyecto_id)
+            )
+            elegido = estado_issue.elegir_estado(categoria, self._estados_issue[clave])
+            if elegido is None or elegido["name"] == nombre_actual:
+                return
+            original = None
+            if categoria == estado_issue.DUPLICADO:
+                original = self._node_id_del_original(owner, repo, tarea)
+                if original is None:
+                    log.warning(
+                        "La tarea %s está en una columna «Duplicate» pero no se sabe su issue "
+                        "original: el estado no se envía", tarea.id,
+                    )
+                    return
+            self._client.fijar_estado_issue(node_id, elegido["id"], original)
+        except GitHubError:
+            log.debug("No se pudo fijar el estado del issue de la tarea %s", tarea.id, exc_info=True)
+
+    def _node_id_del_original(self, owner: str, repo: str, tarea: Tarea) -> str | None:
+        """`node_id` del issue del que la tarea es un duplicado, o None si no se ha indicado o
+        la tarea original no tiene issue."""
+        if tarea.duplicado_de_id is None:
+            return None
+        original = self._store.obtener_tarea(tarea.duplicado_de_id)
+        if original is None or not original.github_issue_number:
+            return None
+        return self._client.obtener_issue(owner, repo, original.github_issue_number).get("node_id")
 
     def _tipo_para_issue(self, owner: str, repo: str, tarea: Tarea) -> dict[str, str]:
         """Argumento `tipo` para crear o actualizar el issue, con el nombre que el repositorio
@@ -124,7 +166,13 @@ class GitHubSyncManager:
                         project_id = self._id_proyecto_v2(proyecto)
                     if project_id:
                         self._client.eliminar_item_v2(project_id, item_id)
-            except Exception:  # el borrado local ya está hecho: se registra y se sigue
+            except GitHubError as error:
+                # Un item «redacted» (sin contenido visible) no se puede quitar con la API: se
+                # quita desde la web del Project. El borrado local ya está hecho.
+                log.warning(
+                    "No se pudo eliminar en GitHub (issue %s, item %s): %s", issue_number, item_id, error
+                )
+            except Exception:
                 log.exception("No se pudo eliminar en GitHub (issue %s, item %s)", issue_number, item_id)
 
     def _id_proyecto_v2(self, proyecto) -> str | None:
@@ -414,6 +462,10 @@ class GitHubSyncManager:
         procesados_issues: set[int] = set()
 
         for item in items_v2:
+            if item.item_type == "REDACTED":
+                # Un item cuyo contenido no se puede ver (su issue se borró o es de un repositorio
+                # sin acceso): no tiene título ni datos, solo crearía una tarea vacía.
+                continue
             if item.issue_number:
                 procesados_issues.add(item.issue_number)
 
@@ -1013,7 +1065,9 @@ class GitHubSyncManager:
             proyecto.github_repo_owner, num
         )
         field_id = meta.get("status_field_id")
-        estados = self._store.listar_estados(proyecto.id)
+        # La columna temporal «No Status» solo existe en local (agrupa tareas sin columna real):
+        # enviarla crearía en GitHub una opción de Status con ese nombre.
+        estados = [e for e in self._store.listar_estados(proyecto.id) if not e.es_temporal]
         if not field_id or not estados:
             return
         por_id = {o.id: o for o in remotas}
@@ -1141,6 +1195,21 @@ class GitHubSyncManager:
                     )
 
             self._en_remoto(_recolorear, "cambiar el color de la etiqueta", en_segundo_plano)
+
+    def publicar_etiquetas(
+        self, proyecto_id: int, etiquetas: list[Etiqueta], *, en_segundo_plano: bool = True
+    ) -> None:
+        """Crea en el repositorio las etiquetas indicadas (con su color y descripción); las que
+        ya existen allí se dejan como están."""
+        repo = self._repo_de(proyecto_id)
+        if not repo or not etiquetas:
+            return
+
+        def _crear() -> None:
+            for etiqueta in etiquetas:
+                self._client.crear_etiqueta(*repo, etiqueta.nombre, etiqueta.color, etiqueta.descripcion)
+
+        self._en_remoto(_crear, "crear las etiquetas por defecto", en_segundo_plano)
 
     def cambiar_descripcion_etiqueta(
         self, etiqueta_id: int, descripcion: str, *, en_segundo_plano: bool = True
@@ -1660,6 +1729,7 @@ class GitHubSyncManager:
             if tarea.github_issue_number and repo:
                 estado_issue = "closed" if tarea.porcentaje_completado >= 100 else "open"
                 asignados_envio: list[str] | None = asignados or None
+                issue_remoto: dict = {}
                 try:
                     issue_remoto = self._client.obtener_issue(
                         owner, repo, tarea.github_issue_number
@@ -1690,6 +1760,10 @@ class GitHubSyncManager:
                 self._store.guardar_asignados_base_github(tarea.id, asignados)
                 if etiquetas is not None:
                     self._store.guardar_etiquetas_base_github(tarea.id, etiquetas)
+                self._enviar_estado_issue(
+                    owner, repo, tarea, issue_remoto.get("node_id"),
+                    (issue_remoto.get("status") or {}).get("name"),
+                )
             elif repo and not tarea.github_issue_number:
                 # Si no tiene issue y el proyecto tiene repo vinculado, crearlo
                 etiquetas = self._etiquetas_para_issue(owner, repo, tarea, [])
@@ -1708,6 +1782,7 @@ class GitHubSyncManager:
                 # pisaría lo que el usuario haya editado mientras tanto.
                 self._store.vincular_issue_github(tarea.id, res.get("number"), res.get("html_url"))
                 tarea.github_issue_number = res.get("number")
+                self._enviar_estado_issue(owner, repo, tarea, res.get("node_id"), None)
 
             # 1b. Sin item en el Project V2 no habría Status que enviar (GitHub dejaría la tarea
             # en «No Status»): se añade el issue al proyecto (idempotente) y se guarda el item.

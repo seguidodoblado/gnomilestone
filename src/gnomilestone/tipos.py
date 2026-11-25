@@ -44,6 +44,6 @@ def nombre_remoto(tipo: str, nombres_remotos: list[str]) -> str | None:
 
 
 def nombre_tipo(tipo: str) -> str:
-    return {
-        TRABAJO: _("Trabajo"), ERROR: _("Error"), FUNCIONALIDAD: _("Funcionalidad"),
-    }.get(tipo, _("Sin tipo"))
+    """Nombre con el que se muestra el tipo: el original de GitHub (Task, Bug, Feature) en
+    cualquier idioma, para que coincida con el tipo de issue que se ve allí."""
+    return _GITHUB.get(tipo) or _("Sin tipo")

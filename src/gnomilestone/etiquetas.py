@@ -10,6 +10,22 @@ import zlib
 _PALETA = ("d73a4a", "0075ca", "cfd3d7", "a2eeef", "7057ff", "008672", "e4e669", "d876e3", "fbca04")
 
 
+# Las etiquetas por defecto de GitHub, tal cual salen en un repositorio nuevo: (nombre, color,
+# descripción). Plantilla para empezar un proyecto con ellas.
+ETIQUETAS_POR_DEFECTO = (
+    ("accessibility", "f143ab", "Barrier affecting people with disabilities"),
+    ("bug", "d73a4a", "Something isn't working"),
+    ("documentation", "0075ca", "Improvements or additions to documentation"),
+    ("duplicate", "cfd3d7", "This issue or pull request already exists"),
+    ("enhancement", "a2eeef", "New feature or request"),
+    ("good first issue", "7057ff", "Good for newcomers"),
+    ("help wanted", "008672", "Extra attention is needed"),
+    ("invalid", "e4e669", "This doesn't seem right"),
+    ("question", "d876e3", "Further information is requested"),
+    ("wontfix", "ffffff", "This will not be worked on"),
+)
+
+
 def color_automatico(nombre: str) -> str:
     return _PALETA[zlib.crc32(nombre.strip().casefold().encode()) % len(_PALETA)]
 

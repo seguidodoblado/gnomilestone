@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from gnomilestone import completado, ganttcalc
+from gnomilestone import completado, estado_issue, etiquetas, ganttcalc
 from gnomilestone.i18n import _
 from gnomilestone.models import (
     ESTADOS_NOTA,
@@ -161,8 +161,16 @@ CAMPOS_BASE_GITHUB = (
 )
 
 
+# Una tarea en una columna de «Not planned» o «Duplicate» está descartada (fuera del progreso).
+_SELECT_TAREA = (
+    "SELECT t.*, COALESCE(e.estado_issue IN ('Not planned', 'Duplicate'), 0) AS descartada "
+    "FROM tarea t LEFT JOIN estado_tablero e ON e.id = t.estado_id"
+)
+
+
 def _tarea_de_fila(fila: sqlite3.Row) -> Tarea:
     datos = dict(fila)
+    datos["descartada"] = bool(datos.get("descartada"))
     datos.pop("es_hito", None)  # columna heredada: los Hitos son una entidad propia
     datos.pop("github_milestone_number", None)
     datos["archivada"] = bool(datos.get("archivada"))
@@ -902,6 +910,19 @@ class Store:
                 db.execute("ALTER TABLE tarea ADD COLUMN github_base TEXT")
             db.execute("PRAGMA user_version = 45")
             version = 45
+        if version < 46:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(estado_tablero)")}
+            if "estado_issue" not in columnas:
+                # Estado de issue de GitHub que representa la columna (ver estado_issue.py).
+                db.execute("ALTER TABLE estado_tablero ADD COLUMN estado_issue TEXT")
+            db.execute("PRAGMA user_version = 46")
+            version = 46
+        if version < 47:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(tarea)")}
+            if "duplicado_de_id" not in columnas:
+                db.execute("ALTER TABLE tarea ADD COLUMN duplicado_de_id INTEGER")
+            db.execute("PRAGMA user_version = 47")
+            version = 47
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1120,6 +1141,7 @@ class Store:
         es_final: bool = False,
         es_temporal: bool = False,
         descripcion: str = "",
+        estado_issue: str | None = None,
     ) -> EstadoTablero:
         with closing(self._connect()) as db, db:
             siguiente_orden = db.execute(
@@ -1128,10 +1150,10 @@ class Store:
             ).fetchone()[0]
             cursor = db.execute(
                 "INSERT INTO estado_tablero "
-                "(proyecto_id, nombre, orden, github_option_id, es_final, es_temporal, descripcion) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(proyecto_id, nombre, orden, github_option_id, es_final, es_temporal, descripcion, "
+                "estado_issue) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (proyecto_id, nombre, siguiente_orden, github_option_id,
-                 int(es_final), int(es_temporal), descripcion),
+                 int(es_final), int(es_temporal), descripcion, estado_issue),
             )
             fila = db.execute(
                 "SELECT * FROM estado_tablero WHERE id = ?", (cursor.lastrowid,)
@@ -1221,6 +1243,46 @@ class Store:
                 return False
             db.execute("DELETE FROM estado_tablero WHERE id = ?", (estado_id,))
             return True
+
+    def aplicar_flujo_github(self, proyecto_id: int) -> dict[str, list[str]]:
+        """Deja el tablero con el flujo de columnas de GitHub (Backlog, Todo, In progress, In
+        review, Done, Not planned, Duplicate), cada una enlazada a su estado de issue.
+
+        Reutiliza (renombra) las columnas que ya hacían de alguna (Pendiente, En progreso,
+        Hecho…) y crea las que faltan, sin tocar las tareas: siguen en su columna. Las columnas
+        que no encajan en ninguna se conservan al final. Devuelve `{"creadas", "renombradas",
+        "conservadas"}` con los nombres, para contárselo al usuario."""
+        existentes = self.listar_estados(proyecto_id)
+        usadas: set[int] = set()
+        orden: list[int] = []
+        informe: dict[str, list[str]] = {"creadas": [], "renombradas": [], "conservadas": []}
+        for nombre, categoria, descripcion in estado_issue.FLUJO_GITHUB:
+            columna = estado_issue.columna_para(categoria, existentes, usadas)
+            if columna is None:
+                columna = self.crear_estado(
+                    proyecto_id, nombre, es_final=categoria == estado_issue.COMPLETADO,
+                    estado_issue=categoria, descripcion=descripcion,
+                )
+                informe["creadas"].append(nombre)
+            else:
+                usadas.add(columna.id)
+                with closing(self._connect()) as db, db:
+                    # La descripción solo se rellena si no tenía: no pisa la que haya puesto el usuario.
+                    db.execute(
+                        "UPDATE estado_tablero SET nombre = ?, estado_issue = ?, "
+                        "descripcion = CASE WHEN descripcion = '' THEN ? ELSE descripcion END "
+                        "WHERE id = ?",
+                        (nombre, categoria, descripcion, columna.id),
+                    )
+                if columna.nombre != nombre:
+                    informe["renombradas"].append(f"{columna.nombre} → {nombre}")
+            orden.append(columna.id)
+            if categoria == estado_issue.COMPLETADO:
+                self.establecer_estado_final(proyecto_id, columna.id)
+        resto = [e for e in existentes if e.id not in usadas]
+        informe["conservadas"] = [e.nombre for e in resto]
+        self.reordenar_estados(orden + [e.id for e in resto])
+        return informe
 
     def renombrar_estado(self, estado_id: int, nombre: str) -> None:
         with closing(self._connect()) as db, db:
@@ -1322,17 +1384,17 @@ class Store:
                  siguiente_orden, hito_id,
                  github_issue_number, github_issue_id, github_item_id, github_url, prioridad, tipo),
             )
-            fila = db.execute("SELECT * FROM tarea WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            fila = db.execute(f"{_SELECT_TAREA} WHERE t.id = ?", (cursor.lastrowid,)).fetchone()
             self._registrar_historial_db(db, cursor.lastrowid, "creacion", detalle=titulo)
             return _tarea_de_fila(fila)
 
     def listar_tareas(self, proyecto_id: int, incluir_archivadas: bool = False) -> list[Tarea]:
         """Tareas del proyecto. Las archivadas quedan fuera salvo que se pidan (la
         sincronización con GitHub necesita verlas todas)."""
-        filtro = "" if incluir_archivadas else " AND archivada = 0"
+        filtro = "" if incluir_archivadas else " AND t.archivada = 0"
         with closing(self._connect()) as db:
             filas = db.execute(
-                f"SELECT * FROM tarea WHERE proyecto_id = ?{filtro} ORDER BY orden",
+                f"{_SELECT_TAREA} WHERE t.proyecto_id = ?{filtro} ORDER BY t.orden",
                 (proyecto_id,),
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
@@ -1348,7 +1410,7 @@ class Store:
     def listar_tareas_archivadas(self, proyecto_id: int) -> list[Tarea]:
         with closing(self._connect()) as db:
             filas = db.execute(
-                "SELECT * FROM tarea WHERE proyecto_id = ? AND archivada = 1 ORDER BY orden",
+                f"{_SELECT_TAREA} WHERE t.proyecto_id = ? AND t.archivada = 1 ORDER BY t.orden",
                 (proyecto_id,),
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
@@ -1408,21 +1470,21 @@ class Store:
         marcadores = ",".join("?" * len(proyecto_ids))
         with closing(self._connect()) as db:
             filas = db.execute(
-                f"SELECT * FROM tarea WHERE proyecto_id IN ({marcadores}) AND archivada = 0 "
-                "ORDER BY proyecto_id, orden",
+                f"{_SELECT_TAREA} WHERE t.proyecto_id IN ({marcadores}) AND t.archivada = 0 "
+                "ORDER BY t.proyecto_id, t.orden",
                 proyecto_ids,
             ).fetchall()
             return [_tarea_de_fila(fila) for fila in filas]
 
     def obtener_tarea(self, tarea_id: int) -> Tarea | None:
         with closing(self._connect()) as db:
-            fila = db.execute("SELECT * FROM tarea WHERE id = ?", (tarea_id,)).fetchone()
+            fila = db.execute(f"{_SELECT_TAREA} WHERE t.id = ?", (tarea_id,)).fetchone()
             return _tarea_de_fila(fila) if fila else None
 
     def obtener_tarea_por_github_issue(self, proyecto_id: int, issue_number: int) -> Tarea | None:
         with closing(self._connect()) as db:
             fila = db.execute(
-                "SELECT * FROM tarea WHERE proyecto_id = ? AND github_issue_number = ?",
+                f"{_SELECT_TAREA} WHERE t.proyecto_id = ? AND t.github_issue_number = ?",
                 (proyecto_id, issue_number),
             ).fetchone()
             return _tarea_de_fila(fila) if fila else None
@@ -1430,7 +1492,7 @@ class Store:
     def obtener_tarea_por_github_item(self, item_id: str) -> Tarea | None:
         with closing(self._connect()) as db:
             fila = db.execute(
-                "SELECT * FROM tarea WHERE github_item_id = ?",
+                f"{_SELECT_TAREA} WHERE t.github_item_id = ?",
                 (item_id,),
             ).fetchone()
             return _tarea_de_fila(fila) if fila else None
@@ -1480,6 +1542,7 @@ class Store:
                 "github_issue_id = COALESCE(?, github_issue_id), "
                 "github_item_id = COALESCE(?, github_item_id), "
                 "github_url = COALESCE(?, github_url), prioridad = ?, tipo = ?, porcentaje_previo = ?, "
+                "duplicado_de_id = ?, "
                 "actualizado = datetime('now') WHERE id = ?",
                 (tarea.padre_id, tarea.estado_id, tarea.titulo, tarea.descripcion,
                  tarea.fecha_inicio, tarea.fecha_fin_planificada_inicial,
@@ -1487,7 +1550,8 @@ class Store:
                  tarea.duracion_dias, tarea.porcentaje_completado,
                  tarea.orden, tarea.hito_id, tarea.github_issue_number,
                  tarea.github_issue_id, tarea.github_item_id, tarea.github_url,
-                 tarea.prioridad, tarea.tipo, tarea.porcentaje_previo, tarea.id),
+                 tarea.prioridad, tarea.tipo, tarea.porcentaje_previo, tarea.duplicado_de_id,
+                 tarea.id),
             )
             if anterior:
                 cambios = (
@@ -1653,6 +1717,17 @@ class Store:
                 "SELECT * FROM etiqueta WHERE proyecto_id = ? ORDER BY nombre", (proyecto_id,)
             ).fetchall()
             return [_etiqueta_de_fila(f) for f in filas]
+
+    def aplicar_etiquetas_por_defecto(self, proyecto_id: int) -> list[Etiqueta]:
+        """Añade las etiquetas por defecto de GitHub (nombre, color y descripción) que el
+        proyecto aún no tenga. Las que ya existen (aunque sea con otro color o descripción) se
+        dejan como están. Devuelve las que se han creado."""
+        existentes = {e.nombre.casefold() for e in self.listar_etiquetas(proyecto_id)}
+        return [
+            self.asegurar_etiqueta(proyecto_id, nombre, color, descripcion)
+            for nombre, color, descripcion in etiquetas.ETIQUETAS_POR_DEFECTO
+            if nombre.casefold() not in existentes
+        ]
 
     def asegurar_etiqueta(
         self,

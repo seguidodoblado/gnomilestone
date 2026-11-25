@@ -1442,3 +1442,40 @@ def test_push_envia_las_dependencias_locales_que_faltan_en_github(tmp_path):
     client.listar_bloqueos.return_value = [{"number": 1}]
     GitHubSyncManager(store, client).push_tarea(t2.id)
     client.anadir_bloqueo.assert_not_called()
+
+
+def test_el_pull_ignora_los_items_redacted_del_project(tmp_path):
+    store = Store(tmp_path / "t.db")
+    p = store.crear_proyecto("P", github_repo_owner="u", github_project_v2_id="11")
+    client = MagicMock(spec=GitHubClient)
+    client.obtener_detalles_proyecto_v2.return_value = (
+        {"id": "PVT_11", "title": "P", "fields": {}, "status_field_id": None},
+        [],
+        [
+            GitHubItem(id="PVTI_redacted", title="", item_type="REDACTED"),
+            GitHubItem(id="PVTI_1", title="Real", issue_number=1, item_type="ISSUE"),
+        ],
+    )
+    GitHubSyncManager(store, client).pull_proyecto(p.id)
+    assert [t.titulo for t in store.listar_tareas(p.id)] == ["Real"]
+
+
+def test_push_columnas_no_envia_la_columna_temporal_no_status(tmp_path):
+    from gnomilestone.github import GitHubStatusOption as Op
+    from gnomilestone.store import Store
+    from gnomilestone.sync import GitHubSyncManager
+
+    store = Store(tmp_path / "db.sqlite")
+    proyecto = store.crear_proyecto(
+        "P", github_repo_owner="yo", github_repo_name="repo", github_project_v2_id="3"
+    )
+    store.obtener_o_crear_estado_temporal(proyecto.id)  # «No Status»: solo existe en local
+    nombres = [e.nombre for e in store.listar_estados(proyecto.id)]
+    assert "No Status" in nombres
+
+    remotas = [Op(f"o{i}", n) for i, n in enumerate(n for n in nombres if n != "No Status")]
+    cliente = _ClienteColumnas(remotas, remotas)
+    GitHubSyncManager(store, cliente).push_columnas(proyecto.id, en_segundo_plano=False)
+
+    assert "No Status" not in [n for n, _c in cliente.enviadas]
+    assert [n for n, _c in cliente.enviadas] == [n for n in nombres if n != "No Status"]

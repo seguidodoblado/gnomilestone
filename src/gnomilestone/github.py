@@ -809,6 +809,43 @@ class GitHubClient:
     def obtener_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
         return self._request(f"repos/{owner}/{repo}/issues/{number}")
 
+    def estados_issue(self, owner: str, repo: str) -> list[dict[str, str]]:
+        """Estados de issue del repositorio (Backlog, Todo, In progress, In review, Done, Not
+        planned, Duplicate), como `{id, name, category}`. Vacío si GitHub no los ofrece."""
+        datos = self.graphql(
+            """
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                planningStatuses(first: 20) { nodes { id name category { name } } }
+              }
+            }
+            """,
+            {"owner": owner, "repo": repo},
+        )
+        nodos = (((datos.get("repository") or {}).get("planningStatuses") or {}).get("nodes")) or []
+        return [
+            {"id": n["id"], "name": n["name"], "category": (n.get("category") or {}).get("name", "")}
+            for n in nodos
+        ]
+
+    def fijar_estado_issue(
+        self, issue_node_id: str, status_id: str, duplicado_de_node_id: str | None = None
+    ) -> None:
+        """Cambia el estado del issue (y, con él, si está abierto o cerrado). El estado
+        «Duplicate» necesita el issue original (`duplicado_de_node_id`)."""
+        variables = {"issueId": issue_node_id, "statusId": status_id}
+        parametro = argumento = ""
+        if duplicado_de_node_id:
+            variables["duplicateIssueId"] = duplicado_de_node_id
+            parametro = ", $duplicateIssueId: ID"
+            argumento = ", duplicateIssueId: $duplicateIssueId"
+        self.graphql(
+            "mutation($issueId: ID!, $statusId: ID!" + parametro + ") {"
+            " setIssueStatus(input: {issueId: $issueId, statusId: $statusId" + argumento + "}) {"
+            " issue { id } } }",
+            variables,
+        )
+
     def obtener_fichero_repo(self, owner: str, repo: str, ruta: str) -> str | None:
         """Texto de un fichero del repositorio (rama por defecto), o None si no existe, es
         una carpeta o no se puede leer como texto (p. ej. pesa más de 1 MB)."""

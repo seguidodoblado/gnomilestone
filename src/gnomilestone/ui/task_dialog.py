@@ -17,6 +17,7 @@ from gnomilestone.historial import titulo_evento
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.markdown_pango import markdown_a_pango
 from gnomilestone.models import Recurso, Tarea
+from gnomilestone.prioridad import ALTA, BAJA, MEDIA, NOMBRES_GITHUB, URGENTE
 from gnomilestone.store import CicloDependenciaError, Store
 from gnomilestone.sync import GitHubSyncManager
 from gnomilestone.ui.avatar_widget import AvatarWidget
@@ -293,6 +294,7 @@ class TaskDialog(Gtk.Window):
         self._marcados_error: list[Gtk.Widget] = []
 
         todas = store.listar_tareas(proyecto_id)
+        self._tareas_proyecto = todas
         excluidas = {tarea.id} | _descendientes(todas, tarea.id) if tarea else set()
         # Orden jerárquico (padre y luego hijos) con el prefijo de conectores del listado.
         ordenadas = ordenar_jerarquicamente([t for t in todas if t.id not in excluidas])
@@ -426,9 +428,33 @@ class TaskDialog(Gtk.Window):
         self._padre_dropdown = self._crear_selector_tareas(tarea)
         box.append(self._padre_dropdown)
 
-        box.append(Gtk.Label(label=_("Columna"), xalign=0))
+        box.append(Gtk.Label(label=_("Estado"), xalign=0))
         self._estado_dropdown = self._crear_selector_columnas(tarea)
         box.append(self._estado_dropdown)
+
+        # Solo en una columna «Duplicate»: de qué tarea (issue) es un duplicado.
+        self._candidatas_original = [
+            t for t in self._tareas_proyecto
+            if t.github_issue_number and (tarea is None or t.id != tarea.id)
+        ]
+        self._etiqueta_original = Gtk.Label(label=_("Duplicado de"), xalign=0)
+        self._original_dropdown = Gtk.DropDown.new_from_strings(
+            [_("Ninguna")]
+            + [f"{t.titulo} (#{t.github_issue_number})" for t in self._candidatas_original]
+        )
+        self._original_dropdown.set_enable_search(True)
+        self._original_dropdown.set_search_match_mode(Gtk.StringFilterMatchMode.SUBSTRING)
+        self._original_dropdown.set_expression(
+            Gtk.PropertyExpression.new(Gtk.StringObject, None, "string")
+        )
+        if tarea and tarea.duplicado_de_id is not None:
+            ids_original = [t.id for t in self._candidatas_original]
+            if tarea.duplicado_de_id in ids_original:
+                self._original_dropdown.set_selected(ids_original.index(tarea.duplicado_de_id) + 1)
+        box.append(self._etiqueta_original)
+        box.append(self._original_dropdown)
+        self._estado_dropdown.connect("notify::selected", lambda *_a: self._mostrar_original())
+        self._mostrar_original()
 
         # Hito (Milestone de GitHub) al que contribuye la tarea.
         etiqueta_hito = Gtk.Label(xalign=0, use_markup=True)
@@ -537,7 +563,7 @@ class TaskDialog(Gtk.Window):
         # El orden de la lista es el del nivel (0 ninguna … 4 urgente): el índice seleccionado
         # es directamente el valor que se guarda.
         dropdown = Gtk.DropDown.new_from_strings(
-            [_("Sin prioridad"), _("Baja"), _("Media"), _("Alta"), _("Urgente")]
+            [_("Sin prioridad")] + [NOMBRES_GITHUB[n] for n in (BAJA, MEDIA, ALTA, URGENTE)]
         )
 
         def _preparar(_f: Gtk.SignalListItemFactory, item: Gtk.ListItem) -> None:
@@ -953,8 +979,27 @@ class TaskDialog(Gtk.Window):
 
     # ------------------------------------------------------------------ cambios sin guardar
 
+    def _es_estado_duplicado(self) -> bool:
+        indice = self._estado_dropdown.get_selected()
+        return bool(self._estados) and 0 <= indice < len(self._estados) and (
+            self._estados[indice].estado_issue == "Duplicate"
+        )
+
+    def _mostrar_original(self) -> None:
+        visible = self._es_estado_duplicado()
+        self._etiqueta_original.set_visible(visible)
+        self._original_dropdown.set_visible(visible)
+
+    def _original_elegido(self) -> int | None:
+        """Id de la tarea original elegida (solo si el estado es «Duplicate»)."""
+        indice = self._original_dropdown.get_selected()
+        if not self._es_estado_duplicado() or indice <= 0:
+            return None
+        return self._candidatas_original[indice - 1].id
+
     def _capturar_estado(self) -> tuple:
         return (
+            self._original_dropdown.get_selected(),
             self._titulo_entry.get_text(),
             self._descripcion_editor.obtener_texto(),
             self._padre_dropdown.get_selected(),
@@ -1149,6 +1194,9 @@ class TaskDialog(Gtk.Window):
                 porcentaje_completado=porcentaje,
                 hito_id=hito_id,
             )
+            if self._es_estado_duplicado() and self._original_elegido() is not None:
+                tarea.duplicado_de_id = self._original_elegido()
+                self._store.actualizar_tarea(tarea)
         else:
             tarea = self._tarea
             estado_anterior_id = tarea.estado_id
@@ -1170,6 +1218,8 @@ class TaskDialog(Gtk.Window):
             tarea.duracion_dias = duracion
             tarea.porcentaje_completado = porcentaje
             tarea.hito_id = hito_id
+            if self._es_estado_duplicado():
+                tarea.duplicado_de_id = self._original_elegido()
             self._padres_cambiados = self._store.actualizar_tarea(tarea)
             if estado_anterior_id is not None and estado_anterior_id != estado_id:
                 self._store.purgar_estado_temporal_si_vacio(estado_anterior_id)

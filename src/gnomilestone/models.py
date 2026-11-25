@@ -21,6 +21,10 @@ class Proyecto:
     actualizado: str = ""
 
 
+# Estados de issue que cierran la tarea sin completarla.
+ESTADOS_DESCARTADOS = ("Not planned", "Duplicate")
+
+
 @dataclass
 class EstadoTablero:
     id: int
@@ -34,6 +38,15 @@ class EstadoTablero:
     # Columna «No Status» (mismo nombre que GitHub) generada por un pull de un Project V2:
     # agrupa tareas sin columna real y se borra sola en cuanto se vacía (ver sync.py).
     es_temporal: bool = False
+    # Estado de issue de GitHub que representa la columna (ver `estado_issue.py`): Backlog,
+    # Planned (Todo), Started (In progress), review (In review), Completed (Done), Not planned o
+    # Duplicate. None: sin vínculo explícito (se deduce del nombre y del progreso).
+    estado_issue: str | None = None
+
+    @property
+    def es_descartada(self) -> bool:
+        """Columna de tareas cerradas sin completar (Not planned, Duplicate): fuera del progreso."""
+        return self.estado_issue in ESTADOS_DESCARTADOS
 
 
 @dataclass
@@ -67,6 +80,11 @@ class Tarea:
     fecha_limite: str | None = None
     fecha_fin_real: str | None = None
     duracion_dias: int = 1
+    # La tarea está en una columna de «Not planned» o «Duplicate»: no cuenta en el progreso. Se
+    # calcula al leerla (no se guarda en la tarea).
+    descartada: bool = False
+    # Tarea de la que ésta es un duplicado (estado «Duplicate» del issue): su issue es el original.
+    duplicado_de_id: int | None = None
     porcentaje_completado: int = 0
     archivada: bool = False  # fuera de todas las vistas hasta que se desarchive
     porcentaje_previo: int | None = None  # % antes de completarse al entrar en la columna final

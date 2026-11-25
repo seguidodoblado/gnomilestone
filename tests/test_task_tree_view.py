@@ -67,7 +67,7 @@ def test_construir_filas_lleva_etiquetas_y_prioridad():
     raices = construir_filas(tareas, {}, etiquetas_por_tarea={1: [bug]})
     assert raices[0].etiquetas == [bug]
     assert raices[1].etiquetas == []
-    assert raices[0].prioridad == nombre_prioridad(3) == "Alta"
+    assert raices[0].prioridad == nombre_prioridad(3) == "High"
     assert raices[1].prioridad == ""
 
 
@@ -91,9 +91,9 @@ def test_porcentaje_texto_lleva_el_simbolo_y_las_filas_sin_tarea_van_vacias():
     assert TareaRow("Proyecto", []).porcentaje_texto == ""
 
 
-def test_la_fila_lleva_el_tipo_traducido():
+def test_la_fila_lleva_el_tipo_con_su_nombre_original_de_github():
     from gnomilestone.ui.task_tree_view import TareaRow
 
     tarea = Tarea(1, 1, "T", tipo="error")
-    assert TareaRow(tarea=tarea, titulo="T", hijos=[]).tipo == "Error"
+    assert TareaRow(tarea=tarea, titulo="T", hijos=[]).tipo == "Bug"  # no «Error»
     assert TareaRow(tarea=Tarea(2, 1, "U"), titulo="U", hijos=[]).tipo == ""

@@ -11,6 +11,9 @@ import re
 NINGUNA, BAJA, MEDIA, ALTA, URGENTE = 0, 1, 2, 3, 4
 NIVELES = (NINGUNA, BAJA, MEDIA, ALTA, URGENTE)
 
+# Nombre de cada nivel como lo da GitHub en su campo «Priority» (en cualquier idioma).
+NOMBRES_GITHUB = {BAJA: "Low", MEDIA: "Medium", ALTA: "High", URGENTE: "Urgent"}
+
 _PALABRAS: dict[int, frozenset[str]] = {
     URGENTE: frozenset({"urgent", "urgente", "critical", "critica"}),
     ALTA: frozenset({"alta", "alto", "high", "p0"}),

@@ -940,3 +940,21 @@ def test_la_padre_se_completa_y_se_reabre_con_sus_subtareas(store):
     reabierta = store.obtener_tarea(padre.id)
     assert (reabierta.porcentaje_completado, reabierta.estado_id) == (0, pendiente.id)
     assert reabierta.fecha_fin_real is None
+
+
+def test_las_etiquetas_por_defecto_se_anaden_sin_tocar_las_que_ya_existen(store):
+    from gnomilestone.etiquetas import ETIQUETAS_POR_DEFECTO
+
+    proyecto = store.crear_proyecto("Etiquetas")
+    propia = store.asegurar_etiqueta(proyecto.id, "Bug", "123456", "Mi descripción")
+
+    creadas = store.aplicar_etiquetas_por_defecto(proyecto.id)
+    assert len(creadas) == len(ETIQUETAS_POR_DEFECTO) - 1  # «bug» ya existía
+    por_nombre = {e.nombre: e for e in store.listar_etiquetas(proyecto.id)}
+    assert por_nombre["Bug"].color == "123456" and por_nombre["Bug"].descripcion == "Mi descripción"
+    assert (por_nombre["wontfix"].color, por_nombre["wontfix"].descripcion) == (
+        "ffffff", "This will not be worked on",
+    )
+    assert por_nombre["good first issue"].color == "7057ff"
+    assert propia.id == por_nombre["Bug"].id
+    assert store.aplicar_etiquetas_por_defecto(proyecto.id) == []  # repetirlo no duplica

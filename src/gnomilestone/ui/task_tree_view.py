@@ -11,6 +11,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango
 from gnomilestone.etiquetas import marcado_chip
 from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Etiqueta, Recurso, Tarea
+from gnomilestone.prioridad import NOMBRES_GITHUB
 from gnomilestone.tipos import nombre_tipo
 from gnomilestone.ui.asignar_hito import AsignacionHito
 from gnomilestone.ui.avatar_widget import fila_avatares
@@ -54,8 +55,9 @@ def asegurar_css_fila_fija() -> None:
 
 
 def nombre_prioridad(nivel: int) -> str:
-    """Texto de un nivel de prioridad ("" si no tiene)."""
-    return {1: _("Baja"), 2: _("Media"), 3: _("Alta"), 4: _("Urgente")}.get(nivel, "")
+    """Texto de un nivel de prioridad ("" si no tiene): el original de GitHub (Low, Medium,
+    High, Urgent) en cualquier idioma, para que coincida con su campo «Priority»."""
+    return NOMBRES_GITHUB.get(nivel, "")
 
 
 class TareaRow(GObject.Object):
@@ -521,7 +523,7 @@ def etiquetas_factory(arbol: bool = True) -> Gtk.SignalListItemFactory:
 COLUMNAS_INFO: tuple[tuple[str, str, bool, bool], ...] = (
     ("titulo", _("Título"), True, True),
     ("asignado", _("Asignado"), False, True),
-    ("estado", _("Columna"), False, False),
+    ("estado", _("Estado"), False, False),
     ("prioridad", _("Prioridad"), False, False),
     ("tipo", _("Tipo"), False, False),
     ("etiquetas", _("Etiquetas"), False, False),
@@ -572,7 +574,7 @@ class TaskTreeView(Gtk.ColumnView):
         self._columnas["asignado"] = col_asignado
 
         for clave, titulo, propiedad, visible_defecto in (
-            ("estado", _("Columna"), "estado", False),
+            ("estado", _("Estado"), "estado", False),
             ("prioridad", _("Prioridad"), None, False),
             ("tipo", _("Tipo"), None, False),
             ("etiquetas", _("Etiquetas"), None, False),

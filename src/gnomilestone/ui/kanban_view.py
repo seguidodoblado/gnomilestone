@@ -18,9 +18,11 @@ from gnomilestone.i18n import _, formatear_fecha_local
 from gnomilestone.models import Tarea
 from gnomilestone.ordenacion import mover_tarea
 from gnomilestone.store import Store
+from gnomilestone.ui.arrastre_desplazamiento import instalar_arrastre
 from gnomilestone.ui.avatar_widget import fila_avatares
 from gnomilestone.ui.aviso_dependencias import confirmar_completar
 from gnomilestone.ui.capsula_progreso import CapsulaProgreso
+from gnomilestone.ui.elegir_original import candidatas_a_original, pedir_original
 from gnomilestone.ui.prioridad_icono import crear_icono_prioridad
 from gnomilestone.ui.tipo_icono import crear_icono_tipo
 from gnomilestone.ui.vencimiento import (
@@ -192,6 +194,9 @@ class KanbanView(Gtk.Box):
         scroller = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         scroller.set_child(self._columnas_box)
         self._scroll_tablero = scroller
+        # Pulsar y arrastrar sobre el fondo desplaza el tablero en horizontal; si el arrastre
+        # empieza sobre una tarjeta, lo toma ella (DragSource) y se mueve la tarea, no el tablero.
+        instalar_arrastre(scroller, vertical=False)
         self.append(scroller)
 
     def mostrar_proyecto(self, proyecto_id: int, mostrar_completadas: bool = True) -> None:
@@ -237,13 +242,16 @@ class KanbanView(Gtk.Box):
         for tarea in tareas:
             tareas_por_estado.setdefault(tarea.estado_id, []).append(tarea)
 
+        # Todas las columnas miden lo mismo que la más ancha: una vacía no queda estrecha junto a
+        # las que tienen tarjetas (a cambio de algo más de desplazamiento horizontal).
+        mismo_ancho = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL)
         for indice, estado in enumerate(estados):
             tareas = sorted(tareas_por_estado.get(estado.id, []), key=lambda t: t.orden)
-            self._columnas_box.append(
-                self._construir_columna(
-                    estado.id, estado.nombre, tareas, indice, estado.descripcion
-                )
+            columna = self._construir_columna(
+                estado.id, estado.nombre, tareas, indice, estado.descripcion
             )
+            mismo_ancho.add_widget(columna)
+            self._columnas_box.append(columna)
 
     def _ids_con_descendientes(self, raiz_id: int) -> set[int]:
         ids = {raiz_id}
@@ -678,6 +686,31 @@ class KanbanView(Gtk.Box):
         ultima = de_la_columna[-1].id if de_la_columna else None
         return self._soltar(tarea_id, estado_id, ultima, True)
 
+    def _pedir_original_si_hace_falta(
+        self, tarea: Tarea, estado_id: int, referencia_id: int | None, despues: bool
+    ) -> bool:
+        """Mover una tarea a una columna «Duplicate» pide el issue original, que GitHub exige
+        para ese estado. Devuelve True si abre la ventana (el movimiento sigue al elegirlo)."""
+        if tarea.estado_id == estado_id or tarea.duplicado_de_id is not None:
+            return False
+        destino = next(
+            (e for e in self._store.listar_estados(tarea.proyecto_id) if e.id == estado_id), None
+        )
+        if destino is None or destino.estado_issue != "Duplicate":
+            return False
+        candidatas = candidatas_a_original(self._store.listar_tareas(tarea.proyecto_id), tarea)
+
+        def _elegido(original: Tarea) -> None:
+            actual = self._store.obtener_tarea(tarea.id)
+            if actual is None:
+                return
+            actual.duplicado_de_id = original.id
+            self._store.actualizar_tarea(actual)
+            self._soltar(tarea.id, estado_id, referencia_id, despues, confirmado=True)
+
+        pedir_original(self.get_root(), tarea, candidatas, _elegido)
+        return True
+
     def _soltar(
         self,
         tarea_id: int,
@@ -691,6 +724,8 @@ class KanbanView(Gtk.Box):
             return False
         if not confirmado and self._avisar_dependencias(tarea, estado_id, referencia_id, despues):
             return True  # el soltar queda en espera de la respuesta del usuario
+        if self._pedir_original_si_hace_falta(tarea, estado_id, referencia_id, despues):
+            return True  # espera a que se elija de qué issue es duplicado
         cambia_columna = tarea.estado_id != estado_id
         if cambia_columna:
             estado_anterior_id = tarea.estado_id
