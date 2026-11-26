@@ -214,11 +214,16 @@ class GanttView(Gtk.Box):
         self._dependencias = dependencias
         self._progreso_resumen = progreso_resumen or {}
         self._hitos = hitos or []
+        # Recargar las filas vacía y rellena el árbol, y GTK lo devuelve arriba del todo (el
+        # scroll vertical del lienzo le sigue): se recuerda y se restaura tras el relayout.
+        scroll_vertical = self._canvas_scroller.get_vadjustment().get_value()
         self._cargando_filas = True  # la selección automática al recargar no debe mover el eje
         try:
             self._tree.set_filas(filas)
         finally:
             self._cargando_filas = False
+        if scroll_vertical > 0:
+            GLib.idle_add(self._restaurar_scroll_vertical, scroll_vertical)
         # set_filas() ya dispara "items-changed" (vía _on_filas_cambiadas), que repinta el Gantt.
 
     @staticmethod
@@ -257,6 +262,11 @@ class GanttView(Gtk.Box):
         )
         # Las tareas históricas no deben dejar la vista inicial semanas/meses atrás.
         self._pedir_centrado_si_hace_falta()
+
+    def _restaurar_scroll_vertical(self, valor: float) -> bool:
+        for adj in (self._canvas_scroller.get_vadjustment(), self._tree_scroller.get_vadjustment()):
+            adj.set_value(min(valor, max(0.0, adj.get_upper() - adj.get_page_size())))
+        return False
 
     def _on_tarea_elegida(self, seleccion: Gtk.SingleSelection, _pos: int, _n: int) -> None:
         if self._cargando_filas:
