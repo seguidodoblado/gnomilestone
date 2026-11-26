@@ -49,9 +49,13 @@ proyecto (notas, diagramas y líneas de tiempo).
   arrastrables, subtareas como cápsulas con su progreso, autodesplazamiento al arrastrar y
   desplazamiento horizontal arrastrando el fondo), Gantt
   (barras con progreso, hitos, flechas de dependencia, arrastre para mover/redimensionar,
-  zoom y propagación en cascada a hijas y dependientes), Recursos (tarjetas de visita
+  zoom y propagación en cascada a hijas y dependientes; al elegir una tarea en el árbol,
+  el calendario va a su barra), Recursos (tarjetas de visita
   de las personas, con sus equipos, medios y lugares) y Uso de recursos (ocupación en el
-  tiempo de las personas, con sobrecarga marcada en rojo).
+  tiempo de las personas, con sobrecarga marcada en rojo; pulsar una fila del panel
+  izquierdo la resalta y lleva el calendario a su barra). Una subtarea nunca se sale de las
+  fechas de su tarea padre, y con el panel de proyectos plegado el título de la ventana
+  indica el proyecto abierto.
 - **Recursos**: cada persona es una tarjeta de visita con su cargo, email y teléfono y
   tres tablas editables (equipos con su hardware, medios con licencias y accesos, y
   lugares de trabajo con su dirección), plegables y con el contorno del color de su
@@ -92,6 +96,9 @@ proyecto (notas, diagramas y líneas de tiempo).
   y las dependencias «blocked by»; una tarea cuyo issue se borró en GitHub se archiva. Cada columna del tablero puede enlazarse a un
   estado de issue (Backlog, Todo, In progress, In review, Done, Not planned y Duplicate), que se envía con la tarea; las tareas en
   «Not planned» o «Duplicate» no cuentan en el avance, y «Duplicate» pide el issue original.
+  La ventana de sincronización reúne el vínculo y las plantillas de GitHub (su flujo de
+  columnas, que se envía al Status del Project, y sus etiquetas por defecto). Cada proyecto
+  tiene una sola conexión.
 - **Preferencias**: selector de idioma (Sistema/Español/English) y de tema
   (Sistema/Claro/Oscuro), persistidos en `~/.config/gnomilestone/settings.json`.
 
@@ -158,10 +165,12 @@ diagrams and timelines).
   with priority, type and label columns), Kanban board (configurable columns, draggable
   cards, subtasks as capsules showing their progress, autoscroll while dragging and
   horizontal scrolling by dragging the background), Gantt (bars with
-  progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading
-  propagation to children and dependents), Resources (business cards of the
+  progress fill, milestones, dependency arrows, drag to move/resize, zoom and cascading propagation to children and dependents; choosing a task in the tree
+  scrolls the calendar to its bar), Resources (business cards of the
   people, with their equipment, media and places) and Resource usage (people's occupancy
-  over time, with overload marked in red).
+  over time, with overload marked in red; clicking a row in the left panel highlights it and
+  scrolls the calendar to its bar). A subtask never leaves its parent task's dates, and when
+  the project panel is hidden the window title names the open project.
 - **Resources**: each person is a business card with their role, email and phone and
   three editable tables (equipment with its hardware data, media with licenses and
   access, and workplaces with their address), foldable and outlined in the color of
@@ -199,6 +208,9 @@ diagrams and timelines).
   dependencies; a task whose issue was deleted on GitHub is archived. Each board column can be linked to an issue status
   (Backlog, Todo, In progress, In review, Done, Not planned and Duplicate), which is sent with the task; tasks in “Not planned”
   or “Duplicate” do not count in the progress, and “Duplicate” asks for the original issue.
+  The sync window gathers the link and GitHub's templates (its column workflow, which is
+  sent to the Project's Status, and its default labels). Each project has a single
+  connection.
 - **Preferences**: language selector (System/Español/English) and theme selector
   (System/Light/Dark), persisted in `~/.config/gnomilestone/settings.json`.
 
