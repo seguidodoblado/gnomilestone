@@ -55,6 +55,7 @@ _COLOR_CARGA_NORMAL = (0.21, 0.52, 0.89)  # azul fijo, no el acento del tema: no
 # confundir con las barras de los propios recursos, que sí cambian con el acento.
 _COLOR_ACENTO_RESPALDO = (0.21, 0.52, 0.89)
 _CSS_CARGA_APLICADO = False
+_CLASE_FILA_ELEGIDA = "gnomilestone-fila-uso-elegida"
 
 
 def _asegurar_css_carga() -> None:
@@ -69,6 +70,8 @@ def _asegurar_css_carga() -> None:
         ".gnomilestone-carga-baja { color: #33d17a; }\n"
         ".gnomilestone-carga-normal { color: #3584e4; }\n"
         ".gnomilestone-carga-alta { color: #e01b24; }\n"
+        ".gnomilestone-fila-uso-elegida { background-color: alpha(@theme_selected_bg_color, 0.35); "
+        "border-radius: 6px; }\n"
     )
     Gtk.StyleContext.add_provider_for_display(
         display, proveedor, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -605,18 +608,24 @@ class ResourceUsageView(Gtk.Box):
         self.connect("map", lambda *_a: self._pedir_centrado_si_hace_falta())
         self._plegar_inicial = plegar_inicial
         self._plegadas: set[int] = set()
+        # Fila elegida del panel izquierdo: (id de la persona, id de la tarea o None) y los
+        # widgets vivos de cada fila, para marcarla y desmarcarla sin reconstruir la lista.
+        self._fila_elegida: tuple[int, int | None] | None = None
+        self._filas_laterales: dict[tuple[int, int | None], Gtk.Widget] = {}
         self._conocidas: set[int] = set()
 
         toolbar = Gtk.Box(spacing=6, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
         zoom_out = Gtk.Button(icon_name="zoom-out-symbolic", tooltip_text=_("Alejar"))
-        zoom_out.connect("clicked", self._on_zoom_out)
+        zoom_out.connect("clicked", self._desmarcar_y(self._on_zoom_out))
         toolbar.append(zoom_out)
         zoom_in = Gtk.Button(icon_name="zoom-in-symbolic", tooltip_text=_("Acercar"))
-        zoom_in.connect("clicked", self._on_zoom_in)
+        zoom_in.connect("clicked", self._desmarcar_y(self._on_zoom_in))
         toolbar.append(zoom_in)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         hoy_boton = Gtk.Button(label=_("Hoy"), tooltip_text=_("Ir a la fecha de hoy"))
-        hoy_boton.connect("clicked", lambda _b: GLib.idle_add(self._centrar_en_hoy))
+        hoy_boton.connect(
+            "clicked", self._desmarcar_y(lambda _b: GLib.idle_add(self._centrar_en_hoy))
+        )
         toolbar.append(hoy_boton)
         toolbar.append(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL))
         grupo_escalas: Gtk.ToggleButton | None = None
@@ -630,7 +639,7 @@ class ResourceUsageView(Gtk.Box):
             else:
                 boton_escala.set_group(grupo_escalas)
             boton_escala.set_active(etiqueta == "Diario")
-            boton_escala.connect("clicked", self._on_escala, px_por_dia)
+            boton_escala.connect("clicked", self._desmarcar_y(self._on_escala), px_por_dia)
             toolbar.append(boton_escala)
         # Botón fuera de la barra, en el mismo grupo: al activarlo se desmarcan los demás (un nivel
         # de zoom intermedio, sin escala propia, no marca ninguno).
@@ -928,6 +937,7 @@ class ResourceUsageView(Gtk.Box):
         self._vacio.set_visible(not visible)
 
     def _reconstruir_lista(self, filas: list[FilaUso]) -> None:
+        self._filas_laterales = {}
         while (hijo := self._lista.get_first_child()) is not None:
             self._lista.remove(hijo)
         for fila in filas:
@@ -999,7 +1009,56 @@ class ResourceUsageView(Gtk.Box):
             pass
         textos.append(detalle)
         caja.append(textos)
+        # Pulsar la fila lleva el lienzo a su barra (la de la tarea, o la primera de la persona).
+        clic = Gtk.GestureClick(button=1)
+        clic.connect("released", lambda *_a, f=fila, sg=segmento: self._ir_a_fila(f, sg))
+        caja.add_controller(clic)
+        clave = (fila.recurso.id, None if segmento is None else segmento.tarea_id)
+        self._filas_laterales[clave] = caja
+        if clave == self._fila_elegida:
+            caja.add_css_class(_CLASE_FILA_ELEGIDA)
         return caja
+
+    def _desmarcar_fila(self) -> None:
+        anterior = self._filas_laterales.get(self._fila_elegida) if self._fila_elegida else None
+        if anterior is not None:
+            anterior.remove_css_class(_CLASE_FILA_ELEGIDA)
+        self._fila_elegida = None
+
+    def _desmarcar_y(self, manejador):
+        """Los botones de la barra (Hoy, zoom, escalas) mueven el eje por su cuenta: la fila
+        elegida deja de ser la referencia y se deselecciona antes de ejecutar su acción."""
+
+        def _envuelto(*args):
+            self._desmarcar_fila()
+            return manejador(*args)
+
+        return _envuelto
+
+    def _marcar_fila(self, clave: tuple[int, int | None]) -> None:
+        anterior = self._filas_laterales.get(self._fila_elegida) if self._fila_elegida else None
+        if anterior is not None:
+            anterior.remove_css_class(_CLASE_FILA_ELEGIDA)
+        self._fila_elegida = clave
+        nueva = self._filas_laterales.get(clave)
+        if nueva is not None:
+            nueva.add_css_class(_CLASE_FILA_ELEGIDA)
+
+    def _ir_a_fila(self, fila: FilaUso, segmento: SegmentoUso | None) -> None:
+        self._marcar_fila((fila.recurso.id, None if segmento is None else segmento.tarea_id))
+        if segmento is None:
+            if not fila.segmentos:
+                return
+            segmento = min(fila.segmentos, key=lambda sg: sg.fecha_inicio)
+        adj = self._canvas_scroller.get_hadjustment()
+        if adj.get_page_size() <= 0:
+            return
+        x_ini = ganttcalc.fecha_a_x(segmento.fecha_inicio, self._lienzo.fecha_origen, self._lienzo.px_por_dia)
+        x_fin = ganttcalc.fecha_a_x(segmento.fecha_fin, self._lienzo.fecha_origen, self._lienzo.px_por_dia)
+        if adj.get_value() <= x_ini and x_fin <= adj.get_value() + adj.get_page_size():
+            return  # ya se ve entera: no mover el eje sin necesidad
+        objetivo = x_ini - adj.get_page_size() * 0.25
+        adj.set_value(max(0.0, min(objetivo, adj.get_upper() - adj.get_page_size())))
 
     def _on_editar_desde_lienzo(self, tarea_id: int) -> None:
         if self._on_editar_tarea is None:

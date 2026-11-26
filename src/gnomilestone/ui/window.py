@@ -41,7 +41,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._proyecto_actual: Proyecto | None = None
 
         header = Gtk.HeaderBar()
-        header.set_title_widget(Gtk.Label(label="GnoMilestone"))
+        self._titulo_label = Gtk.Label(label="GnoMilestone")
+        header.set_title_widget(self._titulo_label)
         sidebar_button = Gtk.ToggleButton(
             icon_name="sidebar-show-symbolic", tooltip_text=_("Mostrar/ocultar proyectos"),
             active=True,
@@ -64,6 +65,7 @@ class MainWindow(Gtk.ApplicationWindow):
         header.pack_end(self._build_menu_button())
         self.set_titlebar(header)
         self._global_button = global_button
+        self._sidebar_button = sidebar_button
 
         self._paned = Gtk.Paned(
             orientation=Gtk.Orientation.HORIZONTAL, position=_ANCHO_PANEL_PROYECTOS
@@ -229,8 +231,23 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_crear_proyecto_rapido(self, _button: Gtk.Button) -> None:
         self._project_list.crear_proyecto(_("Nuevo proyecto"))
 
+    def _actualizar_titulo(self) -> None:
+        """Con el panel de proyectos plegado, el título lleva el nombre del proyecto abierto
+        (si no, no se sabría en cuál se está)."""
+        nombre = None
+        if (
+            self._proyecto_actual is not None
+            and not self._sidebar_button.get_active()
+            and not self._global_button.get_active()
+        ):
+            nombre = self._proyecto_actual.nombre
+        texto = f"GnoMilestone — {nombre}" if nombre else "GnoMilestone"
+        self._titulo_label.set_label(texto)
+        self.set_title(texto)
+
     def _on_sidebar_toggled(self, button: Gtk.ToggleButton) -> None:
         visible = button.get_active()
+        self._actualizar_titulo()
         if visible:
             # Volver a insertar el hijo evita que Gtk.Paned conserve un panel visible
             # pero con ancho cero después de ocultarlo.
@@ -244,6 +261,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._paned.set_start_child(None)
 
     def _on_global_toggled(self, button: Gtk.ToggleButton) -> None:
+        self._actualizar_titulo()
         if button.get_active():
             self._global_gantt.refrescar_proyectos()
             self._global_uso.refrescar_proyectos()
@@ -256,6 +274,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_project_selected(self, proyecto: Proyecto | None) -> None:
         self._proyecto_actual = proyecto
         self._global_button.set_active(False)
+        self._actualizar_titulo()
         if proyecto is None:
             self._detail_stack.set_visible_child_name("empty")
             return

@@ -36,8 +36,16 @@ class GlobalUsageView(Gtk.Box):
             margin_end=6,
         )
         panel.append(Gtk.Label(label=_("Proyectos a sumar"), xalign=0))
-        self._checks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, vexpand=True)
-        panel.append(self._checks_box)
+        self._checks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        # Con muchos proyectos la lista no debe empujar la ventana ni quedar recortada.
+        scroll_checks = Gtk.ScrolledWindow(
+            vexpand=True,
+            hscrollbar_policy=Gtk.PolicyType.NEVER,
+            vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
+            propagate_natural_height=False,
+        )
+        scroll_checks.set_child(self._checks_box)
+        panel.append(scroll_checks)
         panel.append(Gtk.Separator())
         self._completadas = Gtk.CheckButton(label=_("Mostrar completadas"))
         self._completadas.set_active(True)

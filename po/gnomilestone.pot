@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.2.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-25 20:52+0100\n"
+"POT-Creation-Date: 2026-11-25 21:08+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -909,7 +909,6 @@ msgstr ""
 #: src/gnomilestone/ui/diagram_window.py:252 src/gnomilestone/ui/dialogos.py:32
 #: src/gnomilestone/ui/documentation_view.py:1092
 #: src/gnomilestone/ui/elegir_original.py:61
-#: src/gnomilestone/ui/github_link_dialog.py:117
 #: src/gnomilestone/ui/global_gantt_view.py:97
 #: src/gnomilestone/ui/hito_dialog.py:91 src/gnomilestone/ui/hito_dialog.py:203
 #: src/gnomilestone/ui/labels_dialog.py:247
@@ -923,6 +922,7 @@ msgstr ""
 #: src/gnomilestone/ui/resource_dialog.py:892
 #: src/gnomilestone/ui/resource_dialog.py:954
 #: src/gnomilestone/ui/resource_dialog.py:1027
+#: src/gnomilestone/ui/sync_window.py:141
 #: src/gnomilestone/ui/task_dialog.py:367
 #: src/gnomilestone/ui/task_dialog.py:909
 #: src/gnomilestone/ui/task_dialog.py:1062
@@ -1533,56 +1533,6 @@ msgstr ""
 msgid "Mostrar lista de tareas"
 msgstr ""
 
-#: src/gnomilestone/ui/github_link_dialog.py:44
-#: src/gnomilestone/ui/github_link_dialog.py:68
-msgid "Vincular con GitHub"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:74
-msgid "Usuario u Organización de GitHub"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:89
-msgid "Repositorio (opcional para sincronizar Issues)"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:92
-#: src/gnomilestone/ui/github_link_dialog.py:102
-#: src/gnomilestone/ui/github_link_dialog.py:143
-#: src/gnomilestone/ui/github_link_dialog.py:156
-#: src/gnomilestone/ui/resource_dialog.py:545
-msgid "Ninguno"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:99
-msgid "GitHub Project V2 (opcional para Tablero y fechas)"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:107
-msgid "Cargar repositorios y proyectos"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:121
-msgid "Guardar vinculación"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:136
-msgid "Introduce un propietario primero."
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:139
-msgid "Consultando GitHub…"
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:170
-msgid "Datos cargados correctamente."
-msgstr ""
-
-#: src/gnomilestone/ui/github_link_dialog.py:173
-#, python-brace-format
-msgid "Error al conectar con GitHub: {error}"
-msgstr ""
-
 #: src/gnomilestone/ui/global_gantt_view.py:45
 msgid "Proyectos a comparar"
 msgstr ""
@@ -2153,7 +2103,7 @@ msgid "Nueva tarea"
 msgstr ""
 
 #: src/gnomilestone/ui/project_detail_view.py:123
-msgid "Vincular con repositorio o proyecto de GitHub"
+msgid "Sincronización: vínculo con GitHub y plantillas"
 msgstr ""
 
 #: src/gnomilestone/ui/project_detail_view.py:130
@@ -2725,6 +2675,13 @@ msgstr ""
 msgid "Sin teléfono"
 msgstr ""
 
+#: src/gnomilestone/ui/resource_dialog.py:545
+#: src/gnomilestone/ui/sync_window.py:99 src/gnomilestone/ui/sync_window.py:109
+#: src/gnomilestone/ui/sync_window.py:168
+#: src/gnomilestone/ui/sync_window.py:181
+msgid "Ninguno"
+msgstr ""
+
 #: src/gnomilestone/ui/resource_dialog.py:553
 #, python-brace-format
 msgid "{e} equipos · {m} medios · {l} lugares"
@@ -2912,6 +2869,73 @@ msgstr ""
 
 #: src/gnomilestone/ui/selector_icono.py:51
 msgid "Por defecto"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:45
+msgid "Sincronización"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:75
+msgid "Vincular con GitHub"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:81
+msgid "Usuario u Organización de GitHub"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:96
+msgid "Repositorio (opcional para sincronizar Issues)"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:106
+msgid "GitHub Project V2 (opcional para Tablero y fechas)"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:114
+msgid "Cargar repositorios y proyectos"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:124
+msgid "Plantillas de GitHub"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:126
+msgid "Usar el flujo de estados de GitHub"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:131
+msgid "Añadir las etiquetas por defecto de GitHub"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:145
+msgid "Guardar vinculación"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:161
+msgid "Introduce un propietario primero."
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:164
+msgid "Consultando GitHub…"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:195
+msgid "Datos cargados correctamente."
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:198
+#, python-brace-format
+msgid "Error al conectar con GitHub: {error}"
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:223
+#, python-brace-format
+msgid "Flujo aplicado: {c} columnas creadas, {r} renombradas, {k} conservadas."
+msgstr ""
+
+#: src/gnomilestone/ui/sync_window.py:234
+#, python-brace-format
+msgid "Etiquetas añadidas: {n}."
 msgstr ""
 
 #: src/gnomilestone/ui/table_view.py:130

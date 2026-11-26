@@ -14,6 +14,7 @@ class Proyecto:
     fecha_fin_estimada: str | None = None
     estado: str = "pendiente"
     archivado: bool = False
+    proveedor: str = "github"  # una sola conexión por proyecto (ver proveedores.py)
     github_repo_owner: str | None = None
     github_repo_name: str | None = None
     github_project_v2_id: str | None = None

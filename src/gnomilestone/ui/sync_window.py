@@ -8,10 +8,13 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+from gnomilestone import proveedores
 from gnomilestone.github import GitHubClient, GitHubError
 from gnomilestone.i18n import _
 from gnomilestone.models import Proyecto
+from gnomilestone.proveedores import PROVEEDORES, Proveedor
 from gnomilestone.store import Store
+from gnomilestone.sync import GitHubSyncManager
 
 log = logging.getLogger(__name__)
 
@@ -34,23 +37,44 @@ def _boton_con_icono(texto: str, icon_name: str) -> Gtk.Button:
     return boton
 
 
-class GitHubLinkDialog(Gtk.Window):
-    """Diálogo para vincular un proyecto local con un repositorio y/o Project V2 de GitHub."""
+class SyncWindow(Gtk.Window):
+    """Ventana de sincronización: una página por proveedor (ahora solo GitHub) con el vínculo
+    del proyecto y las plantillas propias de la plataforma. Un proyecto tiene una sola
+    conexión: guardar el vínculo en una página fija ese proveedor como el del proyecto."""
 
     def __init__(
         self, parent: Gtk.Window, store: Store, proyecto: Proyecto, on_linked: Callable[[], None]
     ) -> None:
         super().__init__(
-            title=_("Vincular con GitHub"),
+            title=_("Sincronización"),
             transient_for=parent,
             modal=True,
-            default_width=420,
+            default_width=480,
         )
         self._store = store
         self._proyecto = proyecto
         self._on_linked = on_linked
-        self._client = GitHubClient()
 
+        pila = Gtk.Stack()
+        # Cada proveedor registrado en proveedores.py aporta su página; las que aún no tienen
+        # constructor propio (proveedores sin implementar) no se muestran.
+        constructores = {"github": self._pagina_github}
+        for proveedor in PROVEEDORES.values():
+            if proveedor.id in constructores:
+                pila.add_titled(constructores[proveedor.id](proveedor), proveedor.id, proveedor.nombre)
+        pila.set_visible_child_name(proveedores.obtener(proyecto.proveedor).id)
+        if len(PROVEEDORES) > 1:
+            raiz = Gtk.Box()
+            raiz.append(Gtk.StackSidebar(stack=pila))
+            raiz.append(pila)
+            self.set_child(raiz)
+        else:
+            self.set_child(pila)
+
+    def _pagina_github(self, proveedor: Proveedor) -> Gtk.Widget:
+        self._proveedor = proveedor
+        self._client = GitHubClient()
+        proyecto = self._proyecto
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
             spacing=12,
@@ -59,10 +83,9 @@ class GitHubLinkDialog(Gtk.Window):
             margin_start=16,
             margin_end=16,
         )
-        self.set_child(box)
 
         titulo = Gtk.Box(spacing=8)
-        icono_titulo = Gtk.Image.new_from_icon_name("github-symbolic")
+        icono_titulo = Gtk.Image.new_from_icon_name(proveedor.icono)
         icono_titulo.set_pixel_size(24)
         titulo.append(icono_titulo)
         etiqueta_titulo = Gtk.Label(label=_("Vincular con GitHub"), xalign=0)
@@ -112,6 +135,23 @@ class GitHubLinkDialog(Gtk.Window):
         self._status_label.add_css_class("dim-label")
         box.append(self._status_label)
 
+        # Plantillas propias de GitHub
+        box.append(Gtk.Separator(margin_top=6))
+        box.append(_etiqueta_con_icono(_("Plantillas de GitHub"), "document-new-symbolic"))
+        flujo_btn = _boton_con_icono(
+            _("Usar el flujo de estados de GitHub"), "view-grid-symbolic"
+        )
+        flujo_btn.connect("clicked", self._on_aplicar_flujo)
+        box.append(flujo_btn)
+        etiquetas_btn = _boton_con_icono(
+            _("Añadir las etiquetas por defecto de GitHub"), "etiqueta-symbolic"
+        )
+        etiquetas_btn.connect("clicked", self._on_aplicar_etiquetas)
+        box.append(etiquetas_btn)
+        self._plantillas_label = Gtk.Label(xalign=0, wrap=True)
+        self._plantillas_label.add_css_class("dim-label")
+        box.append(self._plantillas_label)
+
         # Botón guardar
         btn_box = Gtk.Box(spacing=8, halign=Gtk.Align.END, margin_top=12)
         cancel_btn = _boton_con_icono(_("Cancelar"), "window-close-symbolic")
@@ -126,6 +166,7 @@ class GitHubLinkDialog(Gtk.Window):
 
         if owner_default:
             self._cargar_opciones()
+        return box
 
     def _on_owner_changed(self, _entry: Gtk.Entry) -> None:
         pass
@@ -184,6 +225,7 @@ class GitHubLinkDialog(Gtk.Window):
             else None
         )
 
+        self._proyecto.proveedor = self._proveedor.id
         self._proyecto.github_repo_owner = owner
         self._proyecto.github_repo_name = repo
         self._proyecto.github_project_v2_id = project_num
@@ -191,3 +233,25 @@ class GitHubLinkDialog(Gtk.Window):
 
         self._on_linked()
         self.destroy()
+
+    def _on_aplicar_flujo(self, _button: Gtk.Button) -> None:
+        informe = self._store.aplicar_flujo(self._proyecto.id, self._proveedor.flujo_estados)
+        # Sin esto el siguiente pull traería de vuelta las columnas originales del Status.
+        GitHubSyncManager(self._store).push_columnas(self._proyecto.id)
+        self._plantillas_label.set_text(
+            _("Flujo aplicado: {c} columnas creadas, {r} renombradas, {k} conservadas.").format(
+                c=len(informe["creadas"]),
+                r=len(informe["renombradas"]),
+                k=len(informe["conservadas"]),
+            )
+        )
+        self._on_linked()
+
+    def _on_aplicar_etiquetas(self, _button: Gtk.Button) -> None:
+        creadas = self._store.aplicar_etiquetas(
+            self._proyecto.id, self._proveedor.etiquetas_por_defecto
+        )
+        self._plantillas_label.set_text(
+            _("Etiquetas añadidas: {n}.").format(n=len(creadas))
+        )
+        self._on_linked()
