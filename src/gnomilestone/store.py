@@ -923,6 +923,12 @@ class Store:
                 db.execute("ALTER TABLE tarea ADD COLUMN duplicado_de_id INTEGER")
             db.execute("PRAGMA user_version = 47")
             version = 47
+        if version < 48:
+            columnas = {fila[1] for fila in db.execute("PRAGMA table_info(proyecto)")}
+            if "proveedor" not in columnas:
+                db.execute("ALTER TABLE proyecto ADD COLUMN proveedor TEXT NOT NULL DEFAULT 'github'")
+            db.execute("PRAGMA user_version = 48")
+            version = 48
 
     def _migrar_hitos(self, db: sqlite3.Connection) -> None:
         """Los Hitos pasan de ser tareas con `es_hito` a una entidad propia (tabla `hito`).
@@ -1110,12 +1116,12 @@ class Store:
             db.execute(
                 "UPDATE proyecto SET nombre = ?, descripcion = ?, fecha_inicio = ?, "
                 "icon_name = ?, icon_path = ?, fecha_fin_estimada = ?, estado = ?, archivado = ?, "
-                "github_repo_owner = ?, github_repo_name = ?, "
+                "proveedor = ?, github_repo_owner = ?, github_repo_name = ?, "
                 "github_project_v2_id = ?, actualizado = datetime('now') WHERE id = ?",
                 (proyecto.nombre, proyecto.descripcion, proyecto.fecha_inicio,
                  proyecto.icon_name, proyecto.icon_path, proyecto.fecha_fin_estimada, proyecto.estado,
                  int(proyecto.archivado),
-                 proyecto.github_repo_owner,
+                 proyecto.proveedor, proyecto.github_repo_owner,
                  proyecto.github_repo_name, proyecto.github_project_v2_id, proyecto.id),
             )
 
@@ -1245,8 +1251,14 @@ class Store:
             return True
 
     def aplicar_flujo_github(self, proyecto_id: int) -> dict[str, list[str]]:
-        """Deja el tablero con el flujo de columnas de GitHub (Backlog, Todo, In progress, In
-        review, Done, Not planned, Duplicate), cada una enlazada a su estado de issue.
+        return self.aplicar_flujo(proyecto_id, estado_issue.FLUJO_GITHUB)
+
+    def aplicar_flujo(
+        self, proyecto_id: int, flujo: tuple[tuple[str, str, str], ...]
+    ) -> dict[str, list[str]]:
+        """Deja el tablero con el flujo de columnas de un proveedor (el de GitHub: Backlog, Todo,
+        In progress, In review, Done, Not planned, Duplicate), cada una enlazada a su estado de
+        issue.
 
         Reutiliza (renombra) las columnas que ya hacían de alguna (Pendiente, En progreso,
         Hecho…) y crea las que faltan, sin tocar las tareas: siguen en su columna. Las columnas
@@ -1256,7 +1268,7 @@ class Store:
         usadas: set[int] = set()
         orden: list[int] = []
         informe: dict[str, list[str]] = {"creadas": [], "renombradas": [], "conservadas": []}
-        for nombre, categoria, descripcion in estado_issue.FLUJO_GITHUB:
+        for nombre, categoria, descripcion in flujo:
             columna = estado_issue.columna_para(categoria, existentes, usadas)
             if columna is None:
                 columna = self.crear_estado(
@@ -1763,13 +1775,18 @@ class Store:
             return [_etiqueta_de_fila(f) for f in filas]
 
     def aplicar_etiquetas_por_defecto(self, proyecto_id: int) -> list[Etiqueta]:
-        """Añade las etiquetas por defecto de GitHub (nombre, color y descripción) que el
+        return self.aplicar_etiquetas(proyecto_id, etiquetas.ETIQUETAS_POR_DEFECTO)
+
+    def aplicar_etiquetas(
+        self, proyecto_id: int, plantilla: tuple[tuple[str, str, str], ...]
+    ) -> list[Etiqueta]:
+        """Añade las etiquetas de la plantilla de un proveedor (nombre, color y descripción) que el
         proyecto aún no tenga. Las que ya existen (aunque sea con otro color o descripción) se
         dejan como están. Devuelve las que se han creado."""
         existentes = {e.nombre.casefold() for e in self.listar_etiquetas(proyecto_id)}
         return [
             self.asegurar_etiqueta(proyecto_id, nombre, color, descripcion)
-            for nombre, color, descripcion in etiquetas.ETIQUETAS_POR_DEFECTO
+            for nombre, color, descripcion in plantilla
             if nombre.casefold() not in existentes
         ]
 

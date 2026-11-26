@@ -994,3 +994,42 @@ def test_limitar_proyecto_a_jerarquia_corrige_lo_que_trae_el_pull(store):
     assert store.limitar_proyecto_a_jerarquia(proyecto.id) == [hija.id]
     assert store.obtener_tarea(hija.id).duracion_dias == 1
     assert store.limitar_proyecto_a_jerarquia(proyecto.id) == []
+
+
+def test_proyecto_nuevo_tiene_proveedor_github_y_se_guarda(store):
+    proyecto = store.crear_proyecto("Conexión")
+    assert proyecto.proveedor == "github"
+    proyecto.proveedor = "gitlab"
+    store.actualizar_proyecto(proyecto)
+    assert store.obtener_proyecto(proyecto.id).proveedor == "gitlab"
+
+
+def test_migracion_48_marca_los_proyectos_existentes_como_github(tmp_path):
+    ruta = tmp_path / "vieja.db"
+    store = Store(ruta)
+    proyecto = store.crear_proyecto("Antiguo")
+    db = sqlite3.connect(ruta)
+    db.execute("ALTER TABLE proyecto DROP COLUMN proveedor")
+    db.execute("PRAGMA user_version = 47")
+    db.commit()
+    db.close()
+    assert Store(ruta).obtener_proyecto(proyecto.id).proveedor == "github"
+
+
+def test_plantillas_por_proveedor_equivalen_a_las_de_github(store):
+    from gnomilestone import proveedores
+
+    proveedor = proveedores.obtener("github")
+    p1 = store.crear_proyecto("Uno")
+    p2 = store.crear_proyecto("Dos")
+    assert store.aplicar_flujo(p1.id, proveedor.flujo_estados) == store.aplicar_flujo_github(p2.id)
+    assert [e.nombre for e in store.aplicar_etiquetas(p1.id, proveedor.etiquetas_por_defecto)] == [
+        e.nombre for e in store.aplicar_etiquetas_por_defecto(p2.id)
+    ]
+
+
+def test_proveedor_desconocido_cae_en_el_de_por_defecto():
+    from gnomilestone import proveedores
+
+    assert proveedores.obtener("bitbucket").id == "github"
+    assert proveedores.obtener(None).id == "github"
