@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gnomilestone"
-version = "0.2.0"
+version = "0.3.0"
 description = "Gestor de proyectos de escritorio con diagrama de Gantt e integración con GitHub"
 readme = "README.md"
 license = "GPL-3.0-or-later"

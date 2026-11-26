@@ -5,6 +5,26 @@ en este archivo.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-26
+
+### Added
+
+- Ventana «Sincronización» (#86): reúne el vínculo con GitHub y sus plantillas, «Usar el flujo de estados de GitHub» (que además envía las columnas al Status del Project) y «Añadir las etiquetas por defecto de GitHub»
+- Preparación multiproveedor (#86): cada proyecto tiene una sola conexión (`proyecto.proveedor`, migración 48) y cada proveedor y sus plantillas son datos (`proveedores.py`); hoy solo existe GitHub
+- Gantt: al elegir una tarea en el árbol, el calendario se desplaza a su barra
+- Uso (de proyecto y global): pulsar una fila del panel izquierdo la resalta y lleva el calendario a su barra; «Hoy», zoom y escalas quitan el resaltado
+- Con el panel de proyectos plegado, el título de la ventana indica el proyecto abierto
+
+### Changed
+
+- El diálogo de tarea se abre más grande (hasta 1000 × 960, sin pasar del 90 % de la pantalla)
+
+### Fixed
+
+- Una subtarea ya no puede salirse de las fechas de su padre: la regla, que solo se aplicaba al arrastrar en el Gantt, vale también en el diálogo de tarea y al sincronizar con GitHub
+- Gantt: ampliar o mover una tarea ya no devuelve la vista arriba del todo (queda un ligero parpadeo)
+- Uso global: la lista de proyectos a sumar tiene scroll propio
+
 ## [0.2.0] - 2026-11-25
 
 ### Added

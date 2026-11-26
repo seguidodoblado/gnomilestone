@@ -161,7 +161,7 @@ class GitHubClient:
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
-            "User-Agent": "GnoMilestone/0.2.0",
+            "User-Agent": "GnoMilestone/0.3.0",
             "X-GitHub-Api-Version": "2022-11-28",
             **(extra_headers or {}),
         }

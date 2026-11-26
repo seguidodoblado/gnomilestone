@@ -1,3 +1,17 @@
+gnomilestone (0.3.0-1) noble; urgency=medium
+
+  * Ventana de sincronización de GitHub con sus plantillas y preparación
+    multiproveedor: una conexión por proyecto (esquema de la base de
+    datos 48).
+  * Gantt y Uso: pulsar una fila del panel izquierdo lleva el calendario
+    a su barra.
+  * Las subtareas no se salen de las fechas de su padre, tampoco en el
+    diálogo de tarea ni al sincronizar.
+  * Título de ventana con el proyecto, diálogo de tarea más grande y
+    arreglos de scroll en Gantt y Uso global.
+
+ -- José Antonio Seguido Doblado <jose.antonio.seguido@gmail.com>  Thu, 26 Nov 2026 01:58:20 +0100
+
 gnomilestone (0.2.0-1) noble; urgency=medium
 
   * Sincronización con GitHub más completa: envío antes de traer, fusión

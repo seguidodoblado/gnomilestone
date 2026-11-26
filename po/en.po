@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gnomilestone 0.2.0\n"
 "Report-Msgid-Bugs-To: jose.antonio.seguido@gmail.com\n"
-"POT-Creation-Date: 2026-11-25 21:08+0100\n"
+"POT-Creation-Date: 2026-11-26 01:58+0100\n"
 "PO-Revision-Date: 2026-11-06 12:30+0100\n"
 "Last-Translator: José Antonio Seguido Doblado <jose.antonio.seguido@gmail."
 "com>\n"
@@ -837,7 +837,7 @@ msgstr ""
 "- Negative:\n"
 
 #: src/gnomilestone/recurso_campos.py:29 src/gnomilestone/recurso_campos.py:43
-#: src/gnomilestone/recurso_campos.py:55 src/gnomilestone/ui/task_dialog.py:481
+#: src/gnomilestone/recurso_campos.py:55 src/gnomilestone/ui/task_dialog.py:499
 #: src/gnomilestone/ui/task_tree_view.py:528
 #: src/gnomilestone/ui/task_tree_view.py:579
 msgid "Tipo"
@@ -898,7 +898,7 @@ msgstr "Warranty until (YYYY-MM-DD)"
 
 #: src/gnomilestone/recurso_campos.py:38
 #: src/gnomilestone/ui/project_dialog.py:115
-#: src/gnomilestone/ui/task_dialog.py:431
+#: src/gnomilestone/ui/task_dialog.py:449
 #: src/gnomilestone/ui/task_tree_view.py:526
 #: src/gnomilestone/ui/task_tree_view.py:577
 msgid "Estado"
@@ -1002,11 +1002,11 @@ msgstr "Integrations"
 msgid "Funcionalidades"
 msgstr "Features"
 
-#: src/gnomilestone/store.py:268 src/gnomilestone/ui/task_dialog.py:317
+#: src/gnomilestone/store.py:268 src/gnomilestone/ui/task_dialog.py:335
 msgid "General"
 msgstr "General"
 
-#: src/gnomilestone/store.py:1214
+#: src/gnomilestone/store.py:1220
 msgid "No Status"
 msgstr "No Status"
 
@@ -1032,7 +1032,7 @@ msgstr ""
 "The GitHub board no longer uses the default scheme (Todo/In Progress/Done): "
 "choose manually, in Board settings, which column completes tasks."
 
-#: src/gnomilestone/sync.py:733
+#: src/gnomilestone/sync.py:735
 #, python-brace-format
 msgid ""
 "{n} tareas se han quedado sin columna real de GitHub y se han agrupado en "
@@ -1041,43 +1041,43 @@ msgstr ""
 "{n} tasks no longer have a real GitHub column and have been grouped under "
 "“No Status”."
 
-#: src/gnomilestone/sync.py:745
+#: src/gnomilestone/sync.py:747
 msgid "título"
 msgstr "title"
 
-#: src/gnomilestone/sync.py:746
+#: src/gnomilestone/sync.py:748
 msgid "descripción"
 msgstr "description"
 
-#: src/gnomilestone/sync.py:747
+#: src/gnomilestone/sync.py:749
 msgid "columna"
 msgstr "column"
 
-#: src/gnomilestone/sync.py:748
+#: src/gnomilestone/sync.py:750
 msgid "fecha de inicio"
 msgstr "start date"
 
-#: src/gnomilestone/sync.py:749
+#: src/gnomilestone/sync.py:751
 msgid "duración"
 msgstr "duration"
 
-#: src/gnomilestone/sync.py:750
+#: src/gnomilestone/sync.py:752
 msgid "fecha de fin"
 msgstr "end date"
 
-#: src/gnomilestone/sync.py:751
+#: src/gnomilestone/sync.py:753
 msgid "prioridad"
 msgstr "priority"
 
-#: src/gnomilestone/sync.py:752
+#: src/gnomilestone/sync.py:754
 msgid "tipo"
 msgstr "type"
 
-#: src/gnomilestone/sync.py:753
+#: src/gnomilestone/sync.py:755
 msgid "avance"
 msgstr "progress"
 
-#: src/gnomilestone/sync.py:794
+#: src/gnomilestone/sync.py:796
 #, python-brace-format
 msgid ""
 "«{titulo}»: {campos} se cambió en local y en GitHub; se mantiene la versión "
@@ -1086,7 +1086,7 @@ msgstr ""
 "“{titulo}”: {campos} changed both locally and on GitHub; the local version "
 "is kept."
 
-#: src/gnomilestone/sync.py:936
+#: src/gnomilestone/sync.py:938
 #, python-brace-format
 msgid ""
 "El issue #{numero} de la tarea «{titulo}» ya no existe en GitHub: se ha "
@@ -1123,7 +1123,7 @@ msgstr "Archived tasks"
 
 #: src/gnomilestone/ui/archived_dialog.py:57
 #: src/gnomilestone/ui/hito_dialog.py:167 src/gnomilestone/ui/table_view.py:194
-#: src/gnomilestone/ui/task_dialog.py:749
+#: src/gnomilestone/ui/task_dialog.py:767
 msgid "Buscar tarea…"
 msgstr "Search task…"
 
@@ -1180,10 +1180,10 @@ msgstr "Name"
 #: src/gnomilestone/ui/resource_dialog.py:892
 #: src/gnomilestone/ui/resource_dialog.py:954
 #: src/gnomilestone/ui/resource_dialog.py:1027
-#: src/gnomilestone/ui/sync_window.py:141
-#: src/gnomilestone/ui/task_dialog.py:367
-#: src/gnomilestone/ui/task_dialog.py:909
-#: src/gnomilestone/ui/task_dialog.py:1062
+#: src/gnomilestone/ui/sync_window.py:157
+#: src/gnomilestone/ui/task_dialog.py:385
+#: src/gnomilestone/ui/task_dialog.py:927
+#: src/gnomilestone/ui/task_dialog.py:1080
 msgid "Cancelar"
 msgstr "Cancel"
 
@@ -1221,9 +1221,9 @@ msgstr "Rename…"
 #: src/gnomilestone/ui/project_list_view.py:211
 #: src/gnomilestone/ui/resource_dialog.py:324
 #: src/gnomilestone/ui/resource_dialog.py:1027
-#: src/gnomilestone/ui/task_dialog.py:356
-#: src/gnomilestone/ui/task_dialog.py:909
-#: src/gnomilestone/ui/task_dialog.py:1062
+#: src/gnomilestone/ui/task_dialog.py:374
+#: src/gnomilestone/ui/task_dialog.py:927
+#: src/gnomilestone/ui/task_dialog.py:1080
 msgid "Eliminar"
 msgstr "Delete"
 
@@ -1443,7 +1443,7 @@ msgstr "Diagram title"
 #: src/gnomilestone/ui/project_dialog.py:134
 #: src/gnomilestone/ui/resource_dialog.py:895
 #: src/gnomilestone/ui/resource_dialog.py:957
-#: src/gnomilestone/ui/task_dialog.py:387
+#: src/gnomilestone/ui/task_dialog.py:405
 msgid "Guardar"
 msgstr "Save"
 
@@ -1495,15 +1495,15 @@ msgid "Ajustar a la vista"
 msgstr "Fit to view"
 
 #: src/gnomilestone/ui/diagram_window.py:140
-#: src/gnomilestone/ui/gantt_view.py:87
-#: src/gnomilestone/ui/resource_usage_view.py:611
+#: src/gnomilestone/ui/gantt_view.py:90
+#: src/gnomilestone/ui/resource_usage_view.py:618
 #: src/gnomilestone/ui/zoom.py:42
 msgid "Alejar"
 msgstr "Zoom out"
 
 #: src/gnomilestone/ui/diagram_window.py:141
-#: src/gnomilestone/ui/gantt_view.py:90
-#: src/gnomilestone/ui/resource_usage_view.py:614
+#: src/gnomilestone/ui/gantt_view.py:93
+#: src/gnomilestone/ui/resource_usage_view.py:621
 #: src/gnomilestone/ui/zoom.py:43
 msgid "Acercar"
 msgstr "Zoom in"
@@ -1527,7 +1527,7 @@ msgstr "If you close now, the changes to the diagram will be lost."
 
 #: src/gnomilestone/ui/diagram_window.py:226
 #: src/gnomilestone/ui/note_window.py:195
-#: src/gnomilestone/ui/task_dialog.py:1026
+#: src/gnomilestone/ui/task_dialog.py:1044
 msgid "Seguir editando"
 msgstr "Keep editing"
 
@@ -1580,7 +1580,7 @@ msgid "Decisiones técnicas"
 msgstr "Technical decisions"
 
 #: src/gnomilestone/ui/documentation_view.py:107
-#: src/gnomilestone/ui/task_dialog.py:323
+#: src/gnomilestone/ui/task_dialog.py:341
 msgid "Historial"
 msgstr "History"
 
@@ -1730,23 +1730,23 @@ msgstr "Achieved"
 msgid "Por conseguir"
 msgstr "Not yet achieved"
 
-#: src/gnomilestone/ui/gantt_drawing_area.py:452
-#: src/gnomilestone/ui/resource_usage_view.py:498
+#: src/gnomilestone/ui/gantt_drawing_area.py:463
+#: src/gnomilestone/ui/resource_usage_view.py:501
 #, python-brace-format
 msgid "{inicio} → {fin} · {n} día(s)"
 msgstr "{inicio} → {fin} · {n} day(s)"
 
-#: src/gnomilestone/ui/gantt_drawing_area.py:458
+#: src/gnomilestone/ui/gantt_drawing_area.py:469
 #, python-format, python-brace-format
 msgid "{pct} % completado (calculado desde sus subtareas)"
 msgstr "{pct} % completed (calculated from its subtasks)"
 
-#: src/gnomilestone/ui/gantt_drawing_area.py:460
+#: src/gnomilestone/ui/gantt_drawing_area.py:471
 #, python-format, python-brace-format
 msgid "{pct} % completado"
 msgstr "{pct} % complete"
 
-#: src/gnomilestone/ui/gantt_drawing_area.py:464
+#: src/gnomilestone/ui/gantt_drawing_area.py:475
 #, python-brace-format
 msgid "Asignados: {nombres}"
 msgstr "Assigned to: {nombres}"
@@ -1776,34 +1776,34 @@ msgstr "Quarterly"
 msgid "Anual"
 msgstr "Yearly"
 
-#: src/gnomilestone/ui/gantt_view.py:68 src/gnomilestone/ui/gantt_view.py:367
+#: src/gnomilestone/ui/gantt_view.py:71 src/gnomilestone/ui/gantt_view.py:404
 msgid "Ocultar lista de tareas"
 msgstr "Hide task list"
 
-#: src/gnomilestone/ui/gantt_view.py:79 src/gnomilestone/ui/hito_dialog.py:34
+#: src/gnomilestone/ui/gantt_view.py:82 src/gnomilestone/ui/hito_dialog.py:34
 #: src/gnomilestone/ui/milestones_view.py:82
 msgid "Nuevo hito"
 msgstr "New milestone"
 
-#: src/gnomilestone/ui/gantt_view.py:80
+#: src/gnomilestone/ui/gantt_view.py:83
 msgid "Un hito es un Milestone de GitHub: una meta con fecha"
 msgstr "A milestone is a GitHub Milestone: a goal with a date"
 
-#: src/gnomilestone/ui/gantt_view.py:94
+#: src/gnomilestone/ui/gantt_view.py:97
 #: src/gnomilestone/ui/project_dialog.py:228
 #: src/gnomilestone/ui/regla_dibujo.py:108
 #: src/gnomilestone/ui/report_view.py:1120
-#: src/gnomilestone/ui/resource_usage_view.py:618
-#: src/gnomilestone/ui/task_dialog.py:127
+#: src/gnomilestone/ui/resource_usage_view.py:625
+#: src/gnomilestone/ui/task_dialog.py:145
 msgid "Hoy"
 msgstr "Today"
 
-#: src/gnomilestone/ui/gantt_view.py:94
-#: src/gnomilestone/ui/resource_usage_view.py:618
+#: src/gnomilestone/ui/gantt_view.py:97
+#: src/gnomilestone/ui/resource_usage_view.py:625
 msgid "Ir a la fecha de hoy"
 msgstr "Go to today's date"
 
-#: src/gnomilestone/ui/gantt_view.py:367
+#: src/gnomilestone/ui/gantt_view.py:404
 msgid "Mostrar lista de tareas"
 msgstr "Show task list"
 
@@ -1812,7 +1812,7 @@ msgid "Proyectos a comparar"
 msgstr "Projects to compare"
 
 #: src/gnomilestone/ui/global_gantt_view.py:46
-#: src/gnomilestone/ui/global_usage_view.py:42
+#: src/gnomilestone/ui/global_usage_view.py:50
 #: src/gnomilestone/ui/project_detail_view.py:101
 msgid "Mostrar completadas"
 msgstr "Show completed"
@@ -1825,14 +1825,14 @@ msgstr "Include tasks at 100 % in the views"
 #: src/gnomilestone/ui/global_gantt_view.py:90
 #: src/gnomilestone/ui/kanban_view.py:433
 #: src/gnomilestone/ui/project_detail_view.py:576
-#: src/gnomilestone/ui/task_dialog.py:1055
+#: src/gnomilestone/ui/task_dialog.py:1073
 #: src/gnomilestone/ui/task_tree_view.py:268
 msgid "Eliminar tarea"
 msgstr "Delete task"
 
 #: src/gnomilestone/ui/global_gantt_view.py:93
 #: src/gnomilestone/ui/project_detail_view.py:579
-#: src/gnomilestone/ui/task_dialog.py:1058
+#: src/gnomilestone/ui/task_dialog.py:1076
 #, python-brace-format
 msgid ""
 "¿Seguro que quieres eliminar «{titulo}»? Sus subtareas y dependencias "
@@ -1853,8 +1853,8 @@ msgstr "There are no completed tasks yet."
 #: src/gnomilestone/ui/milestones_view.py:138
 #: src/gnomilestone/ui/project_dialog.py:231
 #: src/gnomilestone/ui/project_dialog.py:246
-#: src/gnomilestone/ui/task_dialog.py:136
-#: src/gnomilestone/ui/task_dialog.py:169
+#: src/gnomilestone/ui/task_dialog.py:154
+#: src/gnomilestone/ui/task_dialog.py:187
 #: src/gnomilestone/ui/versiones_window.py:99
 msgid "Sin fecha"
 msgstr "No date"
@@ -1871,7 +1871,7 @@ msgstr "Edit milestone"
 
 #: src/gnomilestone/ui/hito_dialog.py:49
 #: src/gnomilestone/ui/markdown_editor.py:175
-#: src/gnomilestone/ui/task_dialog.py:416
+#: src/gnomilestone/ui/task_dialog.py:434
 #: src/gnomilestone/ui/task_tree_view.py:524
 #: src/gnomilestone/ui/task_tree_view.py:565
 msgid "Título"
@@ -1884,7 +1884,7 @@ msgstr "Target date"
 
 #: src/gnomilestone/ui/hito_dialog.py:57
 #: src/gnomilestone/ui/project_dialog.py:83
-#: src/gnomilestone/ui/task_dialog.py:421
+#: src/gnomilestone/ui/task_dialog.py:439
 msgid "Descripción"
 msgstr "Description"
 
@@ -1893,7 +1893,7 @@ msgid "También se da por conseguido cuando todas sus tareas están completas."
 msgstr "It also counts as achieved when all its tasks are complete."
 
 #: src/gnomilestone/ui/hito_dialog.py:104
-#: src/gnomilestone/ui/task_dialog.py:1128
+#: src/gnomilestone/ui/task_dialog.py:1146
 msgid "El título no puede estar vacío."
 msgstr "The title cannot be empty."
 
@@ -1968,7 +1968,7 @@ msgid "Color de la etiqueta"
 msgstr "Label color"
 
 #: src/gnomilestone/ui/labels_dialog.py:62
-#: src/gnomilestone/ui/task_dialog.py:139
+#: src/gnomilestone/ui/task_dialog.py:157
 msgid "Aplicar"
 msgstr "Apply"
 
@@ -2248,7 +2248,7 @@ msgstr "If you close now, the changes to the note will be lost."
 msgid "Sistema"
 msgstr "System"
 
-#: src/gnomilestone/ui/preferences.py:78 src/gnomilestone/ui/window.py:161
+#: src/gnomilestone/ui/preferences.py:78 src/gnomilestone/ui/window.py:163
 msgid "Preferencias"
 msgstr "Preferences"
 
@@ -2350,7 +2350,7 @@ msgid "Tablero"
 msgstr "Board"
 
 #: src/gnomilestone/ui/project_detail_view.py:44
-#: src/gnomilestone/ui/window.py:91
+#: src/gnomilestone/ui/window.py:93
 msgid "Gantt"
 msgstr "Gantt"
 
@@ -2359,7 +2359,7 @@ msgid "Recursos"
 msgstr "Resources"
 
 #: src/gnomilestone/ui/project_detail_view.py:46
-#: src/gnomilestone/ui/window.py:92
+#: src/gnomilestone/ui/window.py:94
 msgid "Uso"
 msgstr "Usage"
 
@@ -2384,7 +2384,7 @@ msgid "Documentación del proyecto"
 msgstr "Project documentation"
 
 #: src/gnomilestone/ui/project_detail_view.py:93
-#: src/gnomilestone/ui/task_dialog.py:280
+#: src/gnomilestone/ui/task_dialog.py:298
 msgid "Nueva tarea"
 msgstr "New task"
 
@@ -2444,7 +2444,7 @@ msgstr ""
 "any view. You can recover them from “Archived tasks”."
 
 #: src/gnomilestone/ui/project_detail_view.py:556
-#: src/gnomilestone/ui/task_dialog.py:360
+#: src/gnomilestone/ui/task_dialog.py:378
 msgid "Archivar"
 msgstr "Archive"
 
@@ -2472,7 +2472,7 @@ msgid "Quitar imagen"
 msgstr "Remove image"
 
 #: src/gnomilestone/ui/project_dialog.py:104
-#: src/gnomilestone/ui/task_dialog.py:621
+#: src/gnomilestone/ui/task_dialog.py:639
 msgid "Fecha de inicio"
 msgstr "Start date"
 
@@ -2513,7 +2513,7 @@ msgid ""
 msgstr "Type to filter the list; Enter or «+» creates a project with that name"
 
 #: src/gnomilestone/ui/project_list_view.py:56
-#: src/gnomilestone/ui/window.py:218
+#: src/gnomilestone/ui/window.py:220
 msgid "Crear proyecto"
 msgstr "Create project"
 
@@ -2568,7 +2568,7 @@ msgstr "Planning"
 
 #: src/gnomilestone/ui/report_view.py:124
 #: src/gnomilestone/ui/resource_dialog.py:848
-#: src/gnomilestone/ui/resource_usage_view.py:691
+#: src/gnomilestone/ui/resource_usage_view.py:700
 msgid "Equipo"
 msgstr "Equipment"
 
@@ -2906,7 +2906,7 @@ msgstr "Global resource (available in all projects)"
 
 #: src/gnomilestone/ui/resource_dialog.py:302
 #: src/gnomilestone/ui/resource_dialog.py:869
-#: src/gnomilestone/ui/task_dialog.py:716
+#: src/gnomilestone/ui/task_dialog.py:734
 msgid "Asignado a"
 msgstr "Assigned to"
 
@@ -2976,9 +2976,10 @@ msgid "Sin teléfono"
 msgstr "No phone"
 
 #: src/gnomilestone/ui/resource_dialog.py:545
-#: src/gnomilestone/ui/sync_window.py:99 src/gnomilestone/ui/sync_window.py:109
-#: src/gnomilestone/ui/sync_window.py:168
-#: src/gnomilestone/ui/sync_window.py:181
+#: src/gnomilestone/ui/sync_window.py:115
+#: src/gnomilestone/ui/sync_window.py:125
+#: src/gnomilestone/ui/sync_window.py:184
+#: src/gnomilestone/ui/sync_window.py:197
 msgid "Ninguno"
 msgstr "None"
 
@@ -3088,44 +3089,44 @@ msgstr "Its {n} equipment, media and places will become unassigned."
 msgid "¿Eliminar «{nombre}»?"
 msgstr "Delete “{nombre}”?"
 
-#: src/gnomilestone/ui/resource_usage_view.py:158
+#: src/gnomilestone/ui/resource_usage_view.py:161
 msgid "Poca carga"
 msgstr "Low load"
 
-#: src/gnomilestone/ui/resource_usage_view.py:159
+#: src/gnomilestone/ui/resource_usage_view.py:162
 msgid "Normal"
 msgstr "Normal"
 
-#: src/gnomilestone/ui/resource_usage_view.py:160
+#: src/gnomilestone/ui/resource_usage_view.py:163
 msgid "Sobrecarga (>100 %)"
 msgstr "Overload (>100 %)"
 
-#: src/gnomilestone/ui/resource_usage_view.py:174
+#: src/gnomilestone/ui/resource_usage_view.py:177
 msgid ""
 "Franja superior y fondo de cada persona: carga del día sobre su capacidad"
 msgstr ""
 "Top strip and each person's background: the day's load over their capacity"
 
-#: src/gnomilestone/ui/resource_usage_view.py:503
-#: src/gnomilestone/ui/resource_usage_view.py:976
+#: src/gnomilestone/ui/resource_usage_view.py:506
+#: src/gnomilestone/ui/resource_usage_view.py:986
 #, python-format, python-brace-format
 msgid "{pct} % de dedicación"
 msgstr "{pct}% dedication"
 
-#: src/gnomilestone/ui/resource_usage_view.py:644
+#: src/gnomilestone/ui/resource_usage_view.py:653
 msgid "Buscar persona…"
 msgstr "Search person…"
 
-#: src/gnomilestone/ui/resource_usage_view.py:654
-#: src/gnomilestone/ui/resource_usage_view.py:773
+#: src/gnomilestone/ui/resource_usage_view.py:663
+#: src/gnomilestone/ui/resource_usage_view.py:782
 msgid "Aún no hay recursos. Asígalos al crear o editar una tarea."
 msgstr "No resources yet. Assign them when creating or editing a task."
 
-#: src/gnomilestone/ui/resource_usage_view.py:903
+#: src/gnomilestone/ui/resource_usage_view.py:912
 msgid "Sin sobrecarga de personas ni de equipo."
 msgstr "No overload for people or the team."
 
-#: src/gnomilestone/ui/resource_usage_view.py:911
+#: src/gnomilestone/ui/resource_usage_view.py:920
 #, python-brace-format
 msgid ""
 "{personas} persona(s) sobrecargada(s) · {dias} día(s) de sobrecarga del "
@@ -3134,25 +3135,25 @@ msgstr ""
 "{personas} overloaded person(s) · {dias} day(s) of team overload ({mes} this "
 "month)"
 
-#: src/gnomilestone/ui/resource_usage_view.py:956
+#: src/gnomilestone/ui/resource_usage_view.py:966
 msgid "Mostrar tareas"
 msgstr "Show tasks"
 
-#: src/gnomilestone/ui/resource_usage_view.py:956
+#: src/gnomilestone/ui/resource_usage_view.py:966
 msgid "Ocultar tareas"
 msgstr "Hide tasks"
 
-#: src/gnomilestone/ui/resource_usage_view.py:981
+#: src/gnomilestone/ui/resource_usage_view.py:991
 #, python-brace-format
 msgid "{pct} % máx. · sobrecarga"
 msgstr "{pct}% max · overload"
 
-#: src/gnomilestone/ui/resource_usage_view.py:983
+#: src/gnomilestone/ui/resource_usage_view.py:993
 #, python-brace-format
 msgid "{pct} % máx."
 msgstr "{pct}% max"
 
-#: src/gnomilestone/ui/resource_usage_view.py:985
+#: src/gnomilestone/ui/resource_usage_view.py:995
 msgid "Sin tareas datadas"
 msgstr "No dated tasks"
 
@@ -3176,69 +3177,69 @@ msgstr "Future ▶"
 msgid "Por defecto"
 msgstr "Default"
 
-#: src/gnomilestone/ui/sync_window.py:45
+#: src/gnomilestone/ui/sync_window.py:49
 msgid "Sincronización"
 msgstr "Sync"
 
-#: src/gnomilestone/ui/sync_window.py:75
+#: src/gnomilestone/ui/sync_window.py:91
 msgid "Vincular con GitHub"
 msgstr "Link with GitHub"
 
-#: src/gnomilestone/ui/sync_window.py:81
+#: src/gnomilestone/ui/sync_window.py:97
 msgid "Usuario u Organización de GitHub"
 msgstr "GitHub User or Organization"
 
-#: src/gnomilestone/ui/sync_window.py:96
+#: src/gnomilestone/ui/sync_window.py:112
 msgid "Repositorio (opcional para sincronizar Issues)"
 msgstr "Repository (optional to sync Issues)"
 
-#: src/gnomilestone/ui/sync_window.py:106
+#: src/gnomilestone/ui/sync_window.py:122
 msgid "GitHub Project V2 (opcional para Tablero y fechas)"
 msgstr "GitHub Project V2 (optional for Board and dates)"
 
-#: src/gnomilestone/ui/sync_window.py:114
+#: src/gnomilestone/ui/sync_window.py:130
 msgid "Cargar repositorios y proyectos"
 msgstr "Load repositories and projects"
 
-#: src/gnomilestone/ui/sync_window.py:124
+#: src/gnomilestone/ui/sync_window.py:140
 msgid "Plantillas de GitHub"
 msgstr "GitHub templates"
 
-#: src/gnomilestone/ui/sync_window.py:126
+#: src/gnomilestone/ui/sync_window.py:142
 msgid "Usar el flujo de estados de GitHub"
 msgstr "Use GitHub's status flow"
 
-#: src/gnomilestone/ui/sync_window.py:131
+#: src/gnomilestone/ui/sync_window.py:147
 msgid "Añadir las etiquetas por defecto de GitHub"
 msgstr "Add GitHub's default labels"
 
-#: src/gnomilestone/ui/sync_window.py:145
+#: src/gnomilestone/ui/sync_window.py:161
 msgid "Guardar vinculación"
 msgstr "Save link"
 
-#: src/gnomilestone/ui/sync_window.py:161
+#: src/gnomilestone/ui/sync_window.py:177
 msgid "Introduce un propietario primero."
 msgstr "Enter an owner first."
 
-#: src/gnomilestone/ui/sync_window.py:164
+#: src/gnomilestone/ui/sync_window.py:180
 msgid "Consultando GitHub…"
 msgstr "Querying GitHub…"
 
-#: src/gnomilestone/ui/sync_window.py:195
+#: src/gnomilestone/ui/sync_window.py:211
 msgid "Datos cargados correctamente."
 msgstr "Data loaded successfully."
 
-#: src/gnomilestone/ui/sync_window.py:198
+#: src/gnomilestone/ui/sync_window.py:214
 #, python-brace-format
 msgid "Error al conectar con GitHub: {error}"
 msgstr "Error connecting to GitHub: {error}"
 
-#: src/gnomilestone/ui/sync_window.py:223
+#: src/gnomilestone/ui/sync_window.py:242
 #, python-brace-format
 msgid "Flujo aplicado: {c} columnas creadas, {r} renombradas, {k} conservadas."
 msgstr "Workflow applied: {c} columns created, {r} renamed, {k} kept."
 
-#: src/gnomilestone/ui/sync_window.py:234
+#: src/gnomilestone/ui/sync_window.py:255
 #, python-brace-format
 msgid "Etiquetas añadidas: {n}."
 msgstr "Labels added: {n}."
@@ -3253,7 +3254,7 @@ msgstr "· {n} subtask"
 msgid "· {n} subtareas"
 msgstr "· {n} subtasks"
 
-#: src/gnomilestone/ui/table_view.py:139 src/gnomilestone/ui/task_dialog.py:747
+#: src/gnomilestone/ui/table_view.py:139 src/gnomilestone/ui/task_dialog.py:765
 msgid "Depende de"
 msgstr "Depends on"
 
@@ -3261,194 +3262,194 @@ msgstr "Depends on"
 msgid "Todos los estados"
 msgstr "All statuses"
 
-#: src/gnomilestone/ui/task_dialog.py:128
+#: src/gnomilestone/ui/task_dialog.py:146
 msgid "Mañana"
 msgstr "Tomorrow"
 
-#: src/gnomilestone/ui/task_dialog.py:130
+#: src/gnomilestone/ui/task_dialog.py:148
 msgid "Próxima semana"
 msgstr "Next week"
 
-#: src/gnomilestone/ui/task_dialog.py:280
+#: src/gnomilestone/ui/task_dialog.py:298
 #: src/gnomilestone/ui/task_tree_view.py:256
 msgid "Editar tarea"
 msgstr "Edit task"
 
-#: src/gnomilestone/ui/task_dialog.py:318
+#: src/gnomilestone/ui/task_dialog.py:336
 msgid "Fechas y progreso"
 msgstr "Dates and progress"
 
-#: src/gnomilestone/ui/task_dialog.py:319
+#: src/gnomilestone/ui/task_dialog.py:337
 msgid "Asignaciones"
 msgstr "Assignments"
 
-#: src/gnomilestone/ui/task_dialog.py:320
+#: src/gnomilestone/ui/task_dialog.py:338
 msgid "Dependencias"
 msgstr "Dependencies"
 
-#: src/gnomilestone/ui/task_dialog.py:322
+#: src/gnomilestone/ui/task_dialog.py:340
 msgid "Comentarios"
 msgstr "Comments"
 
-#: src/gnomilestone/ui/task_dialog.py:341
+#: src/gnomilestone/ui/task_dialog.py:359
 #, python-brace-format
 msgid "Ver en GitHub (#{num})"
 msgstr "View on GitHub (#{num})"
 
-#: src/gnomilestone/ui/task_dialog.py:362
+#: src/gnomilestone/ui/task_dialog.py:380
 msgid "Quitarla de todas las vistas; se recupera desde «Tareas archivadas»"
 msgstr "Remove it from all views; recover it from “Archived tasks”"
 
-#: src/gnomilestone/ui/task_dialog.py:371
+#: src/gnomilestone/ui/task_dialog.py:389
 msgid "Guardar y crear otra"
 msgstr "Save and create another"
 
-#: src/gnomilestone/ui/task_dialog.py:376
+#: src/gnomilestone/ui/task_dialog.py:394
 msgid "Completar"
 msgstr "Complete"
 
-#: src/gnomilestone/ui/task_dialog.py:380
+#: src/gnomilestone/ui/task_dialog.py:398
 msgid "Marcarla al 100 %, moverla a la columna de completadas y guardar"
 msgstr "Set it to 100 %, move it to the completed column and save"
 
-#: src/gnomilestone/ui/task_dialog.py:423
+#: src/gnomilestone/ui/task_dialog.py:441
 msgid "Sin descripción"
 msgstr "No description"
 
-#: src/gnomilestone/ui/task_dialog.py:427
+#: src/gnomilestone/ui/task_dialog.py:445
 msgid "Tarea padre"
 msgstr "Parent task"
 
-#: src/gnomilestone/ui/task_dialog.py:440
+#: src/gnomilestone/ui/task_dialog.py:458
 msgid "Duplicado de"
 msgstr "Duplicate of"
 
-#: src/gnomilestone/ui/task_dialog.py:442
-#: src/gnomilestone/ui/task_dialog.py:511
+#: src/gnomilestone/ui/task_dialog.py:460
+#: src/gnomilestone/ui/task_dialog.py:529
 msgid "Ninguna"
 msgstr "None"
 
-#: src/gnomilestone/ui/task_dialog.py:465
+#: src/gnomilestone/ui/task_dialog.py:483
 #: src/gnomilestone/ui/task_tree_view.py:260
 msgid "Sin hito"
 msgstr "No milestone"
 
-#: src/gnomilestone/ui/task_dialog.py:477
+#: src/gnomilestone/ui/task_dialog.py:495
 #: src/gnomilestone/ui/task_tree_view.py:527
 #: src/gnomilestone/ui/task_tree_view.py:578
 msgid "Prioridad"
 msgstr "Priority"
 
-#: src/gnomilestone/ui/task_dialog.py:491
+#: src/gnomilestone/ui/task_dialog.py:509
 #: src/gnomilestone/ui/task_tree_view.py:529
 #: src/gnomilestone/ui/task_tree_view.py:580
 msgid "Etiquetas"
 msgstr "Labels"
 
-#: src/gnomilestone/ui/task_dialog.py:504
+#: src/gnomilestone/ui/task_dialog.py:522
 msgid "Añadir etiqueta (Enter para crear)"
 msgstr "Add label (Enter to create)"
 
-#: src/gnomilestone/ui/task_dialog.py:566
+#: src/gnomilestone/ui/task_dialog.py:584
 msgid "Sin prioridad"
 msgstr "No priority"
 
-#: src/gnomilestone/ui/task_dialog.py:625
+#: src/gnomilestone/ui/task_dialog.py:643
 #: src/gnomilestone/ui/task_tree_view.py:532
 #: src/gnomilestone/ui/task_tree_view.py:583
 msgid "Planificado"
 msgstr "Planned"
 
-#: src/gnomilestone/ui/task_dialog.py:630
+#: src/gnomilestone/ui/task_dialog.py:648
 msgid "Planificado inicial"
 msgstr "Initial planned end"
 
-#: src/gnomilestone/ui/task_dialog.py:637
+#: src/gnomilestone/ui/task_dialog.py:655
 msgid "Desbloquear edición"
 msgstr "Unlock editing"
 
-#: src/gnomilestone/ui/task_dialog.py:643
+#: src/gnomilestone/ui/task_dialog.py:661
 msgid "Final real"
 msgstr "Actual end"
 
-#: src/gnomilestone/ui/task_dialog.py:647
+#: src/gnomilestone/ui/task_dialog.py:665
 #: src/gnomilestone/ui/task_tree_view.py:535
 #: src/gnomilestone/ui/task_tree_view.py:586
 msgid "Duración (días)"
 msgstr "Duration (days)"
 
-#: src/gnomilestone/ui/task_dialog.py:656
+#: src/gnomilestone/ui/task_dialog.py:674
 msgid "Se cuentan el día de inicio y el final: del 11 al 15 son 5 días."
 msgstr ""
 "Both the start and the end day count: from the 11th to the 15th is 5 days."
 
-#: src/gnomilestone/ui/task_dialog.py:660
+#: src/gnomilestone/ui/task_dialog.py:678
 #: src/gnomilestone/ui/task_tree_view.py:533
 #: src/gnomilestone/ui/task_tree_view.py:584
 msgid "Límite"
 msgstr "Deadline"
 
-#: src/gnomilestone/ui/task_dialog.py:664
+#: src/gnomilestone/ui/task_dialog.py:682
 msgid "Porcentaje completado"
 msgstr "Percentage completed"
 
-#: src/gnomilestone/ui/task_dialog.py:695
+#: src/gnomilestone/ui/task_dialog.py:713
 msgid "Calculado a partir de sus subtareas."
 msgstr "Calculated from its subtasks."
 
-#: src/gnomilestone/ui/task_dialog.py:728
+#: src/gnomilestone/ui/task_dialog.py:746
 msgid "Nombre (se crea al asignar)"
 msgstr "Name (created on assign)"
 
-#: src/gnomilestone/ui/task_dialog.py:733
+#: src/gnomilestone/ui/task_dialog.py:751
 msgid "Asignar"
 msgstr "Assign"
 
-#: src/gnomilestone/ui/task_dialog.py:743
+#: src/gnomilestone/ui/task_dialog.py:761
 msgid "No hay otras tareas de las que depender."
 msgstr "There are no other tasks to depend on."
 
-#: src/gnomilestone/ui/task_dialog.py:769
-#: src/gnomilestone/ui/task_dialog.py:898
+#: src/gnomilestone/ui/task_dialog.py:787
+#: src/gnomilestone/ui/task_dialog.py:916
 msgid "Nuevo comentario"
 msgstr "New comment"
 
-#: src/gnomilestone/ui/task_dialog.py:785
+#: src/gnomilestone/ui/task_dialog.py:803
 msgid "Cancelar edición"
 msgstr "Cancel editing"
 
-#: src/gnomilestone/ui/task_dialog.py:788
-#: src/gnomilestone/ui/task_dialog.py:899
+#: src/gnomilestone/ui/task_dialog.py:806
+#: src/gnomilestone/ui/task_dialog.py:917
 msgid "Comentar"
 msgstr "Comment"
 
-#: src/gnomilestone/ui/task_dialog.py:799
+#: src/gnomilestone/ui/task_dialog.py:817
 msgid "Sin actividad registrada"
 msgstr "No recorded activity"
 
-#: src/gnomilestone/ui/task_dialog.py:832
+#: src/gnomilestone/ui/task_dialog.py:850
 msgid "Sin comentarios"
 msgstr "No comments"
 
-#: src/gnomilestone/ui/task_dialog.py:840
+#: src/gnomilestone/ui/task_dialog.py:858
 msgid "Tú"
 msgstr "You"
 
-#: src/gnomilestone/ui/task_dialog.py:847
-#: src/gnomilestone/ui/task_dialog.py:891
+#: src/gnomilestone/ui/task_dialog.py:865
+#: src/gnomilestone/ui/task_dialog.py:909
 msgid "Editar comentario"
 msgstr "Edit comment"
 
-#: src/gnomilestone/ui/task_dialog.py:852
-#: src/gnomilestone/ui/task_dialog.py:905
+#: src/gnomilestone/ui/task_dialog.py:870
+#: src/gnomilestone/ui/task_dialog.py:923
 msgid "Eliminar comentario"
 msgstr "Delete comment"
 
-#: src/gnomilestone/ui/task_dialog.py:892
+#: src/gnomilestone/ui/task_dialog.py:910
 msgid "Guardar cambios"
 msgstr "Save changes"
 
-#: src/gnomilestone/ui/task_dialog.py:907
+#: src/gnomilestone/ui/task_dialog.py:925
 msgid ""
 "Si el comentario está en GitHub, también se eliminará allí. No se puede "
 "deshacer."
@@ -3456,51 +3457,51 @@ msgstr ""
 "If the comment is on GitHub, it will be deleted there too. This cannot be "
 "undone."
 
-#: src/gnomilestone/ui/task_dialog.py:1024
+#: src/gnomilestone/ui/task_dialog.py:1042
 msgid "Hay cambios sin guardar"
 msgstr "There are unsaved changes"
 
-#: src/gnomilestone/ui/task_dialog.py:1025
+#: src/gnomilestone/ui/task_dialog.py:1043
 msgid "Si cierras ahora se perderán los cambios de esta tarea."
 msgstr "If you close now, the changes to this task will be lost."
 
-#: src/gnomilestone/ui/task_dialog.py:1026
+#: src/gnomilestone/ui/task_dialog.py:1044
 msgid "Descartar cambios"
 msgstr "Discard changes"
 
-#: src/gnomilestone/ui/task_dialog.py:1139
+#: src/gnomilestone/ui/task_dialog.py:1157
 msgid "El final planificado necesita una fecha de inicio."
 msgstr "The planned end needs a start date."
 
-#: src/gnomilestone/ui/task_dialog.py:1146
+#: src/gnomilestone/ui/task_dialog.py:1164
 msgid "El final planificado no puede ser anterior al inicio."
 msgstr "The planned end cannot be earlier than the start."
 
-#: src/gnomilestone/ui/task_dialog.py:1153
+#: src/gnomilestone/ui/task_dialog.py:1171
 msgid "La fecha límite no puede ser anterior al final planificado."
 msgstr "The deadline cannot be earlier than the planned end."
 
-#: src/gnomilestone/ui/task_dialog.py:1283
+#: src/gnomilestone/ui/task_dialog.py:1314
 msgid "Sin etiquetas"
 msgstr "No labels"
 
-#: src/gnomilestone/ui/task_dialog.py:1296
+#: src/gnomilestone/ui/task_dialog.py:1327
 msgid "Quitar etiqueta"
 msgstr "Remove label"
 
-#: src/gnomilestone/ui/task_dialog.py:1321
+#: src/gnomilestone/ui/task_dialog.py:1352
 msgid "Nadie asignado"
 msgstr "Nobody assigned"
 
-#: src/gnomilestone/ui/task_dialog.py:1332
+#: src/gnomilestone/ui/task_dialog.py:1363
 msgid "Quitar asignación"
 msgstr "Remove assignment"
 
-#: src/gnomilestone/ui/task_dialog.py:1344
+#: src/gnomilestone/ui/task_dialog.py:1375
 msgid "Porcentaje de dedicación"
 msgstr "Dedication percentage"
 
-#: src/gnomilestone/ui/task_dialog.py:1412
+#: src/gnomilestone/ui/task_dialog.py:1443
 msgid "Esa dependencia crearía un ciclo entre tareas."
 msgstr "That dependency would create a cycle between tasks."
 
@@ -3569,44 +3570,44 @@ msgstr "There are changes compared to this version."
 msgid "Idéntica al contenido actual."
 msgstr "Identical to the current content."
 
-#: src/gnomilestone/ui/window.py:46
+#: src/gnomilestone/ui/window.py:47
 msgid "Mostrar/ocultar proyectos"
 msgstr "Show/hide projects"
 
-#: src/gnomilestone/ui/window.py:52
+#: src/gnomilestone/ui/window.py:53
 msgid "Pantalla inicial"
 msgstr "Home screen"
 
-#: src/gnomilestone/ui/window.py:57 src/gnomilestone/ui/window.py:60
+#: src/gnomilestone/ui/window.py:58 src/gnomilestone/ui/window.py:61
 msgid "Vista global"
 msgstr "Global view"
 
-#: src/gnomilestone/ui/window.py:130
+#: src/gnomilestone/ui/window.py:132
 #, python-brace-format
 msgid "No se pudo enviar «{titulo}» a GitHub; se reintentará al sincronizar."
 msgstr ""
 "Could not send “{titulo}” to GitHub; it will be retried on the next sync."
 
-#: src/gnomilestone/ui/window.py:134
+#: src/gnomilestone/ui/window.py:136
 #, python-brace-format
 msgid ""
 "No se pudieron enviar {n} tareas a GitHub; se reintentarán al sincronizar."
 msgstr ""
 "Could not send {n} tasks to GitHub; they will be retried on the next sync."
 
-#: src/gnomilestone/ui/window.py:166
+#: src/gnomilestone/ui/window.py:168
 msgid "Acerca de GnoMilestone"
 msgstr "About GnoMilestone"
 
-#: src/gnomilestone/ui/window.py:184
+#: src/gnomilestone/ui/window.py:186
 msgid "Menú principal"
 msgstr "Main menu"
 
-#: src/gnomilestone/ui/window.py:211
+#: src/gnomilestone/ui/window.py:213
 msgid "Selecciona o crea un proyecto"
 msgstr "Select or create a project"
 
-#: src/gnomilestone/ui/window.py:230
+#: src/gnomilestone/ui/window.py:232
 msgid "Nuevo proyecto"
 msgstr "New project"
 
